@@ -61,3 +61,17 @@ export async function requireRole(expected: RolUsuario): Promise<CurrentProfile>
 
   return profile;
 }
+
+// Server Action helper: las Server Actions son endpoints invocables
+// directamente sin pasar por el layout que protege la página, así que cada
+// acción de admin la vuelve a chequear acá (defensa en profundidad, no solo
+// confiar en que /admin/layout.tsx ya filtró quién llega a la pantalla).
+export async function requireAdminProfile(): Promise<CurrentProfile> {
+  const profile = await getCurrentProfile();
+
+  if (!profile || profile.role !== "admin") {
+    throw new Error("No autorizado.");
+  }
+
+  return profile;
+}

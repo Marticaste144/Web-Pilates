@@ -13,7 +13,7 @@ MUV POSTURAL, MUV PILATES) — inscripciones, cuotas, asistencia y avisos, con
 2. ✅ Modelo de datos (Sede, Profesor, Alumno, Clase, Inscripción, Pago, Asistencia, Aviso)
 3. ✅ Autenticación con 3 roles y protección de rutas
 4. ✅ Pantalla de login (web y mobile)
-5. ⬜ Pantallas funcionales por rol
+5. 🔶 Pantallas funcionales por rol -- en curso: 5a Admin (sedes/profesores/clases/aranceles) ✅
 
 ## Setup
 
@@ -279,6 +279,62 @@ con Playwright antes de darlas por terminadas -- así encontré y corregí dos
 bugs: los IDs de gradiente SVG se pisaban entre sí (por eso el fondo
 aparecía negro en desktop) y el campo "Apellido" del signup se salía de la
 pantalla en mobile por un `min-width` de flexbox.
+
+## Paso 5a: Admin -- sedes, profesores, clases, aranceles
+
+Sedes y aranceles placeholder (sección 5) se siembran solos vía
+`supabase/migrations/20260810225434_seed_sedes_aranceles.sql` (idempotente:
+se puede correr más de una vez sin duplicar) -- no hay pantalla para
+"crear sedes" porque las 3 son fijas y el doc no pide poder agregar más.
+
+- **`/admin/profesores`** -- invitar por email (crea el usuario vía
+  `auth.admin.inviteUserByEmail`, que dispara el mismo trigger del paso 2 y
+  le manda un mail para que fije su propia contraseña), editar datos, y
+  activar/desactivar. "Eliminar" en el doc lo implementé como desactivar,
+  no un DELETE real: `clases.profesor_id` tiene `on delete restrict`, así
+  que borrar a alguien que ya dictó una clase directamente fallaría, y aun
+  si no fallara se perdería a quién estaba asignada esa clase
+  históricamente.
+- **`/admin/clases`** -- asignar sede + profesor/a + día + horario + cupo.
+  "Eliminar" clase también es desactivar (`activa=false`), no DELETE: la
+  fila tiene `on delete cascade` hacia inscripciones/asistencias, así que
+  borrarla de verdad se llevaría puesto el historial de esa clase.
+- **`/admin/aranceles`** -- grilla sede × frecuencia editable. Cada guardado
+  es un upsert con `vigente_desde = hoy`: no pisa el precio anterior, pero
+  tampoco genera una fila nueva por cada click si editás el mismo valor dos
+  veces el mismo día (usa el índice único de aranceles como conflict key).
+
+**Encontré y corregí tres bugs reales antes de terminar:**
+1. `types/database.ts` (escrito a mano) le faltaba la propiedad
+   `Relationships` que `@supabase/postgrest-js` exige para poder inferir
+   los tipos -- sin eso, cualquier `.select()`/`.insert()`/`.update()`
+   colapsaba a `never` en tiempo de compilación. Lo detecté con `tsc`, no
+   hizo falta descubrirlo en producción.
+2. Un Client Component (`clase-form.tsx`) importaba una constante desde un
+   archivo que a su vez importa `next/headers` -- rompía el build entero.
+   Lo separé a `lib/admin/dias-semana.ts`, sin dependencias de servidor.
+3. **El más importante:** `auth.admin.inviteUserByEmail` (para invitar
+   profesores) no soporta el flujo PKCE que usa `/auth/confirm` -- está
+   documentado así en el propio código de supabase-js, porque el
+   navegador que manda la invitación nunca es el mismo que la acepta. El
+   link de invitación llega con los tokens en el hash de la URL
+   (`#access_token=...`), que **solo el navegador puede leer, nunca el
+   servidor**. Armé `/auth/callback` (Client Component) específicamente
+   para esto -- si hubiera reusado `/auth/confirm` a ciegas, invitar a un
+   profesor se habría roto en el primer intento real.
+
+**Verificación:** no tengo credenciales reales de Supabase en este entorno,
+así que no pude probar el flujo completo en el navegador (a diferencia del
+login del paso 4, estas pantallas si o si necesitan responder de la base).
+Lo que sí hice: validé cada operación SQL exacta que usan las Server
+Actions (insert de clase, upsert de arancel con su conflict key, toggles de
+activo/activa) contra Postgres local con los mismos nombres de columnas y
+constraints de la migración real, y confirmé con `tsc`/`build`/lint que
+todo compila. **Lo que falta que pruebes vos:** invitar un profesor de
+verdad y confirmar que el mail llega y el link funciona (Supabase da un
+servicio de mail compartido con límite bajo para probar; para producción
+hay que configurar SMTP propio en Authentication → Email Templates), crear
+una clase y verificarla en el Table Editor, y editar un arancel.
 
 ## Deploy
 

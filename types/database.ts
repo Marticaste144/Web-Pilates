@@ -6,6 +6,12 @@
 // que el proyecto esté linkeado (`supabase link`), regenerar con:
 //   npx supabase gen types typescript --linked > types/database.ts
 // para tener la fuente de verdad 1:1 con la base real.
+//
+// "Relationships: []" en cada tabla/vista no es opcional: @supabase/postgrest-js
+// exige esa propiedad (GenericTable/GenericView) para poder inferir los tipos
+// de .from(...).select(...) -- sin ella, todo colapsa a "never" en tiempo de
+// compilación. No se usan embeds anidados acá (los joins se hacen a mano con
+// dos queries), así que queda vacío en las 12 tablas.
 
 export type RolUsuario = "admin" | "profesor" | "alumno";
 export type EstadoInscripcion = "activa" | "lista_espera" | "baja";
@@ -33,6 +39,7 @@ export type Database = {
           nombre?: string;
           created_at?: string;
         };
+        Relationships: [];
       };
       profiles: {
         Row: {
@@ -65,6 +72,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       profesores: {
         Row: {
@@ -82,6 +90,7 @@ export type Database = {
           activo?: boolean;
           created_at?: string;
         };
+        Relationships: [];
       };
       alumnos: {
         Row: {
@@ -96,6 +105,7 @@ export type Database = {
           profile_id?: string;
           created_at?: string;
         };
+        Relationships: [];
       };
       aranceles: {
         Row: {
@@ -122,6 +132,7 @@ export type Database = {
           vigente_desde?: string;
           created_at?: string;
         };
+        Relationships: [];
       };
       clases: {
         Row: {
@@ -157,6 +168,7 @@ export type Database = {
           activa?: boolean;
           created_at?: string;
         };
+        Relationships: [];
       };
       inscripciones: {
         Row: {
@@ -189,6 +201,7 @@ export type Database = {
           fecha_baja?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
       pagos: {
         Row: {
@@ -244,6 +257,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       pagos_auditoria: {
         Row: {
@@ -273,6 +287,7 @@ export type Database = {
           detalle?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
       asistencias: {
         Row: {
@@ -305,6 +320,7 @@ export type Database = {
           tomado_en?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
       avisos: {
         Row: {
@@ -337,6 +353,7 @@ export type Database = {
           publicado_por?: string;
           created_at?: string;
         };
+        Relationships: [];
       };
       avisos_sedes: {
         Row: {
@@ -351,6 +368,7 @@ export type Database = {
           aviso_id?: string;
           sede_id?: string;
         };
+        Relationships: [];
       };
     };
     Views: {
@@ -364,6 +382,7 @@ export type Database = {
           vencimiento: string;
           estado_visual: EstadoVisualCuota;
         };
+        Relationships: [];
       };
     };
     Functions: Record<string, never>;
