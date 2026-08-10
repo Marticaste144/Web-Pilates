@@ -151,17 +151,39 @@ existe", no rompe nada pero no hace falta).
 ### Crear la primera cuenta admin
 
 No hay pantalla de alta de admin a propósito (no tendría sentido que
-cualquiera pueda crearse una cuenta de dueña). Para vos misma:
+cualquiera pueda crearse una cuenta de dueña).
 
-1. Dashboard de Supabase → **Authentication → Users → Add user**
-2. Completá tu email/contraseña
-3. En **User Metadata** (formato JSON) poné:
-   ```json
-   { "role": "admin", "nombre": "Tu nombre", "apellido": "Tu apellido" }
+**Si tu dashboard tiene un campo de "User Metadata" al crear el usuario**
+(Authentication → Users → Add user), completalo con:
+```json
+{ "role": "admin", "nombre": "Tu nombre", "apellido": "Tu apellido" }
+```
+y listo: el trigger `fn_handle_new_user` (paso 2) crea sola la fila en
+`profiles` con `role = admin`.
+
+**Si tu dashboard NO tiene ese campo** (pasó al probarlo: algunas versiones
+del diálogo "Add user" no lo muestran), el flujo alternativo es:
+
+1. Creá el usuario desde **Add user** con email/contraseña nomás (sin
+   metadata). El trigger igual crea el perfil, pero con `role = 'alumno'`
+   por default.
+2. **No** intentes cambiar el rol desde el Table Editor tal cual: el
+   trigger `trg_restringir_columnas_profile` (paso 3) va a rechazar el
+   cambio porque, en ese momento, todavía no sos admin -- necesitás ser
+   admin para poder volverte admin. Para este único caso (el primer admin
+   de un proyecto nuevo) hay que saltear el trigger a mano, en el SQL
+   Editor:
+   ```sql
+   alter table public.profiles disable trigger trg_restringir_columnas_profile;
+   update public.profiles set role = 'admin' where email = 'tu-email@ejemplo.com';
+   alter table public.profiles enable trigger trg_restringir_columnas_profile;
    ```
-4. Al crear el usuario, el trigger `fn_handle_new_user` (paso 2) crea sola la
-   fila en `profiles` con `role = admin`. Con eso ya podés entrar por
-   `/login` en la app.
+3. Con eso ya podés entrar por `/login`.
+
+Este segundo camino es solo para arrancar un proyecto nuevo desde cero.
+Una vez que existe al menos un admin, esa persona puede promover a otros
+admins (o crear profesores) desde el panel normalmente, sin tocar el SQL
+Editor -- esa pantalla es del paso 5.
 
 Profesores los crea la propia admin desde el panel — esa pantalla es del
 paso 5. Las alumnas se registran solas desde `/signup`.
