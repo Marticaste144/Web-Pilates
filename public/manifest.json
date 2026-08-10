@@ -1,0 +1,18 @@
+{
+  "name": "MUV Gimnasia Postural",
+  "short_name": "MUV",
+  "description": "Gestión de clases, cuotas y avisos de MUV Gimnasia Postural",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2f7cd6",
+  "lang": "es-AR",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
