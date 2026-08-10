@@ -13,7 +13,7 @@ MUV POSTURAL, MUV PILATES) — inscripciones, cuotas, asistencia y avisos, con
 2. ✅ Modelo de datos (Sede, Profesor, Alumno, Clase, Inscripción, Pago, Asistencia, Aviso)
 3. ✅ Autenticación con 3 roles y protección de rutas
 4. ✅ Pantalla de login (web y mobile)
-5. 🔶 Pantallas funcionales por rol -- en curso: 5a Admin (sedes/profesores/clases/aranceles) ✅
+5. 🔶 Pantallas funcionales por rol -- en curso: 5a Admin ✅ · 5b Alumno (inscripción y cuota) ✅
 
 ## Setup
 
@@ -335,6 +335,59 @@ verdad y confirmar que el mail llega y el link funciona (Supabase da un
 servicio de mail compartido con límite bajo para probar; para producción
 hay que configurar SMTP propio en Authentication → Email Templates), crear
 una clase y verificarla en el Table Editor, y editar un arancel.
+
+## Paso 5b: Alumno -- inscripción y estado de cuota
+
+Elegí seguir con esta sub-etapa antes que "profesor: asistencia" a
+propósito: el profesor necesita alumnos ya inscriptos en sus clases para
+que una pantalla de asistencia tenga sentido, así que primero tiene que
+existir el flujo de inscripción.
+
+Migración nueva: `supabase/migrations/20260810233847_cupo_clases_view.sql`.
+
+- **`/alumno/clases`** -- lista las clases activas agrupadas por sede, con
+  cupo ocupado/total y un botón "Anotarme". La app decide activa vs. lista
+  de espera (mira `v_cupo_clases`), pero los invariantes duros los sigue
+  garantizando la base con los triggers del paso 2/3: sin superposición de
+  horario, máximo 4 clases/semana por sede, sin poder anotarse a algo
+  nuevo con la cuota vencida en esa sede, y un aviso activo bloqueando la
+  sede ese día -- si alguno de estos falla, el mensaje del trigger (ya en
+  español) se le muestra directo al alumno.
+- **`/alumno/inscripciones`** -- lo mío: activas y en lista de espera (con
+  el número de posición), con "Darme de baja".
+- **`/alumno/cuota`** -- estado por sede donde tengo alguna inscripción
+  (al día / por vencer / vencida / sin pagos todavía). El botón de pagar
+  con Mercado Pago no está: eso es una sub-etapa aparte.
+
+**Encontré un bug real de RLS en mi propio diseño antes de terminar:** para
+saber en qué posición de la lista de espera entra alguien nuevo hacía falta
+contar cuánta gente ya estaba esperando esa clase -- pero un alumno común,
+por RLS, solo puede ver *sus propias* filas de `inscripciones` (a propósito,
+por privacidad). Un `count()` hecho desde la Server Action con el cliente
+del usuario iba a dar casi siempre 0 o 1, no el total real. Lo resolví
+igual que `aprobado_en`/`vencimiento` del paso 2: un trigger
+`security definer` (`fn_asignar_posicion_espera`) calcula la posición en la
+misma transacción del insert, sin que la app necesite verla. Mismo
+problema con el cupo: para que el alumno pueda ver si una clase tiene lugar
+sin ver quiénes están anotados, agregué la vista `v_cupo_clases` (conteo
+agregado nada más, ninguna fila individual).
+
+**A propósito, no implementado todavía:** cuando alguien se da de baja de
+una clase llena, el primero de la lista de espera NO se promueve
+automáticamente a "activa". Lo evalué (un trigger `AFTER UPDATE`), pero si
+la promoción fallara por cualquier motivo (el candidato ahora tiene un
+horario que se superpone con otra clase, por ejemplo), esa falla haría
+rollback de TODA la transacción -- incluida la baja original de la otra
+persona, que vería un error que no tiene nada que ver con lo que estaba
+haciendo. Mejor resolverlo junto con las notificaciones push (para poder
+avisarle a quien fue promovido), con manejo de errores que aísle un intento
+de promoción fallido sin tocar la operación que lo disparó.
+
+Validé el flujo completo contra Postgres local: cupo lleno cae a lista de
+espera, la posición FIFO se asigna bien con múltiples alumnos, y que un
+alumno viendo `v_cupo_clases` obtiene el conteo total pero un `select`
+directo a `inscripciones` solo le muestra sus propias filas. `tsc`/`lint`/
+`build` limpios y las rutas nuevas confirmadas protegidas sin sesión.
 
 ## Deploy
 

@@ -384,6 +384,13 @@ export type Database = {
         };
         Relationships: [];
       };
+      v_cupo_clases: {
+        Row: {
+          clase_id: string;
+          inscriptos_activos: number;
+        };
+        Relationships: [];
+      };
     };
     Functions: Record<string, never>;
     Enums: {

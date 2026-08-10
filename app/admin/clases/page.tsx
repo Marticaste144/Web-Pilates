@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { listarClases, listarSedes, listarProfesoresParaSelect } from "@/lib/admin/clases-data";
-import { DIAS_SEMANA } from "@/lib/admin/dias-semana";
+import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { crearClase } from "@/lib/admin/clases-actions";
 import { ClaseForm } from "./clase-form";
 import { ToggleActivaButton } from "./toggle-activa-button";

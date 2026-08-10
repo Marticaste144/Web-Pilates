@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import type { FormState } from "@/lib/admin/form-state";
 import { initialFormState } from "@/lib/admin/form-state";
 import type { ProfesorSelectItem, SedeItem, ClaseListItem } from "@/lib/admin/clases-data";
-import { DIAS_SEMANA } from "@/lib/admin/dias-semana";
+import { DIAS_SEMANA } from "@/lib/dias-semana";
 
 const inputClass =
   "rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#2f7cd6] focus:outline-none";
