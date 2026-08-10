@@ -11,7 +11,7 @@ MUV POSTURAL, MUV PILATES) — inscripciones, cuotas, asistencia y avisos, con
 
 1. ✅ Estructura inicial + configuración de Supabase
 2. ✅ Modelo de datos (Sede, Profesor, Alumno, Clase, Inscripción, Pago, Asistencia, Aviso)
-3. ⬜ Autenticación con 3 roles y protección de rutas
+3. ✅ Autenticación con 3 roles y protección de rutas
 4. ⬜ Pantalla de login (web y mobile)
 5. ⬜ Pantallas funcionales por rol
 
@@ -71,12 +71,18 @@ npx supabase gen types typescript --linked > types/database.ts
 ```
 app/                    rutas (App Router)
   api/health/            endpoint de chequeo de conexión a Supabase
+  login/, signup/        auth (formularios sin estilo -- diseño real: paso 4)
+  admin/, profesor/, alumno/  áreas protegidas por rol (layout.tsx = guardia de rol)
 lib/supabase/
   client.ts              cliente de Supabase para Client Components
   server.ts              cliente de Supabase para Server Components / Server Actions
   middleware.ts          helper para refrescar la sesión en cada request
-proxy.ts                 proxy de Next.js 16 (ex-middleware, usa el helper de arriba)
-supabase/migrations/     migraciones SQL (esquema, triggers, RLS)
+lib/auth/
+  session.ts             getCurrentProfile() / requireRole() para Server Components
+  actions.ts             Server Actions: signIn, signUpAlumno, signOut
+components/role-shell.tsx  header mínimo (nombre + cerrar sesión) para las áreas por rol
+proxy.ts                 proxy de Next.js 16 (ex-middleware); corta en el edge sin sesión
+supabase/migrations/     migraciones SQL (esquema, triggers, RLS) -- se aplican en orden
 types/database.ts        tipos de la base (idealmente regenerados con `supabase gen types`)
 public/manifest.json     manifest de la PWA (iconos placeholder por ahora)
 ```
@@ -125,19 +131,98 @@ sedes distintas), máximo 4 clases activas por semana por sede, y el cupo de
 una clase nunca puede tener más `activa` que su `cupo`. Validé las tres con
 datos de prueba reales antes de dejarlas commiteadas.
 
-**Lo que queda para los próximos pasos** (a propósito, no es parte del
-modelo de datos): la lógica de "a qué alumnos ve un profesor" (recién cuando
-tienen la primera cuota aprobada), "no dejar tomar asistencia si la cuota
-está vencida", y "un aviso bloquea toda la sede ese día" — todo esto se
-resuelve con RPCs/Server Actions en el paso 5, ya que necesitan devolver un
-mensaje claro al usuario en vez de solo rechazar el insert. Las políticas de
-RLS por rol (qué puede ver/editar cada quién) se completan en el paso 3.
-
 **Supuestos que tomé porque no estaban definidos:** el día de vencimiento de
 la cuota queda como un campo explícito por pago (no se infiere del período)
 porque no se definió el día de corte del ciclo de facturación; "próxima a
 vencer" en la vista usa el umbral de 5 días que mencionaste en la sección 7.
 Avisame si alguno de estos dos hay que ajustarlo.
+
+## Autenticación y RLS por rol (paso 3)
+
+### Aplicar la migración
+
+Es incremental: NO recrea nada del paso 2, solo agrega funciones, triggers,
+políticas de RLS y grants nuevos. Mismo procedimiento que la vez pasada
+-- SQL Editor del dashboard de Supabase, pegar el contenido completo de
+`supabase/migrations/20260810181246_auth_roles_rls.sql` y **Run**. Se puede
+correr una sola vez (si la corrés dos veces vas a tener errores de "ya
+existe", no rompe nada pero no hace falta).
+
+### Crear la primera cuenta admin
+
+No hay pantalla de alta de admin a propósito (no tendría sentido que
+cualquiera pueda crearse una cuenta de dueña). Para vos misma:
+
+1. Dashboard de Supabase → **Authentication → Users → Add user**
+2. Completá tu email/contraseña
+3. En **User Metadata** (formato JSON) poné:
+   ```json
+   { "role": "admin", "nombre": "Tu nombre", "apellido": "Tu apellido" }
+   ```
+4. Al crear el usuario, el trigger `fn_handle_new_user` (paso 2) crea sola la
+   fila en `profiles` con `role = admin`. Con eso ya podés entrar por
+   `/login` en la app.
+
+Profesores los crea la propia admin desde el panel — esa pantalla es del
+paso 5. Las alumnas se registran solas desde `/signup`.
+
+### Qué quedó armado
+
+**Del lado de Next.js:**
+- `/login`, `/signup` (autoregistro, rol `alumno` fijo) y `signOut` --
+  formularios sin estilo todavía, funcionales; el diseño real es el paso 4.
+- `/admin`, `/profesor`, `/alumno`: cada uno protegido por su propio
+  `layout.tsx` (`lib/auth/session.ts` → `requireRole()`), que redirige a
+  `/login` si no hay sesión, o al home del rol correcto si entrás a la
+  sección que no te corresponde.
+- `proxy.ts` corta en el edge el acceso sin sesión a esas tres rutas, antes
+  de que se llegue a renderizar nada.
+
+**Del lado de la base (políticas de RLS, antes todo estaba deny-by-default):**
+- **admin**: acceso total a todo.
+- **profesor**: ve sus propias clases/asistencias, y de un alumno solo ve su
+  perfil/datos si (a) el alumno está anotado en una de sus clases Y (b) ya
+  tuvo alguna cuota aprobada -- la regla de "invisible hasta la primera
+  cuota" que definiste, aplicada en RLS, no solo en la UI. Puede editar
+  datos personales de esos alumnos, pero un trigger (`fn_restringir_columnas_profile`)
+  bloquea que toque `role` o `email` aunque lo intente por fuera de la
+  pantalla. **No tiene acceso directo a la tabla `pagos`** (ni con API,
+  aunque alguien se saltee la UI) -- ve el estado de cuota solo a través de
+  la vista `v_estado_cuota_alumno_sede`, que expone únicamente
+  vencimiento/estado/monto, no comprobante ni medio de pago.
+- **alumno**: ve y edita solo lo suyo. Puede crear un intento de pago
+  (`estado = 'pendiente'`) pero no puede autoaprobárselo -- eso es solo de
+  la admin o del webhook de Mercado Pago (paso siguiente).
+- Sin sesión (`anon`): cero acceso a cualquier tabla. Toda la app vive
+  detrás de login, como corresponde a los 3 roles "login propio" del doc.
+
+**Reglas de negocio que sumé como triggers** (mismo criterio que el paso 2 --
+invariantes duras, no solo validación de UI), porque las respuestas de esta
+conversación las dejaron 100% definidas:
+- Un aviso activo bloquea anotarse, darse de baja y tomar asistencia en las
+  clases de la sede afectada, ese día -- "nada", tal cual lo pediste. La
+  admin queda exenta (puede seguir gestionando manualmente).
+- Cuota vencida en la sede → no se puede marcar **presente** (ausente sí se
+  puede) y no se puede anotar a **nuevas** clases (la primera inscripción,
+  antes de la primera cuota, sí se permite).
+- `pagos_auditoria` ahora se completa sola vía trigger en cada cambio de
+  estado de un pago -- antes existía la tabla pero nada la llenaba.
+
+Probé toda esta matriz (no solo la escribí) contra un Postgres local
+simulando los roles `anon`/`authenticated`/`service_role` de Supabase:
+admin viendo todo, profesor viendo solo alumnas visibles/suyas, alumna sin
+ver a otras alumnas, intento de autoaprobación de pago rechazado, edición
+cruzada entre profesores bloqueada, aviso bloqueando inscripción/asistencia,
+cuota vencida bloqueando "presente" pero no "ausente", y `anon` sin acceso a
+nada.
+
+### Lo que falta a propósito para el paso 5
+
+Crear profesores desde el panel de admin, el flujo de inscripción con
+mensajes lindos (cupo lleno → lista de espera, aviso activo → cartel
+explicando por qué), el webhook de Mercado Pago que aprueba pagos, y todas
+las pantallas reales. El diseño visual del login (paso 4) todavía no está
+aplicado -- los formularios actuales son a propósito mínimos.
 
 ## Deploy
 

@@ -2,9 +2,12 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database";
 
-// Refresca el token de sesión de Supabase en cada request. La lógica de
-// redirección por rol (admin / profesor / alumno) se agrega en el paso 3,
-// junto con la autenticación.
+const PROTECTED_PREFIXES = ["/admin", "/profesor", "/alumno"];
+
+// Refresca el token de sesión de Supabase en cada request y corta en el edge
+// el acceso sin sesión a las áreas protegidas. La redirección por ROL (a qué
+// área le corresponde a cada quién) se resuelve en el layout de cada área,
+// que sí puede consultar profiles sin duplicar esa lógica acá.
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -40,7 +43,18 @@ export async function updateSession(request: NextRequest) {
 
   // No borrar: getUser() revalida el token contra Supabase Auth y renueva
   // las cookies si hace falta. No reemplazar por getSession().
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const isProtectedPath = PROTECTED_PREFIXES.some((prefix) =>
+    request.nextUrl.pathname.startsWith(prefix),
+  );
+
+  if (isProtectedPath && !user) {
+    const loginUrl = new URL("/login", request.url);
+    return NextResponse.redirect(loginUrl);
+  }
 
   return supabaseResponse;
 }
