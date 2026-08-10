@@ -12,7 +12,7 @@ MUV POSTURAL, MUV PILATES) — inscripciones, cuotas, asistencia y avisos, con
 1. ✅ Estructura inicial + configuración de Supabase
 2. ✅ Modelo de datos (Sede, Profesor, Alumno, Clase, Inscripción, Pago, Asistencia, Aviso)
 3. ✅ Autenticación con 3 roles y protección de rutas
-4. ⬜ Pantalla de login (web y mobile)
+4. ✅ Pantalla de login (web y mobile)
 5. ⬜ Pantallas funcionales por rol
 
 ## Setup
@@ -243,8 +243,42 @@ nada.
 Crear profesores desde el panel de admin, el flujo de inscripción con
 mensajes lindos (cupo lleno → lista de espera, aviso activo → cartel
 explicando por qué), el webhook de Mercado Pago que aprueba pagos, y todas
-las pantallas reales. El diseño visual del login (paso 4) todavía no está
-aplicado -- los formularios actuales son a propósito mínimos.
+las pantallas reales (`/admin`, `/profesor`, `/alumno` siguen siendo un
+placeholder de una línea).
+
+## Diseño del login (paso 4)
+
+Implementado en `components/auth/` (`auth-hero.tsx` con las dos ondas SVG,
+mobile y desktop, y `auth-shell.tsx` con el layout responsive) y reutilizado
+en las 4 pantallas de auth: `/login`, `/signup`, `/forgot-password` y
+`/reset-password` -- mismo lenguaje visual en las cuatro, aunque solo el
+login tenía mockup de referencia.
+
+- **Mobile** (`< md`): ola a pantalla completa arriba (~38% de la altura) +
+  tarjeta blanca con el borde superior redondeado montada encima.
+- **Desktop** (`≥ md`): fondo oscuro de página, panel dividido centrado con
+  esquinas redondeadas -- ola a la izquierda con el nombre de la marca y
+  texto de bienvenida, tarjeta flotante a la derecha con el formulario.
+  "Recordarme" solo aparece en desktop (así estaba en el mockup); por ahora
+  es visual, no cambia la duración de la sesión.
+- El botón circular al lado de "Contraseña" es un toggle real de
+  mostrar/ocultar, no solo decorativo.
+- Los colores (`#2f7cd6` → `#2bbfa6`) son los mismos que ya se habían
+  definido para el ícono/manifest de la PWA en el paso 1.
+
+**Un agregado que no estaba explícitamente pedido pero hacía falta:** el
+link "¿Olvidaste tu contraseña?" del mockup apuntaba a algo que no existía.
+Armé el flujo completo de recuperación (`/forgot-password` pide el mail,
+Supabase manda un link, `/auth/confirm` intercambia el código por una
+sesión real -- si no se hace ese paso, `/reset-password` no tiene con qué
+autenticar el cambio -- y `/reset-password` guarda la contraseña nueva),
+para no dejar un botón que no lleva a ningún lado.
+
+Validé ambas vistas (mobile 390px y desktop 1440px) sacando capturas reales
+con Playwright antes de darlas por terminadas -- así encontré y corregí dos
+bugs: los IDs de gradiente SVG se pisaban entre sí (por eso el fondo
+aparecía negro en desktop) y el campo "Apellido" del signup se salía de la
+pantalla en mobile por un `min-width` de flexbox.
 
 ## Deploy
 

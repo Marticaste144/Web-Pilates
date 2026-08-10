@@ -70,3 +70,47 @@ export async function signOut() {
   await supabase.auth.signOut();
   redirect("/login");
 }
+
+export async function requestPasswordReset(
+  _prevState: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const email = String(formData.get("email") ?? "").trim();
+
+  if (!email) {
+    return { status: "error", message: "Ingresá tu email." };
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const supabase = await createClient();
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl}/auth/confirm?next=/reset-password`,
+  });
+
+  // Se responde igual haya o no una cuenta con ese email, para no revelar
+  // qué emails están registrados.
+  return {
+    status: "check_email",
+    message: "Si el email existe, te enviamos un link para restablecer la contraseña.",
+  };
+}
+
+export async function updatePassword(
+  _prevState: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const password = String(formData.get("password") ?? "");
+
+  if (password.length < 6) {
+    return { status: "error", message: "La contraseña debe tener al menos 6 caracteres." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    return { status: "error", message: "El link expiró o no es válido. Pedí uno nuevo." };
+  }
+
+  redirect("/");
+}
