@@ -103,7 +103,11 @@ completo. Resumen de las tablas y decisiones de diseño:
   `baja`), con `posicion_espera` para el FIFO.
 - **`pagos`** — un intento de cobro por fila (se conserva el historial
   completo, no se pisan los rechazados), con `medio`, `estado`, comprobante y
-  quién/cuándo lo marcó manualmente.
+  quién/cuándo lo marcó manualmente. `aprobado_en`/`vencimiento` no los carga
+  nadie a mano: un trigger los calcula solo al aprobarse el pago, con ciclo
+  rodante (`vencimiento = aprobado_en + 1 mes`, no un día fijo del
+  calendario) — si el alumno paga tarde, el próximo vencimiento también se
+  corre. Cualquier valor que se intente cargar ahí se ignora y se recalcula.
 - **`pagos_auditoria`** — log de cambios de estado de pago (pedido explícito
   para pagos marcados a mano).
 - **`asistencias`** — una fila por clase + alumno + fecha de esa sesión

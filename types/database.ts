@@ -195,16 +195,18 @@ export type Database = {
           id: string;
           alumno_id: string;
           sede_id: string;
-          periodo: string;
           frecuencia_semanal: number;
           monto: number;
-          vencimiento: string;
           medio: MedioPago;
           estado: EstadoPago;
           mercadopago_payment_id: string | null;
           comprobante_url: string | null;
           marcado_por: string | null;
           marcado_en: string | null;
+          /** Calculado por trigger al aprobarse el pago; no se setea a mano. */
+          aprobado_en: string | null;
+          /** Calculado por trigger = aprobado_en + 1 mes; no se setea a mano. */
+          vencimiento: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -212,16 +214,16 @@ export type Database = {
           id?: string;
           alumno_id: string;
           sede_id: string;
-          periodo: string;
           frecuencia_semanal: number;
           monto: number;
-          vencimiento: string;
           medio: MedioPago;
           estado?: EstadoPago;
           mercadopago_payment_id?: string | null;
           comprobante_url?: string | null;
           marcado_por?: string | null;
           marcado_en?: string | null;
+          aprobado_en?: string | null;
+          vencimiento?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -229,16 +231,16 @@ export type Database = {
           id?: string;
           alumno_id?: string;
           sede_id?: string;
-          periodo?: string;
           frecuencia_semanal?: number;
           monto?: number;
-          vencimiento?: string;
           medio?: MedioPago;
           estado?: EstadoPago;
           mercadopago_payment_id?: string | null;
           comprobante_url?: string | null;
           marcado_por?: string | null;
           marcado_en?: string | null;
+          aprobado_en?: string | null;
+          vencimiento?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -356,7 +358,7 @@ export type Database = {
         Row: {
           alumno_id: string;
           sede_id: string;
-          periodo: string;
+          aprobado_en: string;
           frecuencia_semanal: number;
           monto: number;
           vencimiento: string;

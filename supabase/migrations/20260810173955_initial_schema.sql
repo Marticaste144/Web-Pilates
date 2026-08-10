@@ -127,16 +127,18 @@ create table public.pagos (
   id uuid primary key default gen_random_uuid(),
   alumno_id uuid not null references public.alumnos (profile_id) on delete cascade,
   sede_id uuid not null references public.sedes (id) on delete restrict,
-  periodo date not null, -- primer día del mes que cubre la cuota
   frecuencia_semanal smallint not null check (frecuencia_semanal between 1 and 4),
   monto numeric(10, 2) not null check (monto > 0),
-  vencimiento date not null,
   medio public.medio_pago not null,
   estado public.estado_pago not null default 'pendiente',
   mercadopago_payment_id text,
   comprobante_url text, -- path en Supabase Storage
   marcado_por uuid references public.profiles (id), -- quién lo marcó pagado en efectivo
   marcado_en timestamptz,
+  -- aprobado_en y vencimiento NO se cargan a mano: los calcula
+  -- fn_calcular_vencimiento_pago (más abajo) en cuanto estado pasa a 'aprobado'.
+  aprobado_en timestamptz,
+  vencimiento date,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -144,7 +146,11 @@ create table public.pagos (
 comment on table public.pagos is
   'Cada intento de pago es una fila propia (no se pisa): permite el historial completo de la sección 7 del doc.';
 
-create index idx_pagos_alumno_sede_periodo on public.pagos (alumno_id, sede_id, periodo);
+comment on column public.pagos.vencimiento is
+  'Ciclo rodante: aprobado_en + 1 mes (no un día fijo del calendario). Si el alumno paga tarde, '
+  'el próximo vencimiento también se corre -- ver fn_calcular_vencimiento_pago.';
+
+create index idx_pagos_alumno_sede_aprobado on public.pagos (alumno_id, sede_id, aprobado_en);
 
 -- ---------------------------------------------------------------------------
 -- pagos_auditoria: trazabilidad de cambios de estado (sobre todo manuales)
@@ -226,6 +232,35 @@ create trigger trg_profiles_updated_at
 create trigger trg_pagos_updated_at
   before update on public.pagos
   for each row execute function public.fn_set_updated_at();
+
+-- Calcula aprobado_en/vencimiento de un pago -- nadie los carga a mano.
+-- Regla del negocio: el vencimiento de la PRÓXIMA cuota = fecha en que se
+-- aprobó ESTE pago + 1 mes (ciclo rodante, no un día fijo del calendario:
+-- si el alumno paga tarde, el próximo vencimiento también se corre).
+-- Cualquier valor de aprobado_en/vencimiento que llegue en el insert/update
+-- se ignora y se recalcula acá, para que no se puedan pisar a mano.
+create or replace function public.fn_calcular_vencimiento_pago()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.estado = 'aprobado' then
+    if new.aprobado_en is null then
+      new.aprobado_en := now();
+    end if;
+    new.vencimiento := (new.aprobado_en::date + interval '1 month')::date;
+  else
+    new.aprobado_en := null;
+    new.vencimiento := null;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger trg_pagos_calcular_vencimiento
+  before insert or update on public.pagos
+  for each row execute function public.fn_calcular_vencimiento_pago();
 
 -- Crea automáticamente la fila de profiles (+ profesores/alumnos) al registrarse
 -- en Supabase Auth. Lee "role", "nombre", "apellido", "telefono" de los metadatos
@@ -384,7 +419,7 @@ create view public.v_estado_cuota_alumno_sede as
 select distinct on (alumno_id, sede_id)
   alumno_id,
   sede_id,
-  periodo,
+  aprobado_en,
   frecuencia_semanal,
   monto,
   vencimiento,
@@ -395,7 +430,7 @@ select distinct on (alumno_id, sede_id)
   end as estado_visual
 from public.pagos
 where estado = 'aprobado'
-order by alumno_id, sede_id, periodo desc;
+order by alumno_id, sede_id, aprobado_en desc;
 
 comment on view public.v_estado_cuota_alumno_sede is
   'Última cuota aprobada por alumno+sede. Si un alumno no aparece acá, nunca pagó '
