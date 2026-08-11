@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default function AlumnoHomePage() {
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-slate-500">Avisos y pago online (Mercado Pago) llegan en próximas etapas.</p>
+      <p className="text-slate-500">Los avisos de la sede llegan en una próxima etapa.</p>
       <div className="grid gap-4 sm:grid-cols-3">
         {SECCIONES.map((s) => (
           <Link

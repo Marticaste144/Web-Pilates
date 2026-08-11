@@ -13,7 +13,7 @@ MUV POSTURAL, MUV PILATES) — inscripciones, cuotas, asistencia y avisos, con
 2. ✅ Modelo de datos (Sede, Profesor, Alumno, Clase, Inscripción, Pago, Asistencia, Aviso)
 3. ✅ Autenticación con 3 roles y protección de rutas
 4. ✅ Pantalla de login (web y mobile)
-5. 🔶 Pantallas funcionales por rol -- en curso: 5a Admin ✅ · 5b Alumno ✅ · 5c Profesor (clases y asistencia) ✅
+5. 🔶 Pantallas funcionales por rol -- en curso: 5a Admin ✅ · 5b Alumno ✅ · 5c Profesor ✅ · 5d Mercado Pago ✅
 
 ## Setup
 
@@ -434,6 +434,70 @@ que sí pagó, marcar ausente siempre funciona, marcar presente funciona con
 cuota al día, y falla con el mensaje esperado cuando la cuota está
 vencida. `tsc`/`lint`/`build` limpios y rutas nuevas confirmadas
 protegidas sin sesión.
+
+## Paso 5d: pago real con Mercado Pago (Checkout Pro)
+
+Reemplaza el `insert` manual por SQL Editor que veníamos usando para
+probar: ahora el alumno paga de verdad y el webhook aprueba el pago solo.
+
+### Configurar
+
+1. En el [panel de Mercado Pago](https://www.mercadopago.com.ar/developers/panel) →
+   Tus integraciones → tu app → **Credenciales de producción** (o de
+   prueba, para probar sin plata real): copiá el **Access Token** a
+   `MERCADOPAGO_ACCESS_TOKEN`.
+2. En la misma sección → **Webhooks** → creá una notificación para el
+   evento `payment` apuntando a `https://tu-dominio/api/mercadopago/webhook`
+   (con `ngrok` o similar si estás probando en local). Ahí te dan una
+   **Clave secreta** -- copiala a `MERCADOPAGO_WEBHOOK_SECRET`. Es
+   opcional pero recomendada (ver más abajo por qué no es obligatoria).
+3. `NEXT_PUBLIC_SITE_URL` (ya estaba en el .env desde el paso 1) tiene que
+   ser la URL pública real de la app -- Mercado Pago redirige ahí después
+   de pagar, y le manda el webhook a esa misma URL.
+
+### Cómo funciona
+
+- **`/alumno/cuota`** ahora tiene un botón "Pagar con Mercado Pago" en
+  cualquier sede que no esté "al día" (con cuota al día no se ofrece
+  pagar: como el vencimiento es rodante -- ver paso 2 --, pagar de más
+  ahí adentro correría el vencimiento para ATRÁS en vez de sumar, así
+  que no tiene sentido ofrecerlo).
+- Al tocar pagar (`iniciarPagoMercadoPago`, `lib/alumno/pago-actions.ts`):
+  la frecuencia semanal sale de contar las clases activas reales del
+  alumno en esa sede (no se pide a mano), se busca el arancel vigente
+  para esa combinación, se crea la fila en `pagos` con `estado='pendiente'`,
+  se crea una preferencia de Checkout Pro, y se redirige al alumno a la
+  pasarela de Mercado Pago.
+- **`/api/mercadopago/webhook`** es lo que realmente aprueba el pago:
+  Mercado Pago lo llama server-a-server cuando el estado cambia. Nunca se
+  le cree al *contenido* de esa llamada -- siempre se le vuelve a
+  preguntar a la API autenticada de Mercado Pago "¿qué pasó con este pago
+  en realidad?" antes de tocar la base, así que aunque alguien mande un
+  webhook falso, lo único que logra es que se le pregunte a Mercado Pago
+  por un pago que no le pertenece (`external_reference` no va a matchear
+  ningún `pagos.id` real). La verificación de firma con
+  `MERCADOPAGO_WEBHOOK_SECRET` (usando el validador que trae el SDK
+  oficial) es una capa extra sobre eso, no la única defensa -- por eso es
+  opcional y no bloqueante si todavía no la configuraste.
+- El `update` a `pagos.estado` lo hace un cliente con `service_role`
+  (`lib/supabase/admin.ts`, ya existía del paso 5a) porque el webhook no
+  tiene sesión de ningún usuario. Ese mismo `update` dispara solo los
+  triggers de `aprobado_en`/`vencimiento` (paso 2) y de
+  `pagos_auditoria` (paso 3) -- no hizo falta escribir nada nuevo para
+  eso, ya estaba armado.
+
+**Validé:** el validador de firma del SDK con una firma real (HMAC
+correcto), un secreto incorrecto y un `data.id` manipulado -- los dos
+últimos casos los rechaza bien. El `update` exacto que hace el webhook
+contra Postgres local, confirmando que calcula `vencimiento` y deja el
+registro en `pagos_auditoria` solo. Y que la ruta responde con un error
+controlado (502, no un crash) si `MERCADOPAGO_ACCESS_TOKEN` falta o el
+pago no se puede consultar. Lo que **no** pude probar acá: el flujo real
+contra la API de Mercado Pago (crear una preferencia de verdad, pagar,
+recibir el webhook real) -- necesita tus credenciales, que no tengo en
+este entorno. Con las credenciales de **prueba** de Mercado Pago (usuarios
+de test, sin plata real) podés probar el circuito completo antes de pasar
+a producción.
 
 ## Deploy
 
