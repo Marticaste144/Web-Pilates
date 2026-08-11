@@ -703,6 +703,63 @@ prueba), andá a la pantalla de Webhooks de Mercado Pago, poné el toggle en
 ese MISMO modo, copiá la clave secreta de ahí (no la de modo prueba) a
 `MERCADOPAGO_WEBHOOK_SECRET`, esperá el build nuevo, y probá con otro pago.
 
+### Endpoint temporal de diagnóstico: `GET /api/mercadopago/debug-secret`
+
+Con el access token de modo prueba confirmado correcto, `secretLength`
+igual con y sin `.trim()` (así que tampoco hay espacios de más), y el
+manifest coincidiendo carácter por carácter con la doc, quedaba una sola
+variable sin poder verificarse: si Vercel realmente está leyendo, en
+runtime, el mismo secreto que se cree haber pegado -- una vez que una env
+var se marca "Sensitive" en Vercel, ni el dueño del proyecto puede volver a
+verla, solo sobreescribirla.
+
+`app/api/mercadopago/debug-secret/route.ts` resuelve exactamente esa duda
+sin que el secreto real circule por ningún lado (ni chat, ni logs, ni
+respuesta HTTP): calcula el HMAC-SHA256 de un string fijo y conocido
+(`"test-verificacion"`) usando el `MERCADOPAGO_WEBHOOK_SECRET` que la app
+lee en runtime -- el mismo `process.env` que usa el webhook real -- y
+devuelve **solo el hash resultante**. Comparando ese hash contra el que da
+calcular el mismo HMAC de forma independiente (con la copia del secreto
+guardada en un lugar seguro, fuera de este chat), se puede confirmar sin
+ambigüedad si el runtime tiene la clave correcta.
+
+**Cómo usarlo:**
+
+1. Generá un token random para proteger el endpoint (que solo vos vayas a
+   conocer) y agregalo como env var nueva en Vercel:
+   ```bash
+   openssl rand -hex 20
+   ```
+   Guardalo en Vercel como `MERCADOPAGO_DEBUG_TOKEN` (marcala "Sensitive"
+   también). **Sin esta variable seteada, el endpoint responde 404 siempre**
+   -- no queda accesible por default.
+2. Esperá el build (recordá: como toda env var nueva, hace falta un build
+   real para que quede disponible).
+3. Llamalo pasando ese token:
+   ```bash
+   curl -H "x-debug-token: <el-token-del-paso-1>" https://tu-dominio/api/mercadopago/debug-secret
+   ```
+   Devuelve `{ ok: true, input: "test-verificacion", secretLength: N, hmacSha256: "..." }`.
+4. Calculá el mismo HMAC vos, de forma independiente, con tu copia del
+   secreto:
+   ```bash
+   echo -n "test-verificacion" | openssl dgst -sha256 -hmac "TU_SECRETO_GUARDADO_AFUERA"
+   ```
+5. Comparás los dos hex. Si coinciden, el runtime tiene exactamente ese
+   secreto -- confirmado sin que el valor haya viajado por ningún lado. Si
+   no coinciden, lo que está guardado en Vercel no es lo que creés que es
+   (probablemente un pegado viejo, de antes de alguna corrección) y hay que
+   sobreescribir la variable de nuevo, ahora sí con la definitiva.
+
+**⚠️ Sacar antes de dejar el proyecto en producción de verdad:** este
+endpoint (`app/api/mercadopago/debug-secret/route.ts`), la env var
+`MERCADOPAGO_DEBUG_TOKEN` (de Vercel y de `.env.local.example`), y este
+apartado del README. Es información sensible por diseño -- aunque el hash
+en sí no expone el secreto, un endpoint que calcula HMACs con un secreto de
+producción a pedido no debería quedar vivo indefinidamente. El asistente
+tiene un recordatorio propio armado para este pendiente; igual conviene que
+quede anotado acá por si el proyecto sigue por otro canal.
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de
