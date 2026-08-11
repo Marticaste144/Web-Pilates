@@ -5,6 +5,29 @@ import { getMercadoPagoConfig } from "@/lib/mercadopago/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { EstadoPago } from "@/types/database";
 
+// Solo para diagnóstico en el log de abajo -- replica (no reemplaza) el
+// parseo/armado que hace WebhookSignatureValidator internamente, para poder
+// mostrar el manifest en texto plano sin tener que exportar nada del SDK.
+function extraerTsDeXSignature(xSignature: string | null): string | undefined {
+  if (!xSignature) return undefined;
+  for (const part of xSignature.split(",")) {
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    const key = part.substring(0, eq).trim().toLowerCase();
+    const value = part.substring(eq + 1).trim();
+    if (key === "ts" && value) return value;
+  }
+  return undefined;
+}
+
+function armarManifest(dataId: string, xRequestId: string | null, ts: string | undefined): string {
+  const parts: string[] = [];
+  if (dataId) parts.push(`id:${dataId}`);
+  if (xRequestId) parts.push(`request-id:${xRequestId}`);
+  if (ts) parts.push(`ts:${ts}`);
+  return parts.join(";") + ";";
+}
+
 function mapearEstado(mpStatus: string | undefined): EstadoPago {
   switch (mpStatus) {
     case "approved":
@@ -87,15 +110,20 @@ export async function POST(request: NextRequest) {
       // más); "TimestampOutOfTolerance" es reloj/reintento tardío;
       // "MissingSignatureHeader"/"MalformedSignatureHeader" es un problema
       // de infraestructura (proxy que pisa headers, etc.).
+      const xSignatureHeader = request.headers.get("x-signature");
+      const xRequestIdHeader = request.headers.get("x-request-id");
       console.error("Webhook de Mercado Pago con firma inválida", {
         reason,
         dataId,
         dataIdFromQuery,
         dataIdFromBody: body?.data?.id,
-        xRequestId: request.headers.get("x-request-id"),
-        xSignature: request.headers.get("x-signature"),
+        xRequestId: xRequestIdHeader,
+        xSignature: xSignatureHeader,
         secretLength: webhookSecret.length,
         secretLengthSinTrim: rawWebhookSecret?.length,
+        // Texto plano exacto que se le pasa al HMAC -- comparar carácter a
+        // carácter contra el ejemplo de la doc oficial de Mercado Pago.
+        manifest: armarManifest(dataId, xRequestIdHeader, extraerTsDeXSignature(xSignatureHeader)),
       });
       return NextResponse.json({ error: "firma inválida" }, { status: 401 });
     }
