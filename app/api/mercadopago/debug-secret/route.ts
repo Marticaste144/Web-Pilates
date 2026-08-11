@@ -16,11 +16,14 @@ import { NextResponse, type NextRequest } from "next/server";
 const STRING_FIJO = "test-verificacion";
 
 function tokenValido(request: NextRequest): boolean {
-  const tokenEsperado = process.env.MERCADOPAGO_DEBUG_TOKEN;
+  // .trim(): mismo motivo que en el resto de esta investigación -- pegar en
+  // el dashboard de Vercel puede dejar un espacio/salto de línea de más.
+  const tokenEsperado = process.env.MERCADOPAGO_DEBUG_TOKEN?.trim();
   if (!tokenEsperado) return false;
 
-  const tokenRecibido =
-    request.headers.get("x-debug-token") ?? request.nextUrl.searchParams.get("token");
+  const tokenRecibido = (
+    request.headers.get("x-debug-token") ?? request.nextUrl.searchParams.get("token")
+  )?.trim();
   if (!tokenRecibido) return false;
 
   const a = Buffer.from(tokenEsperado);
