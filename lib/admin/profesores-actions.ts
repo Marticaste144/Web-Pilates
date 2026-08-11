@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdminProfile } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { FormState } from "./form-state";
+import type { FormState } from "@/lib/form-state";
 
 // Invita a un profesor por email (Supabase Auth Admin API -- crea el
 // usuario y le manda un link para que fije su propia contraseña). El

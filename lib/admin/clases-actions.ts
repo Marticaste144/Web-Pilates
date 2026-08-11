@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdminProfile } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import type { FormState } from "./form-state";
+import type { FormState } from "@/lib/form-state";
 
 function parseClaseForm(formData: FormData) {
   const sedeId = String(formData.get("sede_id") ?? "");

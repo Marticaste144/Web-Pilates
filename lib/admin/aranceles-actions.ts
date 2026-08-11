@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdminProfile } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import type { FormState } from "./form-state";
+import type { FormState } from "@/lib/form-state";
 
 // Un "aumento" agrega una fila nueva con vigente_desde = hoy (no pisa el
 // historial de precios viejos). Si ya se editó ese mismo combo hoy, el

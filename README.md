@@ -13,7 +13,7 @@ MUV POSTURAL, MUV PILATES) — inscripciones, cuotas, asistencia y avisos, con
 2. ✅ Modelo de datos (Sede, Profesor, Alumno, Clase, Inscripción, Pago, Asistencia, Aviso)
 3. ✅ Autenticación con 3 roles y protección de rutas
 4. ✅ Pantalla de login (web y mobile)
-5. 🔶 Pantallas funcionales por rol -- en curso: 5a Admin ✅ · 5b Alumno (inscripción y cuota) ✅
+5. 🔶 Pantallas funcionales por rol -- en curso: 5a Admin ✅ · 5b Alumno ✅ · 5c Profesor (clases y asistencia) ✅
 
 ## Setup
 
@@ -388,6 +388,52 @@ espera, la posición FIFO se asigna bien con múltiples alumnos, y que un
 alumno viendo `v_cupo_clases` obtiene el conteo total pero un `select`
 directo a `inscripciones` solo le muestra sus propias filas. `tsc`/`lint`/
 `build` limpios y las rutas nuevas confirmadas protegidas sin sesión.
+
+## Paso 5c: Profesor -- clases y asistencia
+
+No hizo falta ninguna migración nueva: todo lo que necesitaba esta
+sub-etapa (la vista `v_cupo_clases`, la regla de visibilidad, los triggers
+de cuota/aviso) ya estaba de pasos anteriores.
+
+- **`/profesor/clases`** -- solo las clases propias (filtrado por
+  `profesor_id`, no todas las que existen), con cupo ocupado/total.
+- **`/profesor/clases/[id]`** -- selector de fecha (para poder tomar
+  asistencia de una sesión pasada, no solo "hoy"), lista de alumnos
+  visibles con estado de cuota **de solo lectura** (badge, sin forma de
+  tocarlo), botones Presente/Ausente, y "Editar datos" inline (nombre,
+  apellido, teléfono -- el trigger del paso 3 bloquea que toque rol o
+  email aunque se lo pidan por fuera de este formulario).
+- Si hay alumnos anotados en la clase que todavía no tienen ninguna cuota
+  aprobada, no desaparecen sin explicación: un cartel dice cuántos son
+  ("hay 2 alumnos más anotados, pero todavía no tienen cuota aprobada")
+  sin revelar quiénes -- ni la propia consulta a `profiles` puede
+  resolverlos por RLS, así que ni yo si quisiera podría mostrarlos.
+- Marcar "Presente" con la cuota vencida en esa sede lo rechaza el mismo
+  trigger del paso 3 (`fn_validar_cuota_para_asistencia`) y el mensaje se
+  muestra tal cual -- es la "alerta" que pedía el documento en la sección 2,
+  resuelta como feedback inmediato en vez de un sistema de notificaciones
+  aparte. "Ausente" nunca se bloquea por esto.
+
+**Importante para poder probarlo con datos reales:** como todavía no existe
+el pago con Mercado Pago (eso es otra sub-etapa), ningún alumno real va a
+tener una cuota aprobada todavía -- así que el roster de cualquier clase va
+a aparecer vacío (con el cartel de "alumnos no visibles") y "Presente" va a
+fallar siempre, **a propósito**, hasta que haya una forma de aprobar pagos.
+Para probar el flujo completo ahora mismo, aprobá un pago de prueba a mano
+en el SQL Editor:
+```sql
+insert into public.pagos (alumno_id, sede_id, frecuencia_semanal, monto, medio, estado, aprobado_en)
+values ('<uuid del alumno>', '<uuid de la sede>', 1, 41000, 'efectivo', 'aprobado', now());
+```
+(los uuids salen del Table Editor, tablas `alumnos` y `sedes`). Con eso
+debería aparecer en el roster del profesor y "Presente" debería funcionar.
+
+Validé contra Postgres local los cinco casos: profesor ve el conteo total
+de inscriptos de su clase pero solo puede resolver el perfil del alumno
+que sí pagó, marcar ausente siempre funciona, marcar presente funciona con
+cuota al día, y falla con el mensaje esperado cuando la cuota está
+vencida. `tsc`/`lint`/`build` limpios y rutas nuevas confirmadas
+protegidas sin sesión.
 
 ## Deploy
 

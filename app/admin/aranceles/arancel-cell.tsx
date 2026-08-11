@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { actualizarArancel } from "@/lib/admin/aranceles-actions";
-import { initialFormState } from "@/lib/admin/form-state";
+import { initialFormState } from "@/lib/form-state";
 
 export function ArancelCell({
   sedeId,

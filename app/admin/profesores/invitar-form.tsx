@@ -2,7 +2,7 @@
 
 import { useActionState, useRef, useEffect } from "react";
 import { invitarProfesor } from "@/lib/admin/profesores-actions";
-import { initialFormState } from "@/lib/admin/form-state";
+import { initialFormState } from "@/lib/form-state";
 
 const inputClass =
   "rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#2f7cd6] focus:outline-none";

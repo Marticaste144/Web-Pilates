@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import type { FormState } from "@/lib/admin/form-state";
-import { initialFormState } from "@/lib/admin/form-state";
+import type { FormState } from "@/lib/form-state";
+import { initialFormState } from "@/lib/form-state";
 import type { ProfesorSelectItem, SedeItem, ClaseListItem } from "@/lib/admin/clases-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 

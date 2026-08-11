@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { actualizarProfesor } from "@/lib/admin/profesores-actions";
-import { initialFormState } from "@/lib/admin/form-state";
+import { initialFormState } from "@/lib/form-state";
 import type { ProfesorListItem } from "@/lib/admin/profesores-data";
 
 const inputClass =
