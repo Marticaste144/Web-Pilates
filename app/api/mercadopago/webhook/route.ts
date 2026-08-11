@@ -26,6 +26,20 @@ function mapearEstado(mpStatus: string | undefined): EstadoPago {
 // el body de la notificación tal cual: siempre se vuelve a consultar el
 // pago por la API autenticada de Mercado Pago antes de tocar la base.
 export async function POST(request: NextRequest) {
+  // Mercado Pago manda notificaciones de varios "topics" a la misma
+  // notification_url -- no solo "payment". En particular "merchant_order"
+  // es un feed viejo (IPN de "Merchant Orders") que llega en paralelo al de
+  // payment, y Mercado Pago documenta explícitamente que esas notificaciones
+  // NO se pueden validar con x-signature (la firma nunca va a matchear, sin
+  // importar qué secreto uses). Como acá solo nos importa el estado de un
+  // pago (y el id que manda merchant_order ni siquiera es un id de pago
+  // válido para Payment.get), se ignoran de una todos los topics que no
+  // sean "payment", antes de intentar validar firma o consultar nada.
+  const topic = request.nextUrl.searchParams.get("type") ?? request.nextUrl.searchParams.get("topic");
+  if (topic && topic !== "payment") {
+    return NextResponse.json({ ok: true });
+  }
+
   // La firma se calcula del lado de Mercado Pago con el data.id que va en la
   // URL de notificación -- por eso ESE es el valor autoritativo para validar
   // (no el del body). Si no viene por query string (webhooks viejos),

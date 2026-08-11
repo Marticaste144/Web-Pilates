@@ -606,6 +606,47 @@ a mano. Para encontrar el `id` de la fila en `pagos`, filtrá por
 `alumno_id`, `sede_id` y `estado = 'pendiente'` con la fecha aproximada del
 pago.
 
+### Fix (parte 2): el 401 seguía pasando -- notificaciones de topic `merchant_order`
+
+Después del fix de arriba, el 401 seguía apareciendo con pagos nuevos. El
+log mejorado (con `reason`, `dataId` crudo, etc.) mostró la causa real:
+`reason: 'SignatureMismatch'` en una request cuyo query string era
+`?id=...&topic=merchant_order` -- no `?data.id=...&type=payment`. Ese
+formato (`topic`/`id` en vez de `type`/`data.id`, User-Agent "MercadoPago
+Feed v2.0") es el del feed viejo de **Merchant Orders**, un mecanismo de
+notificación distinto (y anterior) al de los webhooks firmados de
+`payment`, que Mercado Pago manda en paralelo a la misma
+`notification_url` para toda compra hecha con Checkout Pro.
+
+Confirmado contra la documentación oficial de Mercado Pago (búsqueda
+específica sobre validación de firma para `merchant_order`): **las
+notificaciones de topic `merchant_order` no se pueden validar con
+x-signature** -- no es un bug de esta app ni de la clave secreta, Mercado
+Pago mismo dice que esa firma no aplica/no es verificable para ese topic,
+por más que el secreto usado sea el correcto. Así que la clave que ya
+habías confirmado carácter por carácter era la correcta -- el problema no
+era el secreto (ninguna de las dos hipótesis del secreto era la causa),
+sino que el código intentaba validar-y-procesar como si fuera un webhook
+de `payment` una notificación que nunca iba a poder pasar esa validación.
+Tampoco tendría sentido procesarla igual: el `id` que manda `merchant_order`
+es un id de orden, no un id de pago, así que `Payment.get({id})` con ese
+valor habría fallado de todos modos.
+
+Fix: la ruta ahora lee `type` (formato nuevo) o `topic` (formato viejo) del
+query string **antes** de cualquier otra cosa, y si viene y no es
+`"payment"`, devuelve `200 ok` de una sin validar firma ni consultar nada
+-- se ignoran esas notificaciones a propósito, porque el estado del pago ya
+llega completo y firmable por la notificación de topic `payment` que
+Mercado Pago manda aparte para el mismo evento.
+
+**Para confirmar que esto lo resuelve:** en los logs de Vercel, después de
+un pago nuevo con este commit ya deployado, tendría que verse solamente la
+call con `type=payment&data.id=...` pasando la validación de firma (o, si
+seguís sin ver ninguna call de topic `payment` para el mismo pago, el
+problema pasa a ser que Mercado Pago no está mandando esa notificación en
+absoluto -- ahí ya no es un tema de este código, sino de configuración de
+Webhooks en el panel).
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de
