@@ -533,6 +533,79 @@ viendo el mismo error después de que este commit se despliegue, es que
 (Project Settings → Environment Variables: confirmá que esté marcada para
 "Production", no solo para "Preview"/"Development").
 
+### Fix: webhook rechazado con 401 "firma inválida" (pago sí aprobado en Mercado Pago)
+
+Reportado con logs reales de Vercel: el pago se aprobaba de verdad del lado
+de Mercado Pago (visible en su panel), pero `pagos.estado` nunca pasaba a
+`aprobado` porque `/api/mercadopago/webhook` respondía 401 antes de llegar
+a tocar la base.
+
+Se revisó el código del validador de firma (`WebhookSignatureValidator` del
+SDK oficial, v3.3.0) línea por línea contra la documentación real de
+Mercado Pago y se encontraron/descartaron estas causas:
+
+- **Bug real, corregido acá:** la ruta armaba `dataId` primero desde el
+  query string (`?data.id=...`, que es la fuente correcta según la doc --
+  es el valor que Mercado Pago usa para firmar) pero un par de líneas
+  después lo pisaba con el `data.id` del body del POST si existía. En la
+  práctica ambos valores suelen coincidir, pero no está garantizado, y
+  documentalmente el query string es la fuente autoritativa -- así que se
+  invirtió la prioridad (query string primero, body solo como fallback
+  para notificaciones viejas que no mandan query string) y se agregó
+  `.toLowerCase()` al `data.id`, como pide la doc para IDs alfanuméricos.
+- **Bugs de versiones viejas del SDK, descartados:** hay dos issues abiertos
+  en el repo del SDK (`mercadopago-nodejs` #458 y #459 -- desajuste de
+  unidades en el `toleranceSeconds` y un `RangeError` con hashes `v1`
+  multibyte) pero ambos ya estaban arreglados en la versión instalada acá
+  (3.3.0), confirmado leyendo el código fuente compilado directamente en
+  `node_modules/mercadopago/dist/utils/webhook/index.js`.
+- **Hipótesis "hay una clave distinta para pagos": descartada.** La `Clave
+  secreta` que se ve en *Tus integraciones → tu app → Webhooks → Configurar
+  notificaciones* es una sola por aplicación y firma **todos** los tópicos
+  que le lleguen a esa URL (`payment`, `merchant_order`, etc.), no hay una
+  clave separada específica para pagos.
+- **Hipótesis más probable, sin descartar: secreto de modo prueba vs
+  producción.** Esa misma pantalla de Mercado Pago tiene un toggle
+  "Modo pruebas" / "Modo productivo" arriba, y la clave secreta que muestra
+  **cambia según qué modo esté seleccionado en ese momento** -- son dos
+  valores distintos. Como el pago que falló fue con una tarjeta real
+  (Mastercard, aprobado de verdad), el `MERCADOPAGO_ACCESS_TOKEN` en uso es
+  el de producción; si `MERCADOPAGO_WEBHOOK_SECRET` se copió con el toggle
+  en "Modo pruebas", es exactamente la clave equivocada para ese pago, y el
+  SDK va a calcular un HMAC distinto al que mandó Mercado Pago →
+  `SignatureMismatch`. **Antes de reintentar, volvé a esa pantalla, fijate
+  que el toggle esté en "Modo productivo", y volvé a copiar la clave secreta
+  desde ahí a `MERCADOPAGO_WEBHOOK_SECRET` en Vercel** (recordá que hace
+  falta un build nuevo, no alcanza con "Redeploy" reusando el build viejo --
+  mismo motivo que el bug de `back_urls` de más arriba, aunque en este caso
+  la variable no es `NEXT_PUBLIC_*` así que si Vercel hace rebuild en cada
+  push no debería ser un problema).
+- El `catch` del validador ahora loguea el `reason` puntual (el enum
+  `SignatureFailureReason` que expone el SDK: `SignatureMismatch`,
+  `TimestampOutOfTolerance`, `MissingSignatureHeader`, etc.) junto con los
+  valores crudos usados para armar el manifest (`dataId`, `x-request-id`,
+  `x-signature`), para poder diagnosticar de una sola mirada a los logs de
+  Vercel si vuelve a pasar, en vez de solo el mensaje genérico.
+
+**Para reconciliar el pago que ya quedó aprobado en Mercado Pago pero
+`pendiente` en la base** (mientras se corrige el secreto y no hace falta
+esperar el próximo pago para probar), corré en el SQL Editor de Supabase,
+reemplazando el id real del pago y el id de pago de Mercado Pago (ambos
+visibles en el panel de Mercado Pago → Actividad):
+
+```sql
+update public.pagos
+set estado = 'aprobado',
+    mercadopago_payment_id = '<id-de-pago-de-mercado-pago>'
+where id = '<id-de-la-fila-en-pagos>';
+```
+
+`aprobado_en`/`vencimiento` se calculan solos por el trigger del paso 2 en
+cuanto `estado` pasa a `'aprobado'` -- no hace falta (ni se puede) cargarlos
+a mano. Para encontrar el `id` de la fila en `pagos`, filtrá por
+`alumno_id`, `sede_id` y `estado = 'pendiente'` con la fecha aproximada del
+pago.
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de

@@ -26,7 +26,12 @@ function mapearEstado(mpStatus: string | undefined): EstadoPago {
 // el body de la notificación tal cual: siempre se vuelve a consultar el
 // pago por la API autenticada de Mercado Pago antes de tocar la base.
 export async function POST(request: NextRequest) {
-  let dataId = request.nextUrl.searchParams.get("data.id") ?? request.nextUrl.searchParams.get("id");
+  // La firma se calcula del lado de Mercado Pago con el data.id que va en la
+  // URL de notificación -- por eso ESE es el valor autoritativo para validar
+  // (no el del body). Si no viene por query string (webhooks viejos),
+  // recién ahí se usa el del body como fallback.
+  const dataIdFromQuery =
+    request.nextUrl.searchParams.get("data.id") ?? request.nextUrl.searchParams.get("id");
 
   let body: { data?: { id?: string } } | null = null;
   try {
@@ -34,7 +39,7 @@ export async function POST(request: NextRequest) {
   } catch {
     // Los webhooks viejos de Mercado Pago mandan todo por query string.
   }
-  dataId = body?.data?.id ?? dataId;
+  const dataId = (dataIdFromQuery ?? body?.data?.id)?.toLowerCase();
 
   if (!dataId) {
     return NextResponse.json({ ok: true });
@@ -52,7 +57,21 @@ export async function POST(request: NextRequest) {
       });
     } catch (err) {
       const reason = err instanceof InvalidWebhookSignatureError ? err.reason : "desconocido";
-      console.error("Webhook de Mercado Pago con firma inválida", reason);
+      // Se loguea todo lo necesario para diagnosticar sin tener que
+      // reproducir el request: la razón puntual (ver SignatureFailureReason
+      // en el SDK), y los valores crudos que se usaron para armar el
+      // manifest. "SignatureMismatch" casi siempre es un secreto incorrecto
+      // (modo prueba vs producción); "TimestampOutOfTolerance" es reloj/
+      // reintento tardío; "MissingSignatureHeader"/"MalformedSignatureHeader"
+      // es un problema de infraestructura (proxy que pisa headers, etc.).
+      console.error("Webhook de Mercado Pago con firma inválida", {
+        reason,
+        dataId,
+        dataIdFromQuery,
+        dataIdFromBody: body?.data?.id,
+        xRequestId: request.headers.get("x-request-id"),
+        xSignature: request.headers.get("x-signature"),
+      });
       return NextResponse.json({ error: "firma inválida" }, { status: 401 });
     }
   } else {
