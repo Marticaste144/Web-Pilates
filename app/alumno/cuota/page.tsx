@@ -58,7 +58,7 @@ export default async function CuotaPage({
               key={c.sedeId}
               className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 p-4"
             >
-              <div>
+              <div className="min-w-0">
                 <p className="font-medium text-slate-900">{c.sedeNombre}</p>
                 {c.vencimiento ? (
                   <p className="text-sm text-slate-500">
@@ -69,7 +69,7 @@ export default async function CuotaPage({
                   <p className="text-sm text-slate-500">Todavía no registramos ningún pago acá.</p>
                 )}
               </div>
-              <div className="flex flex-col items-end gap-2">
+              <div className="flex shrink-0 flex-col items-end gap-2">
                 <span className={`rounded-full px-3 py-1 text-xs font-medium ${label.clase}`}>
                   {label.texto}
                 </span>
