@@ -59,7 +59,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+  // .trim(): copiar/pegar una env var en el dashboard de Vercel a veces deja
+  // un espacio o salto de línea de más -- ya nos pasó exactamente esto con
+  // NEXT_PUBLIC_SITE_URL (ver más abajo). Un secreto con un byte de más
+  // cambia el HMAC calculado sin que se note a simple vista comparándolo
+  // "a ojo" contra lo que muestra el panel de Mercado Pago.
+  const rawWebhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+  const webhookSecret = rawWebhookSecret?.trim();
   if (webhookSecret) {
     try {
       WebhookSignatureValidator.validate({
@@ -73,11 +79,14 @@ export async function POST(request: NextRequest) {
       const reason = err instanceof InvalidWebhookSignatureError ? err.reason : "desconocido";
       // Se loguea todo lo necesario para diagnosticar sin tener que
       // reproducir el request: la razón puntual (ver SignatureFailureReason
-      // en el SDK), y los valores crudos que se usaron para armar el
-      // manifest. "SignatureMismatch" casi siempre es un secreto incorrecto
-      // (modo prueba vs producción); "TimestampOutOfTolerance" es reloj/
-      // reintento tardío; "MissingSignatureHeader"/"MalformedSignatureHeader"
-      // es un problema de infraestructura (proxy que pisa headers, etc.).
+      // en el SDK), los valores crudos que se usaron para armar el
+      // manifest, y el LARGO (no el valor) del secreto leído en runtime --
+      // para comparar contra el largo real de la clave copiada sin exponer
+      // el secreto en los logs. "SignatureMismatch" casi siempre es un
+      // secreto incorrecto (modo prueba vs producción, o con espacios de
+      // más); "TimestampOutOfTolerance" es reloj/reintento tardío;
+      // "MissingSignatureHeader"/"MalformedSignatureHeader" es un problema
+      // de infraestructura (proxy que pisa headers, etc.).
       console.error("Webhook de Mercado Pago con firma inválida", {
         reason,
         dataId,
@@ -85,6 +94,8 @@ export async function POST(request: NextRequest) {
         dataIdFromBody: body?.data?.id,
         xRequestId: request.headers.get("x-request-id"),
         xSignature: request.headers.get("x-signature"),
+        secretLength: webhookSecret.length,
+        secretLengthSinTrim: rawWebhookSecret?.length,
       });
       return NextResponse.json({ error: "firma inválida" }, { status: 401 });
     }

@@ -647,6 +647,62 @@ problema pasa a ser que Mercado Pago no está mandando esa notificación en
 absoluto -- ahí ya no es un tema de este código, sino de configuración de
 Webhooks en el panel).
 
+### Fix (parte 3): el aviso de topic `payment` real también daba `SignatureMismatch`
+
+Con `merchant_order` ya filtrado, la notificación de topic `payment` de
+verdad (`dataId` = el mismo `payment_id` que Mercado Pago manda en la URL
+de retorno después de pagar) seguía dando 401. Se volvió a comparar el
+código contra la doc oficial, campo por campo:
+
+- **Manifest**: `id:{data.id};request-id:{x-request-id};ts:{ts};`, con el
+  `;` final incluido y sin espacios -- confirmado leyendo el
+  `buildManifest()` real del SDK instalado, coincide exactamente.
+- **Orden y separador del header `x-signature`** (`ts=...,v1=...`,
+  separados por coma): confirmado, el `parseSignatureHeader()` del SDK usa
+  coma como separador y `=` para cada par, igual que la doc.
+- **Mayúsculas/minúsculas del `data.id`**: la doc pide lowercase; ya se
+  había agregado `.toLowerCase()` en el fix anterior. Para un id
+  puramente numérico como este no cambia nada, pero está bien igual.
+
+Con el armado del manifest descartado como causa (coincide con la doc
+línea por línea), lo que queda son dos explicaciones para un
+`SignatureMismatch` real: el secreto no es el que Mercado Pago usó para
+firmar, o el secreto tiene bytes de más (espacio/salto de línea al
+copiarlo). Dos cambios:
+
+1. **Se agregó `.trim()` al secreto leído de `MERCADOPAGO_WEBHOOK_SECRET`**
+   antes de usarlo -- mismo tipo de bug que ya nos pasó una vez con
+   `NEXT_PUBLIC_SITE_URL` (pegar en el dashboard de Vercel puede dejar un
+   espacio o un salto de línea invisible al final, que "a ojo" comparando
+   contra el panel de Mercado Pago no se nota, pero cambia el HMAC
+   calculado por completo).
+2. Se agregó `secretLength`/`secretLengthSinTrim` al log de error (el
+   **largo** del secreto en runtime, nunca el valor) para poder comparar
+   contra el largo real de la clave que copiaste, sin exponer el secreto
+   en los logs.
+
+**Pista más fuerte que un bug de código:** dijiste que verificaste el
+secreto contra el que muestra Mercado Pago **"en modo prueba"**. Ese es
+justo el dato que hacía falta -- la pantalla de *Webhooks → Configurar
+notificaciones* muestra una clave secreta **distinta** según el toggle
+"Modo pruebas" / "Modo productivo" esté activado, y son dos secretos
+distintos de verdad, no la misma clave mostrada dos veces. Si el
+`MERCADOPAGO_ACCESS_TOKEN` que estás usando en Vercel es el de
+**producción** (empieza con `APP_USR-`), Mercado Pago firma sus webhooks
+con el secreto de **modo productivo**, no con el de modo prueba -- así que
+aunque el de modo prueba esté copiado perfecto, carácter por carácter, va
+a dar `SignatureMismatch` siempre, porque es literalmente el secreto
+equivocado para ese modo. Si en cambio el access token es el de prueba
+(`TEST-...`), es al revés: ahí sí correspondería el secreto de modo
+prueba, y valdría la pena confirmar que no haya espacios de más (con el
+`secretLength` del punto 2).
+
+**Siguiente paso concreto:** confirmá qué prefijo tiene
+`MERCADOPAGO_ACCESS_TOKEN` en Vercel (`APP_USR-` = producción, `TEST-` =
+prueba), andá a la pantalla de Webhooks de Mercado Pago, poné el toggle en
+ese MISMO modo, copiá la clave secreta de ahí (no la de modo prueba) a
+`MERCADOPAGO_WEBHOOK_SECRET`, esperá el build nuevo, y probá con otro pago.
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de
