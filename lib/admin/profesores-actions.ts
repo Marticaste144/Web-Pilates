@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdminProfile } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSiteUrl } from "@/lib/site-url";
 import type { FormState } from "@/lib/form-state";
 
 // Invita a un profesor por email (Supabase Auth Admin API -- crea el
@@ -32,7 +33,13 @@ export async function invitarProfesor(
     return { status: "error", message: "Completá nombre, apellido y email." };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  let siteUrl: string;
+  try {
+    siteUrl = getSiteUrl();
+  } catch (err) {
+    return { status: "error", message: err instanceof Error ? err.message : "Falta configurar la URL del sitio." };
+  }
+
   const adminClient = createAdminClient();
   const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
     data: { role: "profesor", nombre, apellido, telefono: telefono || null },

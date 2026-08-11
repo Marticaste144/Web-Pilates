@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Preference } from "mercadopago";
 import { createClient } from "@/lib/supabase/server";
 import { getMercadoPagoConfig } from "@/lib/mercadopago/client";
+import { getSiteUrl } from "@/lib/site-url";
 
 export type PagoResult = { ok: boolean; message: string };
 
@@ -75,7 +76,13 @@ export async function iniciarPagoMercadoPago(sedeId: string): Promise<PagoResult
     return { ok: false, message: errorPago?.message ?? "No se pudo iniciar el pago." };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  let siteUrl: string;
+  try {
+    siteUrl = getSiteUrl();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Falta configurar la URL del sitio.";
+    return { ok: false, message };
+  }
 
   let checkoutUrl: string | undefined;
   try {

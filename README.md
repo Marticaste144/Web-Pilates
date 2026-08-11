@@ -499,6 +499,40 @@ este entorno. Con las credenciales de **prueba** de Mercado Pago (usuarios
 de test, sin plata real) podés probar el circuito completo antes de pasar
 a producción.
 
+### Fix: "back_urls invalid. Wrong format" en producción
+
+Causa real (reportada y confirmada en el sitio deployado, no en local):
+`iniciarPagoMercadoPago` tenía `process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"`.
+Mercado Pago **bloquea `back_urls`/`notification_url` en `http://` desde
+marzo 2025** -- si `NEXT_PUBLIC_SITE_URL` no llegaba a estar disponible en
+el momento justo, el fallback armaba URLs `http://localhost:3000/...` y
+esto era exactamente lo que rechazaba.
+
+El motivo por el que corregir la variable en Vercel y darle "Redeploy" no
+alcanzaba: las env vars `NEXT_PUBLIC_*` de Next.js se inyectan **en el
+bundle durante `next build`**, no en runtime. Si la variable se agrega
+*después* de un build, hace falta que corra un build nuevo -- "Redeploy"
+en Vercel puede reusar el artefacto ya compilado sin rebuildear, en cuyo
+caso el código deployado sigue teniendo el valor viejo (o `undefined`)
+quemado adentro, sin importar lo que diga el dashboard.
+
+Se sacó el fallback silencioso de las 3 Server Actions que lo tenían
+(`iniciarPagoMercadoPago`, `invitarProfesor`, `requestPasswordReset` -- las
+otras dos nunca fallaron en la práctica porque nadie las había probado
+todavía en producción, pero tenían la misma bomba de tiempo) y se
+centralizó en `lib/site-url.ts` (`getSiteUrl()`), que tira un error claro
+en el momento si la variable no está, en vez de armar una URL rota que
+recién explota adentro de la llamada a Mercado Pago con un mensaje que no
+dice nada de la causa real. También hace `trim()` y saca la barra final,
+por si el valor pegado en Vercel tenía un espacio/salto de línea de más.
+
+Como este fix es un commit nuevo, el próximo deploy automático de Vercel
+ya corre un build real y debería resolver el problema solo -- si seguís
+viendo el mismo error después de que este commit se despliegue, es que
+`NEXT_PUBLIC_SITE_URL` no está seteada en el **Environment** correcto
+(Project Settings → Environment Variables: confirmá que esté marcada para
+"Production", no solo para "Preview"/"Development").
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de

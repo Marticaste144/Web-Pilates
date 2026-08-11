@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getSiteUrl } from "@/lib/site-url";
 import type { AuthActionState } from "./auth-state";
 
 export async function signIn(
@@ -81,7 +82,13 @@ export async function requestPasswordReset(
     return { status: "error", message: "Ingresá tu email." };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  let siteUrl: string;
+  try {
+    siteUrl = getSiteUrl();
+  } catch (err) {
+    return { status: "error", message: err instanceof Error ? err.message : "Falta configurar la URL del sitio." };
+  }
+
   const supabase = await createClient();
   await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${siteUrl}/auth/confirm?next=/reset-password`,
