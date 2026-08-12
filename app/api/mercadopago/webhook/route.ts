@@ -1,3 +1,4 @@
+import { createHmac } from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { Payment } from "mercadopago";
 import { WebhookSignatureValidator, InvalidWebhookSignatureError } from "mercadopago";
@@ -8,23 +9,30 @@ import type { EstadoPago } from "@/types/database";
 // Solo para diagnóstico en el log de abajo -- replica (no reemplaza) el
 // parseo/armado que hace WebhookSignatureValidator internamente, para poder
 // mostrar el manifest en texto plano sin tener que exportar nada del SDK.
-function extraerTsDeXSignature(xSignature: string | null): string | undefined {
+function extraerDeXSignature(xSignature: string | null, key: "ts" | "v1"): string | undefined {
   if (!xSignature) return undefined;
   for (const part of xSignature.split(",")) {
     const eq = part.indexOf("=");
     if (eq === -1) continue;
-    const key = part.substring(0, eq).trim().toLowerCase();
+    const partKey = part.substring(0, eq).trim().toLowerCase();
     const value = part.substring(eq + 1).trim();
-    if (key === "ts" && value) return value;
+    if (partKey === key && value) return value;
   }
   return undefined;
 }
 
+// Replica byte a byte buildManifest() de node_modules/mercadopago/dist/utils/webhook/index.js
+// (confirmado leyendo el fuente compilado): "ts:" se agrega SIEMPRE, a
+// diferencia de "id:"/"request-id:" que son condicionales. Antes de este fix
+// acá también era condicional -- no afectaba a la validación real (que corre
+// aparte, con el validador del SDK), pero sí podía hacer que el manifest
+// logueado (y el HMAC calculado en paralelo para comparar) no coincidiera
+// con lo que el SDK realmente usa, en el caso límite de un ts vacío.
 function armarManifest(dataId: string, xRequestId: string | null, ts: string | undefined): string {
   const parts: string[] = [];
   if (dataId) parts.push(`id:${dataId}`);
   if (xRequestId) parts.push(`request-id:${xRequestId}`);
-  if (ts) parts.push(`ts:${ts}`);
+  parts.push(`ts:${ts}`);
   return parts.join(";") + ";";
 }
 
@@ -112,6 +120,17 @@ export async function POST(request: NextRequest) {
       // de infraestructura (proxy que pisa headers, etc.).
       const xSignatureHeader = request.headers.get("x-signature");
       const xRequestIdHeader = request.headers.get("x-request-id");
+      const ts = extraerDeXSignature(xSignatureHeader, "ts");
+      const manifest = armarManifest(dataId, xRequestIdHeader, ts);
+      // Cálculo del HMAC hecho acá mismo, en paralelo al del SDK -- si
+      // "coincide" da true, el bug NO es el secreto ni el manifest (algo
+      // anda mal en la llamada al validador del SDK); si da false, confirma
+      // que el runtime está firmando distinto a como Mercado Pago firmó, y
+      // el secretPreview (nunca el secreto completo) ayuda a distinguir "el
+      // secreto cargado en Vercel no es el que creo que es" de un bug de
+      // otro tipo, sin exponerlo en texto plano en los logs.
+      const firmaCalculadaAca = ts ? createHmac("sha256", webhookSecret).update(manifest).digest("hex") : undefined;
+      const firmaRecibida = extraerDeXSignature(xSignatureHeader, "v1");
       console.error("Webhook de Mercado Pago con firma inválida", {
         reason,
         dataId,
@@ -121,9 +140,13 @@ export async function POST(request: NextRequest) {
         xSignature: xSignatureHeader,
         secretLength: webhookSecret.length,
         secretLengthSinTrim: rawWebhookSecret?.length,
+        secretPreview: `${webhookSecret.slice(0, 4)}...${webhookSecret.slice(-4)}`,
         // Texto plano exacto que se le pasa al HMAC -- comparar carácter a
         // carácter contra el ejemplo de la doc oficial de Mercado Pago.
-        manifest: armarManifest(dataId, xRequestIdHeader, extraerTsDeXSignature(xSignatureHeader)),
+        manifest,
+        firmaRecibida,
+        firmaCalculadaAca,
+        firmasCoinciden: firmaCalculadaAca && firmaRecibida ? firmaCalculadaAca === firmaRecibida : undefined,
       });
       return NextResponse.json({ error: "firma inválida" }, { status: 401 });
     }

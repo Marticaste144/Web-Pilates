@@ -762,6 +762,71 @@ producción a pedido no debería quedar vivo indefinidamente. El asistente
 tiene un recordatorio propio armado para este pendiente; igual conviene que
 quede anotado acá por si el proyecto sigue por otro canal.
 
+### Fix (parte 4, en curso): 401 real con credenciales de producción, después de las partes 1-3
+
+Con `MERCADOPAGO_ACCESS_TOKEN`/`NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY` ya en
+producción (`APP_USR-...`) y el secreto de "Modo productivo" confirmado
+idéntico al de Vercel, un pago real (tarjeta real, aprobado del lado de
+Mercado Pago) siguió dando 401 en el webhook. Como nunca se había llegado a
+confirmar el circuito completo con un pago real (ni en modo prueba ni en
+productivo), no se puede dar por buena ninguna de las partes 1-3 hasta
+verlo pasar de punta a punta.
+
+Se leyó el código fuente compilado del SDK
+(`node_modules/mercadopago/dist/utils/webhook/index.js`) línea por línea
+contra la réplica local (`armarManifest` en `webhook/route.ts`, usada solo
+para el log) y se encontró una diferencia real: `buildManifest()` del SDK
+agrega `ts:` al manifest **siempre**, mientras que la réplica local solo lo
+agregaba si `ts` era truthy. En la práctica no cambia nada (`ts` siempre
+está presente en este punto del flujo -- si faltara, el SDK ya habría
+tirado `MissingTimestamp` antes de construir el manifest), pero se corrigió
+igual para que el manifest logueado sea una réplica exacta, byte a byte,
+de lo que el SDK realmente usa -- necesario para poder confiar en el
+próximo punto.
+
+**Logging agregado** en `webhook/route.ts` (temporal, mismo criterio que
+`debug-secret`): además de lo que ya se logueaba (`reason`, `dataId`,
+`secretLength`), ahora también calcula acá mismo -- en paralelo, con el
+mismo secreto y el mismo manifest -- el HMAC-SHA256 esperado, y lo compara
+contra el `v1` recibido en el header `x-signature`:
+- `secretPreview`: primeros y últimos 4 caracteres del secreto (nunca el
+  valor completo), para poder confirmar a simple vista si el runtime tiene
+  la clave que se cree que tiene, sin exponerla.
+- `firmaRecibida` / `firmaCalculadaAca` / `firmasCoinciden`: si da `true`
+  a pesar de que el validador del SDK rechazó la request, el bug no es el
+  secreto ni el manifest -- hay algo raro en la llamada al SDK. Si da
+  `false`, confirma que el runtime está firmando distinto a como Mercado
+  Pago firmó ese request puntual.
+
+**Cómo revisar el próximo intento fallido, sin esperar otro pago real:**
+`GET /api/mercadopago/debug-secret` ya soportaba (desde la parte 3) correr
+el validador REAL del SDK contra valores sueltos pasados por query string,
+usando el secreto que Vercel tiene cargado *en ese momento* -- es la forma
+más directa de reproducir un 401 ya ocurrido sin necesitar otro pago:
+
+```bash
+curl -G -s -H "x-debug-token: <MERCADOPAGO_DEBUG_TOKEN>" \
+  --data-urlencode "dataId=<payment id real>" \
+  --data-urlencode "xRequestId=<valor exacto del header x-request-id que mandó Mercado Pago>" \
+  --data-urlencode "xSignature=<valor exacto del header x-signature que mandó Mercado Pago>" \
+  "https://tu-dominio/api/mercadopago/debug-secret"
+```
+
+Los valores de `x-request-id`/`x-signature` que Mercado Pago mandó para un
+evento puntual están en su panel → Webhooks → Modo productivo → detalle del
+evento (o en los logs de Vercel para ese mismo request, si el log de más
+arriba ya corrió). La respuesta dice `PASÓ`/`FALLÓ` corriendo el mismo
+código que corre en producción -- no hace falta un pago nuevo para
+confirmar si un fix funciona.
+
+**Pendiente de este mismo apartado:** confirmar con datos reales (`PASÓ`/
+`FALLÓ` del comando de arriba, o el log ya mejorado de un próximo intento)
+antes de dar el bug por cerrado -- ver el chat para el resultado concreto
+una vez confirmado. Como en la parte 3, este apartado y todo el código de
+diagnóstico temporal (`debug-secret`, el logging extra de acá) se sacan
+recién cuando el circuito completo (pago real → webhook 200 →
+`pagos.estado = 'aprobado'`) se haya visto pasar al menos una vez.
+
 ## Paso 6: notificaciones por email (Resend)
 
 Se eligió **email en vez de push del navegador** (decisión del usuario: más
