@@ -15,6 +15,7 @@ MUV POSTURAL, MUV PILATES) — inscripciones, cuotas, asistencia y avisos, con
 4. ✅ Pantalla de login (web y mobile)
 5. ✅ Pantallas funcionales por rol -- 5a Admin ✅ · 5b Alumno ✅ · 5c Profesor ✅ · 5d Mercado Pago ✅
 6. ✅ Notificaciones automáticas por email (Resend) -- lugar liberado en lista de espera, cuota por vencer/vencida, avisos de la admin
+7. ✅ Sistema de diseño -- paleta de marca, tipografía, componentes UI reutilizables, rediseño de todas las pantallas
 
 ## Setup
 
@@ -898,6 +899,96 @@ disparándose solo en producción.
 si el destinatario de prueba es la MISMA casilla con la que te registraste
 en Resend -- para alumnos reales hace falta el dominio propio verificado
 (ver "Configurar" más arriba).
+
+## Paso 7: sistema de diseño (paleta, tipografía, componentes, todas las pantallas)
+
+Pase de estética de punta a punta sobre las 21 pantallas existentes, sin tocar
+lógica de negocio.
+
+### Paleta
+
+Formalizada en `app/globals.css` (Tailwind v4, tokens con `@theme`): **no es
+un cambio de color** -- el azul (`primary`) y el turquesa (`secondary`) parten
+de los hex que ya se venían usando sueltos desde el paso 4
+(`#2f7cd6`/`#2bbfa6`/`#15806c` en `components/auth/auth-hero.tsx`, elegidos en
+su momento para evocar el isotipo real de MUV). Acá se les arma una escala
+completa (50 a 900) para tener variantes de hover/texto/fondo consistentes en
+vez de un solo tono suelto. Se suman:
+
+- `neutral`: grises cálidos (no el slate/gray frío por default de Tailwind).
+- `success`/`warning`/`error`/`info`: semánticos, `success` alias de
+  `secondary` (el turquesa de la marca) e `info` alias de `primary`.
+
+### Isotipo
+
+El PNG que se adjuntó en el chat (`laura-pagola-isotipo_2000px.png`) **no
+llegó accesible como archivo en este entorno** -- se pudo ver dentro de la
+conversación pero no localizarlo en el filesystem para copiarlo al proyecto
+(se buscó en `/root/.claude/uploads/`, `/tmp/`, y variantes, sin éxito).
+En su lugar, `components/ui/isotipo.tsx` es una reconstrucción en SVG con los
+mismos colores de marca ya validados (círculo con degradé azul→turquesa,
+cuña verde azulado más oscura abajo a la izquierda, curvas y acento circular
+en blanco). Se usa en:
+
+- El header de cada rol (`components/role-shell.tsx`).
+- El hero de login/signup (`components/auth/auth-hero.tsx`).
+- El favicon (`app/icon.svg` -- Next.js lo detecta solo por convención de
+  archivo, no hizo falta convertir a `.ico`) y `public/manifest.json`.
+
+**Si conseguís el archivo real** (subido a la carpeta `public/` del repo, o
+un link descargable), reemplazar `Isotipo` por una imagen (`<Image>` de
+`next/image`) es un cambio chico y localizado a ese único componente.
+
+### Componentes (`components/ui/`)
+
+`Button`/`LinkButton` (primario, secundario outline, destructivo, ghost,
+estado `loading` con spinner), `Field`/`Input`/`Select`/`Textarea` (foco
+visible, error inline), `Card`, `Badge` (success/warning/error/info/neutral),
+`Alert`/`FormAlert` (banner con ícono, uno por tipo), `Skeleton`/`Spinner`,
+`EmptyState`, `PageHeader`, `ConfirmButton` (diálogo de confirmación propio
+para acciones destructivas como darse de baja -- no `window.confirm`, para
+que se vea consistente con el resto), y `NavBar`/`Isotipo` para el header.
+
+### Nav mobile-first
+
+`NavBar` (un solo componente para los 3 roles) renderiza una fila horizontal
+arriba en desktop y una tab bar fija abajo en mobile -- la mayoría de los
+alumnos entra desde el celular, así que ahí una tab bar con íconos es más
+cómoda que un nav horizontal apretado. `app/admin/loading.tsx`,
+`app/alumno/loading.tsx` y `app/profesor/loading.tsx` (skeletons) evitan que
+la navegación entre pantallas muestre una pantalla en blanco mientras carga
+la siguiente; `app/not-found.tsx` reemplaza el 404 genérico de Next.js.
+
+### Bug real encontrado y corregido en el camino
+
+`NavBar` originalmente recibía un prop `links` armado por `AlumnoNav`/
+`ProfesorNav`/`AdminNav` (Server Components) con referencias a los
+componentes de ícono -- es decir, funciones -- pasadas hacia `NavBar`
+(Client Component). React no puede serializar una función cruzando ese
+límite server/client, así que esto rompía en runtime con "Functions cannot
+be passed directly to Client Components". **`next build` no lo detectaba**
+porque las rutas de admin/alumno/profesor son `force-dynamic` (nunca se
+prerenderizan, así que Next.js nunca llega a intentar renderizarlas durante
+el build). Se encontró recién al armar una página de prueba temporal SIN
+`force-dynamic` para verificar el nav con Playwright -- esa sí se
+prerenderizó, y ahí saltó el error real. Se corrigió resolviendo los links
+DENTRO del propio módulo cliente de `NavBar` (que ahora solo recibe un
+`role: "admin" | "alumno" | "profesor"`, un string, en vez de la lista con
+los componentes).
+
+### Validado
+
+`tsc`/`eslint`/`next build` limpios después de cada bloque de cambios
+(paleta+tipografía, componentes base, nav/header, cada grupo de pantallas).
+Verificado visualmente con Playwright contra un build real (`next start` +
+capturas de pantalla): login mobile y desktop, signup, forgot-password, home
+pública, y una página de prueba armando el shell de nav + header (borrada
+antes de cada commit) -- confirmó la paleta, la tipografía, los componentes
+base, y el bug de `NavBar` de arriba. **No se pudieron verificar visualmente
+las pantallas autenticadas reales** (admin/alumno/profesor con sesión real)
+porque este entorno no tiene credenciales de Supabase reales -- quedan
+validadas por build + lint + revisión de código, mismo patrón usado en el
+resto del proyecto para todo lo que depende de un backend real.
 
 ## Deploy
 
