@@ -921,23 +921,29 @@ vez de un solo tono suelto. Se suman:
 
 ### Isotipo
 
-El PNG que se adjuntó en el chat (`laura-pagola-isotipo_2000px.png`) **no
-llegó accesible como archivo en este entorno** -- se pudo ver dentro de la
-conversación pero no localizarlo en el filesystem para copiarlo al proyecto
-(se buscó en `/root/.claude/uploads/`, `/tmp/`, y variantes, sin éxito).
-En su lugar, `components/ui/isotipo.tsx` es una reconstrucción en SVG con los
-mismos colores de marca ya validados (círculo con degradé azul→turquesa,
-cuña verde azulado más oscura abajo a la izquierda, curvas y acento circular
-en blanco). Se usa en:
+El PNG original (`laura-pagola-isotipo_2000px.png`) no llegó accesible como
+archivo en el entorno donde se armó el sistema de diseño -- se vio en el
+chat pero no se pudo localizar en el filesystem para copiarlo al proyecto.
+Como solución temporal se reconstruyó como SVG con los mismos colores de
+marca (`components/ui/isotipo.tsx`). Una vez que el usuario subió el archivo
+real directo a GitHub (`public/laura-pagola-isotipo@2000px.png`, 2000x2000,
+fondo transparente), `Isotipo` se reescribió para usar ese archivo real vía
+`next/image` (`fill` + un wrapper `position: relative`, así el tamaño lo
+sigue controlando el `className` de cada lugar que lo usa, sin tener que
+tocar los call sites). Se usa en:
 
 - El header de cada rol (`components/role-shell.tsx`).
 - El hero de login/signup (`components/auth/auth-hero.tsx`).
-- El favicon (`app/icon.svg` -- Next.js lo detecta solo por convención de
-  archivo, no hizo falta convertir a `.ico`) y `public/manifest.json`.
-
-**Si conseguís el archivo real** (subido a la carpeta `public/` del repo, o
-un link descargable), reemplazar `Isotipo` por una imagen (`<Image>` de
-`next/image`) es un cambio chico y localizado a ese único componente.
+- El favicon: `app/icon.png` (512×512) y `app/apple-icon.png` (180×180,
+  ícono de pantalla de inicio en iOS) -- Next.js los detecta solo por
+  convención de archivo. Ambos generados con `sharp` a partir del PNG
+  original (ya es una dependencia del proyecto, no hizo falta instalar
+  nada nuevo).
+- `public/manifest.json`: `public/icons/icon-192.png` y
+  `.../icon-512.png` (tamaños estándar de PWA), también generados con
+  `sharp`. Se usa `purpose: "any"` (no `"maskable"`): el isotipo es un
+  círculo a sangre sin margen de seguridad, así que marcarlo maskable
+  haría que Android lo recorte mal al aplicar su máscara.
 
 ### Componentes (`components/ui/`)
 
