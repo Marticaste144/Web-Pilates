@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
+import { WebhookSignatureValidator, InvalidWebhookSignatureError } from "mercadopago";
 
 // ⚠️ ENDPOINT TEMPORAL DE DIAGNÓSTICO -- SACAR ANTES DE CERRAR EL PASO 5d. ⚠️
 // Sirve para confirmar, sin que el secreto real circule nunca por ningún
@@ -44,6 +45,21 @@ function calcular(secret: string, input: string) {
   });
 }
 
+// Misma lógica que /api/mercadopago/webhook -- duplicada acá a propósito
+// (este archivo entero es temporal) para armar el manifest a partir de
+// piezas sueltas pasadas por query string, sin que el cliente tenga que
+// mandar un string ya armado con ":"/";" adentro de un body JSON -- eso
+// obliga a escapar bien en PowerShell/curl y es una fuente de errores de
+// transcripción que no tiene nada que ver con el bug real que se está
+// buscando.
+function armarManifest(dataId: string, xRequestId: string | null, ts: string | null): string {
+  const parts: string[] = [];
+  if (dataId) parts.push(`id:${dataId}`);
+  if (xRequestId) parts.push(`request-id:${xRequestId}`);
+  if (ts) parts.push(`ts:${ts}`);
+  return parts.join(";") + ";";
+}
+
 export async function GET(request: NextRequest) {
   if (!tokenValido(request)) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
@@ -55,6 +71,43 @@ export async function GET(request: NextRequest) {
       { ok: false, message: "MERCADOPAGO_WEBHOOK_SECRET no está configurado en este entorno." },
       { status: 200 },
     );
+  }
+
+  const dataId = request.nextUrl.searchParams.get("dataId");
+  const xRequestId = request.nextUrl.searchParams.get("xRequestId");
+  const ts = request.nextUrl.searchParams.get("ts");
+  const xSignature = request.nextUrl.searchParams.get("xSignature");
+
+  // Si viene xSignature, se corre el validador REAL (el mismo que usa
+  // /api/mercadopago/webhook) contra estos valores -- la prueba más
+  // autoritativa posible, porque es literalmente el mismo código, no una
+  // reimplementación para diagnóstico.
+  if (xSignature) {
+    try {
+      WebhookSignatureValidator.validate({
+        xSignature,
+        xRequestId,
+        dataId: dataId ?? "",
+        secret,
+        toleranceSeconds: 10 ** 9, // no importa el drift de reloj para este test puntual
+      });
+      return NextResponse.json({ ok: true, validatorReal: "PASÓ" });
+    } catch (err) {
+      const reason = err instanceof InvalidWebhookSignatureError ? err.reason : "desconocido";
+      return NextResponse.json({
+        ok: false,
+        validatorReal: "FALLÓ",
+        reason,
+        manifest: armarManifest(dataId ?? "", xRequestId, ts),
+        hmacSha256Calculado: createHmac("sha256", secret)
+          .update(armarManifest(dataId ?? "", xRequestId, ts))
+          .digest("hex"),
+      });
+    }
+  }
+
+  if (dataId || xRequestId || ts) {
+    return calcular(secret, armarManifest(dataId ?? "", xRequestId, ts));
   }
 
   return calcular(secret, STRING_FIJO);
