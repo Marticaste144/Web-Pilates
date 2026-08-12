@@ -12,7 +12,7 @@ export function ToggleActivaButton({ id, activa }: { id: string; activa: boolean
       disabled={pending}
       onClick={() => startTransition(() => cambiarActivaClase(id, !activa))}
       className={`rounded-full px-3 py-1 text-xs font-medium disabled:opacity-50 ${
-        activa ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"
+        activa ? "bg-success-100 text-success-700" : "bg-neutral-200 text-neutral-600"
       }`}
     >
       {activa ? "Activa" : "Inactiva"}

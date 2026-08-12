@@ -2,6 +2,8 @@ import Link from "next/link";
 import { listarProfesores } from "@/lib/admin/profesores-data";
 import { InvitarProfesorForm } from "./invitar-form";
 import { ToggleActivoButton } from "./toggle-activo-button";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
@@ -10,44 +12,46 @@ export default async function ProfesoresPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Profesores</h1>
-        <p className="text-slate-500">Invitá profesores y editá sus datos.</p>
-      </div>
+      <PageHeader title="Profesores" subtitle="Invitá profesores y editá sus datos." />
 
-      <InvitarProfesorForm />
+      <Card>
+        <InvitarProfesorForm />
+      </Card>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <Card padded={false} className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500">
+          <thead className="bg-neutral-50 text-neutral-500">
             <tr>
-              <th className="px-4 py-2">Nombre</th>
-              <th className="px-4 py-2">Email</th>
-              <th className="px-4 py-2">Teléfono</th>
-              <th className="px-4 py-2">Estado</th>
-              <th className="px-4 py-2" />
+              <th className="px-4 py-3 font-medium">Nombre</th>
+              <th className="px-4 py-3 font-medium">Email</th>
+              <th className="px-4 py-3 font-medium">Teléfono</th>
+              <th className="px-4 py-3 font-medium">Estado</th>
+              <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
             {profesores.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-neutral-400">
                   Todavía no hay profesores invitados.
                 </td>
               </tr>
             )}
             {profesores.map((p) => (
-              <tr key={p.profileId} className="border-t border-slate-100">
-                <td className="px-4 py-2 font-medium text-slate-900">
+              <tr key={p.profileId} className="border-t border-neutral-100">
+                <td className="px-4 py-3 font-medium text-neutral-900">
                   {p.nombre} {p.apellido}
                 </td>
-                <td className="px-4 py-2 text-slate-600">{p.email}</td>
-                <td className="px-4 py-2 text-slate-600">{p.telefono ?? "-"}</td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-3 text-neutral-600">{p.email}</td>
+                <td className="px-4 py-3 text-neutral-600">{p.telefono ?? "-"}</td>
+                <td className="px-4 py-3">
                   <ToggleActivoButton profileId={p.profileId} activo={p.activo} />
                 </td>
-                <td className="px-4 py-2 text-right">
-                  <Link href={`/admin/profesores/${p.profileId}`} className="text-[#2f7cd6] hover:underline">
+                <td className="px-4 py-3 text-right">
+                  <Link
+                    href={`/admin/profesores/${p.profileId}`}
+                    className="font-medium text-primary-600 hover:underline"
+                  >
                     Editar
                   </Link>
                 </td>
@@ -55,7 +59,7 @@ export default async function ProfesoresPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </Card>
     </div>
   );
 }

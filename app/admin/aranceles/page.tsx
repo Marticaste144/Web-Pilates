@@ -1,5 +1,7 @@
 import { listarArancelesVigentes } from "@/lib/admin/aranceles-data";
 import { ArancelCell } from "./arancel-cell";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
@@ -11,20 +13,18 @@ export default async function ArancelesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Aranceles</h1>
-        <p className="text-slate-500">
-          Un cambio no pisa el histórico: queda una fila nueva vigente desde hoy.
-        </p>
-      </div>
+      <PageHeader
+        title="Aranceles"
+        subtitle="Un cambio no pisa el histórico: queda una fila nueva vigente desde hoy."
+      />
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <Card padded={false} className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500">
+          <thead className="bg-neutral-50 text-neutral-500">
             <tr>
-              <th className="px-4 py-3">Sede</th>
+              <th className="px-4 py-3 font-medium">Sede</th>
               {frecuencias.map((f) => (
-                <th key={f} className="px-4 py-3">
+                <th key={f} className="px-4 py-3 font-medium">
                   {f} {f === 1 ? "vez" : "veces"} / semana
                 </th>
               ))}
@@ -32,8 +32,8 @@ export default async function ArancelesPage() {
           </thead>
           <tbody>
             {sedes.map(([sedeId, sedeNombre]) => (
-              <tr key={sedeId} className="border-t border-slate-100">
-                <td className="px-4 py-3 font-medium text-slate-900">{sedeNombre}</td>
+              <tr key={sedeId} className="border-t border-neutral-100">
+                <td className="px-4 py-3 font-medium text-neutral-900">{sedeNombre}</td>
                 {frecuencias.map((f) => {
                   const item = aranceles.find((a) => a.sedeId === sedeId && a.clasesPorSemana === f);
                   return (
@@ -45,7 +45,7 @@ export default async function ArancelesPage() {
                           valorMensual={item.valorMensual}
                         />
                       ) : (
-                        <span className="text-slate-400">sin definir</span>
+                        <span className="text-neutral-400">sin definir</span>
                       )}
                     </td>
                   );
@@ -54,7 +54,7 @@ export default async function ArancelesPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </Card>
     </div>
   );
 }

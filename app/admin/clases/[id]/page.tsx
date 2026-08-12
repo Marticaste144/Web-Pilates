@@ -4,6 +4,8 @@ import { obtenerClase, listarSedes, listarProfesoresParaSelect } from "@/lib/adm
 import { actualizarClase } from "@/lib/admin/clases-actions";
 import { ClaseForm } from "../clase-form";
 import { ToggleActivaButton } from "../toggle-activa-button";
+import { Card } from "@/components/ui/card";
+import { ChevronRightIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -26,24 +28,30 @@ export default async function EditarClasePage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href="/admin/clases" className="text-sm text-[#2f7cd6] hover:underline">
-          ← Volver
+        <Link
+          href="/admin/clases"
+          className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:underline"
+        >
+          <ChevronRightIcon className="h-3.5 w-3.5 rotate-180" />
+          Volver
         </Link>
-        <div className="mt-2 flex items-center gap-3">
-          <h1 className="text-xl font-bold text-slate-900">
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-bold text-neutral-900 sm:text-2xl">
             {clase.sedeNombre} -- {clase.profesorNombre}
           </h1>
           <ToggleActivaButton id={clase.id} activa={clase.activa} />
         </div>
       </div>
 
-      <ClaseForm
-        action={actualizarClase}
-        sedes={sedes}
-        profesores={profesores}
-        clase={clase}
-        submitLabel="Guardar cambios"
-      />
+      <Card>
+        <ClaseForm
+          action={actualizarClase}
+          sedes={sedes}
+          profesores={profesores}
+          clase={clase}
+          submitLabel="Guardar cambios"
+        />
+      </Card>
     </div>
   );
 }

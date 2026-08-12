@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Spinner } from "@/components/ui/skeleton";
+import { Alert } from "@/components/ui/alert";
 
 // Los links de invitación (auth.admin.inviteUserByEmail) NO soportan el
 // flujo PKCE que usa /auth/confirm (documentado así en supabase-js: el
@@ -26,16 +28,19 @@ export default function AuthCallbackPage() {
   }, [router]);
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
+    <main className="flex flex-1 flex-col items-center justify-center gap-3 bg-neutral-50 p-8 text-center">
       {failed ? (
-        <>
-          <p className="font-semibold text-slate-900">El link no es válido o ya expiró.</p>
-          <a href="/login" className="text-sm text-[#2f7cd6] hover:underline">
+        <div className="flex max-w-xs flex-col items-center gap-3">
+          <Alert variant="error">El link no es válido o ya expiró.</Alert>
+          <a href="/login" className="text-sm font-medium text-primary-600 hover:underline">
             Volver a iniciar sesión
           </a>
-        </>
+        </div>
       ) : (
-        <p className="text-slate-500">Ingresando...</p>
+        <>
+          <Spinner />
+          <p className="text-neutral-500">Ingresando...</p>
+        </>
       )}
     </main>
   );

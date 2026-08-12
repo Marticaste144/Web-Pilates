@@ -4,6 +4,9 @@ import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { crearClase } from "@/lib/admin/clases-actions";
 import { ClaseForm } from "./clase-form";
 import { ToggleActivaButton } from "./toggle-activa-button";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 
 export const dynamic = "force-dynamic";
 
@@ -18,61 +21,58 @@ export default async function ClasesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Clases</h1>
-        <p className="text-slate-500">Asigná día, horario, sede y profesor/a de cada clase.</p>
-      </div>
+      <PageHeader title="Clases" subtitle="Asigná día, horario, sede y profesor/a de cada clase." />
 
-      <div className="rounded-xl border border-slate-200 p-4">
-        <h2 className="mb-3 font-semibold text-slate-900">Nueva clase</h2>
+      <Card>
+        <h2 className="mb-3 font-semibold text-neutral-900">Nueva clase</h2>
         {profesores.length === 0 ? (
-          <p className="text-sm text-slate-500">
+          <Alert variant="info">
             Todavía no hay profesores invitados --{" "}
-            <Link href="/admin/profesores" className="text-[#2f7cd6] hover:underline">
+            <Link href="/admin/profesores" className="font-medium underline">
               invitá uno primero
             </Link>
             .
-          </p>
+          </Alert>
         ) : (
           <ClaseForm action={crearClase} sedes={sedes} profesores={profesores} submitLabel="Crear clase" />
         )}
-      </div>
+      </Card>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <Card padded={false} className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500">
+          <thead className="bg-neutral-50 text-neutral-500">
             <tr>
-              <th className="px-4 py-2">Sede</th>
-              <th className="px-4 py-2">Día</th>
-              <th className="px-4 py-2">Horario</th>
-              <th className="px-4 py-2">Profesor/a</th>
-              <th className="px-4 py-2">Cupo</th>
-              <th className="px-4 py-2">Estado</th>
-              <th className="px-4 py-2" />
+              <th className="px-4 py-3 font-medium">Sede</th>
+              <th className="px-4 py-3 font-medium">Día</th>
+              <th className="px-4 py-3 font-medium">Horario</th>
+              <th className="px-4 py-3 font-medium">Profesor/a</th>
+              <th className="px-4 py-3 font-medium">Cupo</th>
+              <th className="px-4 py-3 font-medium">Estado</th>
+              <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
             {clases.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-neutral-400">
                   Todavía no hay clases cargadas.
                 </td>
               </tr>
             )}
             {clases.map((c) => (
-              <tr key={c.id} className="border-t border-slate-100">
-                <td className="px-4 py-2 text-slate-900">{c.sedeNombre}</td>
-                <td className="px-4 py-2 text-slate-600">{diaLabel(c.diaSemana)}</td>
-                <td className="px-4 py-2 text-slate-600">
+              <tr key={c.id} className="border-t border-neutral-100">
+                <td className="px-4 py-3 text-neutral-900">{c.sedeNombre}</td>
+                <td className="px-4 py-3 text-neutral-600">{diaLabel(c.diaSemana)}</td>
+                <td className="px-4 py-3 text-neutral-600">
                   {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
                 </td>
-                <td className="px-4 py-2 text-slate-600">{c.profesorNombre}</td>
-                <td className="px-4 py-2 text-slate-600">{c.cupo}</td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-3 text-neutral-600">{c.profesorNombre}</td>
+                <td className="px-4 py-3 text-neutral-600">{c.cupo}</td>
+                <td className="px-4 py-3">
                   <ToggleActivaButton id={c.id} activa={c.activa} />
                 </td>
-                <td className="px-4 py-2 text-right">
-                  <Link href={`/admin/clases/${c.id}`} className="text-[#2f7cd6] hover:underline">
+                <td className="px-4 py-3 text-right">
+                  <Link href={`/admin/clases/${c.id}`} className="font-medium text-primary-600 hover:underline">
                     Editar
                   </Link>
                 </td>
@@ -80,7 +80,7 @@ export default async function ClasesPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </Card>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { actualizarArancel } from "@/lib/admin/aranceles-actions";
 import { initialFormState } from "@/lib/form-state";
+import { Button } from "@/components/ui/button";
 
 export function ArancelCell({
   sedeId,
@@ -20,24 +21,20 @@ export function ArancelCell({
       <input type="hidden" name="sede_id" value={sedeId} />
       <input type="hidden" name="clases_por_semana" value={clasesPorSemana} />
       <div className="flex items-center gap-2">
-        <span className="text-slate-400">$</span>
+        <span className="text-neutral-400">$</span>
         <input
           type="number"
           name="valor_mensual"
           min={1}
           defaultValue={valorMensual}
-          className="w-24 rounded-lg border border-slate-300 px-2 py-1 text-sm focus:border-[#2f7cd6] focus:outline-none"
+          className="w-24 rounded-lg border border-neutral-300 px-2 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
         />
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-lg bg-[#2f7cd6] px-3 py-1 text-xs font-semibold text-white hover:bg-[#2568b8] disabled:opacity-50"
-        >
-          {pending ? "..." : "Guardar"}
-        </button>
+        <Button type="submit" size="sm" loading={pending} className="px-3 py-1">
+          Guardar
+        </Button>
       </div>
-      {state.status === "error" && <p className="text-xs text-red-600">{state.message}</p>}
-      {state.status === "success" && <p className="text-xs text-emerald-600">Guardado</p>}
+      {state.status === "error" && <p className="text-xs text-error-600">{state.message}</p>}
+      {state.status === "success" && <p className="text-xs text-success-600">Guardado</p>}
     </form>
   );
 }

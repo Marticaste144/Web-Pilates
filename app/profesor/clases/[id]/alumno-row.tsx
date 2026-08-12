@@ -5,16 +5,18 @@ import { marcarAsistencia } from "@/lib/profesor/asistencia-actions";
 import { actualizarDatosAlumno } from "@/lib/profesor/alumno-actions";
 import { initialFormState } from "@/lib/form-state";
 import type { AlumnoRosterItem } from "@/lib/profesor/clases-data";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
+import { FormAlert } from "@/components/ui/form-alert";
 
-const CUOTA_LABEL: Record<string, { texto: string; clase: string }> = {
-  al_dia: { texto: "Cuota al día", clase: "bg-emerald-100 text-emerald-700" },
-  por_vencer: { texto: "Cuota por vencer", clase: "bg-amber-100 text-amber-700" },
-  vencida: { texto: "Cuota vencida", clase: "bg-red-100 text-red-700" },
-  sin_pagos: { texto: "Sin pagos registrados", clase: "bg-slate-100 text-slate-600" },
+const CUOTA_VARIANT: Record<string, { texto: string; variant: "success" | "warning" | "error" | "neutral" }> = {
+  al_dia: { texto: "Cuota al día", variant: "success" },
+  por_vencer: { texto: "Cuota por vencer", variant: "warning" },
+  vencida: { texto: "Cuota vencida", variant: "error" },
+  sin_pagos: { texto: "Sin pagos registrados", variant: "neutral" },
 };
-
-const inputClass =
-  "rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#2f7cd6] focus:outline-none";
 
 export function AlumnoRow({
   alumno,
@@ -37,23 +39,21 @@ export function AlumnoRow({
     });
   };
 
-  const cuota = CUOTA_LABEL[alumno.cuotaEstado];
+  const cuota = CUOTA_VARIANT[alumno.cuotaEstado];
 
   return (
-    <div className="rounded-xl border border-slate-200 p-4">
+    <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="font-medium text-slate-900">
+        <div className="min-w-0">
+          <p className="font-medium text-neutral-900">
             {alumno.nombre} {alumno.apellido}
           </p>
           <div className="mt-1 flex items-center gap-2">
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cuota.clase}`}>
-              {cuota.texto}
-            </span>
+            <Badge variant={cuota.variant}>{cuota.texto}</Badge>
             <button
               type="button"
               onClick={() => setEditando((v) => !v)}
-              className="text-xs text-[#2f7cd6] hover:underline"
+              className="text-xs font-medium text-primary-600 hover:underline"
             >
               {editando ? "Cancelar" : "Editar datos"}
             </button>
@@ -66,10 +66,10 @@ export function AlumnoRow({
               type="button"
               disabled={pending}
               onClick={() => marcar("presente")}
-              className={`rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-50 ${
+              className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
                 alumno.asistenciaEstado === "presente"
-                  ? "bg-emerald-600 text-white"
-                  : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                  ? "bg-success-600 text-white"
+                  : "bg-success-100 text-success-700 hover:bg-success-200"
               }`}
             >
               Presente
@@ -78,51 +78,43 @@ export function AlumnoRow({
               type="button"
               disabled={pending}
               onClick={() => marcar("ausente")}
-              className={`rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-50 ${
+              className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
                 alumno.asistenciaEstado === "ausente"
-                  ? "bg-slate-600 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-neutral-600 text-white"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
               }`}
             >
               Ausente
             </button>
           </div>
-          {asistenciaMsg && <p className="text-xs text-slate-500">{asistenciaMsg}</p>}
+          {asistenciaMsg && <p className="text-xs text-neutral-500">{asistenciaMsg}</p>}
         </div>
       </div>
 
       {editando && (
-        <form action={editAction} className="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
+        <form action={editAction} className="mt-4 flex flex-col gap-3 border-t border-neutral-100 pt-4">
           <input type="hidden" name="alumno_id" value={alumno.alumnoId} />
           <input type="hidden" name="clase_id" value={claseId} />
 
-          <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-            Nombre
-            <input name="nombre" defaultValue={alumno.nombre} required className={inputClass} />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-            Apellido
-            <input name="apellido" defaultValue={alumno.apellido} required className={inputClass} />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-            Teléfono
-            <input name="telefono" defaultValue={alumno.telefono ?? ""} className={inputClass} />
-          </label>
+          <div className="flex flex-wrap gap-3">
+            <Field label="Nombre" className="min-w-0 flex-1">
+              <Input name="nombre" defaultValue={alumno.nombre} required />
+            </Field>
+            <Field label="Apellido" className="min-w-0 flex-1">
+              <Input name="apellido" defaultValue={alumno.apellido} required />
+            </Field>
+            <Field label="Teléfono" className="min-w-0 flex-1">
+              <Input name="telefono" defaultValue={alumno.telefono ?? ""} />
+            </Field>
+          </div>
 
-          <button
-            type="submit"
-            disabled={editPending}
-            className="rounded-lg bg-[#2f7cd6] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2568b8] disabled:opacity-50"
-          >
-            {editPending ? "Guardando..." : "Guardar"}
-          </button>
+          <FormAlert state={editState} />
 
-          {editState.status === "error" && <p className="text-xs text-red-600">{editState.message}</p>}
-          {editState.status === "success" && (
-            <p className="text-xs text-emerald-600">{editState.message}</p>
-          )}
+          <Button type="submit" loading={editPending} size="sm" className="self-start">
+            Guardar
+          </Button>
         </form>
       )}
-    </div>
+    </Card>
   );
 }

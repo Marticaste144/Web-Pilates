@@ -5,9 +5,9 @@ import type { FormState } from "@/lib/form-state";
 import { initialFormState } from "@/lib/form-state";
 import type { ProfesorSelectItem, SedeItem, ClaseListItem } from "@/lib/admin/clases-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
-
-const inputClass =
-  "rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#2f7cd6] focus:outline-none";
+import { Field, Select, Input } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
+import { FormAlert } from "@/components/ui/form-alert";
 
 export function ClaseForm({
   action,
@@ -25,13 +25,12 @@ export function ClaseForm({
   const [state, formAction, pending] = useActionState(action, initialFormState);
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
+    <form action={formAction} className="flex flex-col gap-4">
       {clase && <input type="hidden" name="id" value={clase.id} />}
 
       <div className="flex flex-wrap gap-3">
-        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-          Sede
-          <select name="sede_id" defaultValue={clase?.sedeId ?? ""} required className={inputClass}>
+        <Field label="Sede" className="min-w-[9rem] flex-1">
+          <Select name="sede_id" defaultValue={clase?.sedeId ?? ""} required>
             <option value="" disabled>
               Elegir sede
             </option>
@@ -40,12 +39,11 @@ export function ClaseForm({
                 {s.nombre}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
 
-        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-          Profesor/a
-          <select name="profesor_id" defaultValue={clase?.profesorId ?? ""} required className={inputClass}>
+        <Field label="Profesor/a" className="min-w-[9rem] flex-1">
+          <Select name="profesor_id" defaultValue={clase?.profesorId ?? ""} required>
             <option value="" disabled>
               Elegir profesor/a
             </option>
@@ -55,12 +53,11 @@ export function ClaseForm({
                 {!p.activo ? " (inactivo)" : ""}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
 
-        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-          Día
-          <select name="dia_semana" defaultValue={clase?.diaSemana ?? ""} required className={inputClass}>
+        <Field label="Día" className="min-w-[8rem] flex-1">
+          <Select name="dia_semana" defaultValue={clase?.diaSemana ?? ""} required>
             <option value="" disabled>
               Elegir día
             </option>
@@ -69,54 +66,27 @@ export function ClaseForm({
                 {d.label}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
 
-        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-          Hora inicio
-          <input
-            type="time"
-            name="hora_inicio"
-            defaultValue={clase?.horaInicio?.slice(0, 5) ?? ""}
-            required
-            className={inputClass}
-          />
-        </label>
+        <Field label="Hora inicio" className="w-32">
+          <Input type="time" name="hora_inicio" defaultValue={clase?.horaInicio?.slice(0, 5) ?? ""} required />
+        </Field>
 
-        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-          Hora fin
-          <input
-            type="time"
-            name="hora_fin"
-            defaultValue={clase?.horaFin?.slice(0, 5) ?? ""}
-            required
-            className={inputClass}
-          />
-        </label>
+        <Field label="Hora fin" className="w-32">
+          <Input type="time" name="hora_fin" defaultValue={clase?.horaFin?.slice(0, 5) ?? ""} required />
+        </Field>
 
-        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-          Cupo
-          <input
-            type="number"
-            name="cupo"
-            min={1}
-            defaultValue={clase?.cupo ?? 8}
-            required
-            className={`${inputClass} w-20`}
-          />
-        </label>
+        <Field label="Cupo" className="w-24">
+          <Input type="number" name="cupo" min={1} defaultValue={clase?.cupo ?? 8} required />
+        </Field>
       </div>
 
-      {state.status === "error" && <p className="text-sm text-red-600">{state.message}</p>}
-      {state.status === "success" && <p className="text-sm text-emerald-600">{state.message}</p>}
+      <FormAlert state={state} />
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="self-start rounded-lg bg-[#2f7cd6] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2568b8] disabled:opacity-50"
-      >
-        {pending ? "Guardando..." : submitLabel}
-      </button>
+      <Button type="submit" loading={pending} className="self-start">
+        {submitLabel}
+      </Button>
     </form>
   );
 }

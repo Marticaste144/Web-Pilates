@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { iniciarPagoMercadoPago } from "@/lib/alumno/pago-actions";
+import { Button } from "@/components/ui/button";
 
 export function PagarButton({ sedeId }: { sedeId: string }) {
   const [pending, startTransition] = useTransition();
@@ -9,9 +10,9 @@ export function PagarButton({ sedeId }: { sedeId: string }) {
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <button
-        type="button"
-        disabled={pending}
+      <Button
+        size="sm"
+        loading={pending}
         onClick={() =>
           startTransition(async () => {
             // En éxito esto redirige a Mercado Pago y no vuelve a ejecutar
@@ -21,11 +22,10 @@ export function PagarButton({ sedeId }: { sedeId: string }) {
             if (result && !result.ok) setError(result.message);
           })
         }
-        className="rounded-lg bg-[#2f7cd6] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2568b8] disabled:opacity-50"
       >
         {pending ? "Redirigiendo..." : "Pagar con Mercado Pago"}
-      </button>
-      {error && <p className="max-w-[220px] text-right text-xs text-red-600">{error}</p>}
+      </Button>
+      {error && <p className="max-w-[220px] text-right text-xs text-error-600">{error}</p>}
     </div>
   );
 }

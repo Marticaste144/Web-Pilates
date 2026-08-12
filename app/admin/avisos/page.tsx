@@ -1,6 +1,10 @@
 import { listarAvisos } from "@/lib/admin/avisos-data";
 import { listarSedes } from "@/lib/admin/clases-data";
 import { AvisoForm } from "./aviso-form";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export const dynamic = "force-dynamic";
 
@@ -13,36 +17,38 @@ export default async function AvisosPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Avisos</h1>
-        <p className="text-slate-500">
-          Un aviso bloquea toda actividad (inscripción, baja, asistencia) de la sede en su rango de
-          fechas, y manda un email a los alumnos y profesores/as afectados.
-        </p>
-      </div>
+      <PageHeader
+        title="Avisos"
+        subtitle="Un aviso bloquea toda actividad (inscripción, baja, asistencia) de la sede en su rango de fechas, y manda un email a los alumnos y profesores/as afectados."
+      />
 
-      <div className="rounded-xl border border-slate-200 p-4">
-        <h2 className="mb-3 font-semibold text-slate-900">Nuevo aviso</h2>
+      <Card>
+        <h2 className="mb-3 font-semibold text-neutral-900">Nuevo aviso</h2>
         <AvisoForm sedes={sedes} />
-      </div>
+      </Card>
 
       <div className="flex flex-col gap-3">
         {avisos.length === 0 && (
-          <p className="text-sm text-slate-400">Todavía no hay avisos publicados.</p>
+          <EmptyState
+            title="Todavía no hay avisos publicados"
+            description="Cuando publiques uno, va a aparecer acá."
+          />
         )}
         {avisos.map((a) => (
-          <div key={a.id} className="rounded-xl border border-slate-200 p-4">
-            <div className="flex items-center justify-between gap-4">
-              <p className="font-medium text-slate-900">{a.titulo}</p>
-              <span className="text-xs text-slate-500">
+          <Card key={a.id}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-medium text-neutral-900">{a.titulo}</p>
+              <span className="text-xs text-neutral-500">
                 {formatearFecha(a.fechaInicio)} – {formatearFecha(a.fechaFin)}
               </span>
             </div>
-            <p className="mt-1 text-sm text-slate-600 whitespace-pre-line">{a.mensaje}</p>
-            <p className="mt-2 text-xs text-slate-400">
-              {a.todasLasSedes ? "Todas las sedes" : a.sedesNombres.join(", ") || "Sin sede asignada"}
-            </p>
-          </div>
+            <p className="mt-1.5 whitespace-pre-line text-sm text-neutral-600">{a.mensaje}</p>
+            <div className="mt-2.5">
+              <Badge variant="info">
+                {a.todasLasSedes ? "Todas las sedes" : a.sedesNombres.join(", ") || "Sin sede asignada"}
+              </Badge>
+            </div>
+          </Card>
         ))}
       </div>
     </div>

@@ -9,8 +9,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const profile = await requireRole("admin");
 
   return (
-    <RoleShell profile={profile}>
-      <AdminNav />
+    <RoleShell profile={profile} nav={<AdminNav />}>
       {children}
     </RoleShell>
   );

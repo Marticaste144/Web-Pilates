@@ -1,3 +1,5 @@
+import { Isotipo } from "@/components/ui/isotipo";
+
 function HeroWaveMobile() {
   return (
     <svg
@@ -84,9 +86,12 @@ export function AuthHero({
 
       <div className="absolute inset-0 flex flex-col justify-between p-6 md:p-10">
         <div className="flex items-start justify-between">
-          <span className="hidden text-sm font-bold uppercase tracking-widest text-white md:block">
-            MUV Gimnasia Postural
-          </span>
+          <div className="flex items-center gap-2.5">
+            <Isotipo className="h-8 w-8 drop-shadow-md md:h-9 md:w-9" />
+            <span className="hidden text-sm font-bold uppercase tracking-widest text-white md:block">
+              MUV Gimnasia Postural
+            </span>
+          </div>
           <span
             aria-hidden="true"
             className="h-9 w-9 rounded-full bg-white shadow-md md:h-12 md:w-12"

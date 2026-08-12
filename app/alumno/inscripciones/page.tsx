@@ -1,6 +1,11 @@
 import { listarMisInscripciones } from "@/lib/alumno/inscripciones-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { BajaButton } from "./baja-button";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LinkButton } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -10,42 +15,36 @@ export default async function MisInscripcionesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Mis inscripciones</h1>
-        <p className="text-slate-500">Tus clases activas y las que estás esperando un lugar.</p>
-      </div>
+      <PageHeader title="Mis clases" subtitle="Tus clases activas y las que estás esperando un lugar." />
 
       {inscripciones.length === 0 && (
-        <p className="text-sm text-slate-400">Todavía no te anotaste a ninguna clase.</p>
+        <EmptyState
+          title="Todavía no te anotaste a ninguna clase"
+          description="Elegí una clase para reservar tu lugar."
+          action={<LinkButton href="/alumno/clases">Ver clases</LinkButton>}
+        />
       )}
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2.5">
         {inscripciones.map((i) => (
-          <div
-            key={i.id}
-            className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 p-4"
-          >
-            <div>
-              <p className="font-medium text-slate-900">
+          <Card key={i.id} className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="font-medium text-neutral-900">
                 {i.sedeNombre} -- {diaLabel(i.diaSemana)} {i.horaInicio.slice(0, 5)} -{" "}
                 {i.horaFin.slice(0, 5)}
               </p>
-              <p className="text-sm text-slate-500">
-                Prof. {i.profesorNombre}
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-neutral-500">
+                <span>Prof. {i.profesorNombre}</span>
                 {i.estado === "lista_espera" && (
-                  <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                    Lista de espera -- lugar #{i.posicionEspera}
-                  </span>
+                  <Badge variant="warning">Lista de espera -- lugar #{i.posicionEspera}</Badge>
                 )}
-                {i.estado === "activa" && (
-                  <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                    Anotado/a
-                  </span>
-                )}
-              </p>
+                {i.estado === "activa" && <Badge variant="success">Anotado/a</Badge>}
+              </div>
             </div>
-            <BajaButton inscripcionId={i.id} />
-          </div>
+            <div className="shrink-0">
+              <BajaButton inscripcionId={i.id} />
+            </div>
+          </Card>
         ))}
       </div>
     </div>

@@ -9,8 +9,7 @@ export default async function ProfesorLayout({ children }: { children: ReactNode
   const profile = await requireRole("profesor");
 
   return (
-    <RoleShell profile={profile}>
-      <ProfesorNav />
+    <RoleShell profile={profile} nav={<ProfesorNav />}>
       {children}
     </RoleShell>
   );

@@ -1,28 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import { darseDeBaja } from "@/lib/alumno/inscripciones-actions";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 
 export function BajaButton({ inscripcionId }: { inscripcionId: string }) {
-  const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<string | null>(null);
-
   return (
-    <div className="flex flex-col items-end gap-1">
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() =>
-          startTransition(async () => {
-            const result = await darseDeBaja(inscripcionId);
-            setMessage(result.message);
-          })
-        }
-        className="text-sm text-red-600 hover:underline disabled:opacity-50"
-      >
-        {pending ? "..." : "Darme de baja"}
-      </button>
-      {message && <p className="text-xs text-slate-500">{message}</p>}
-    </div>
+    <ConfirmButton
+      action={() => darseDeBaja(inscripcionId)}
+      triggerLabel="Darme de baja"
+      confirmTitle="¿Darte de baja de esta clase?"
+      confirmDescription="Perdés tu lugar. Si hay lista de espera, se lo ofrecemos automáticamente a la siguiente persona."
+      confirmLabel="Sí, darme de baja"
+    />
   );
 }
