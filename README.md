@@ -1229,6 +1229,69 @@ el mail llega vía Resend y que "Confirmar cuenta" funciona. La parte de
 Mercado Pago es una guía para que puedas correr el circuito vos mismo;
 no se tocó código de pagos en este paso.
 
+## Script: reset de datos de prueba (`scripts/reset-test-data.mjs`)
+
+Script de uso puntual (no forma parte de la app en runtime) para limpiar
+todos los profesores/alumnos de prueba y recargar cuentas + horario nuevos
+de una sola vez. Corre local con `node`, usando las credenciales reales de
+`.env.local` (`NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`) --
+este entorno no tiene esas credenciales, así que no se puede correr desde
+acá, lo corre quien tenga el `.env.local` real.
+
+```bash
+node scripts/reset-test-data.mjs            # preview -- no borra ni crea nada
+node scripts/reset-test-data.mjs --confirm  # ejecuta todo
+```
+
+**Qué hace, en orden, y por qué:**
+
+1. **Preview siempre primero** (corre en los dos modos): lista todos los
+   `profiles` con `role != 'admin'`, cuántas `clases` hay, y -- el chequeo
+   más importante -- busca `pagos` con `medio = 'mercadopago'` asociados a
+   esas cuentas. Sin `--confirm` el script termina ahí, sin tocar nada.
+2. **Borra `clases` antes que los profesores.** `clases.profesor_id` es
+   `on delete restrict`: no se puede borrar un profesor con alguna clase
+   asignada, así que hace falta borrar las clases primero (de paso, limpia
+   los horarios de prueba viejos, coherente con cargar el horario real
+   después). Eso arrastra en cascada `inscripciones` y `asistencias` de esas
+   clases.
+3. **Borra cada profesor/alumno con `auth.admin.deleteUser`** (no un
+   `DELETE` directo sobre `profiles`): borrar solo la fila de `profiles`
+   dejaría el usuario de `auth.users` huérfano, todavía con acceso de login
+   pero sin perfil. `profiles.id → auth.users(id)` y
+   `alumnos/profesores.profile_id → profiles(id)` son `on delete cascade`,
+   igual que `pagos.alumno_id → alumnos(profile_id)` -- así que borrar el
+   `auth.users` de un alumno se lleva puestos, en cascada, su perfil,
+   inscripciones, pagos y auditoría de pagos, sin dejar nada huérfano.
+4. **Crea 3 alumnos + 3 profesores** con `auth.admin.createUser({ email,
+   password, email_confirm: true, user_metadata: {...} })` -- a propósito
+   **no** usa el flujo de invitación por mail (`generateLink` +
+   `/auth/confirm-invite` del paso 8): son cuentas de prueba con contraseña
+   fija conocida de antemano, no hace falta el paso de "la persona confirma
+   por mail". El mismo trigger `fn_handle_new_user` (paso 2) crea solas las
+   filas de `profiles`/`profesores`/`alumnos` a partir de los metadatos,
+   igual que en un alta real.
+5. **Carga las clases** de las 3 sedes con los profesores recién creados,
+   cupo 8 fijo.
+
+**Sobre los emails de las cuentas de prueba:** no hay forma de aprovisionar
+casillas reales en `@muvgimnasiapostural.com` desde acá (no hay acceso a
+hosting de mail); se usan alias de Gmail con `+`
+(`castellanimartina3+alumno1@gmail.com`, etc.) -- todos entregan de verdad a
+la casilla real, así que sirven para revisar los mails transaccionales
+(cupo liberado, cuota por vencer, avisos) que la app ya manda por Resend.
+El apellido de "Sabina" (profesora de MUV PILATES) se inventó (`Duarte`) --
+el nombre real pedido era solo el de pila; se edita en dos clicks desde
+`/admin/profesores/[id]` si hace falta corregirlo.
+
+**Antes de correr `--confirm`:** revisá con atención la sección de pagos
+con Mercado Pago del preview. El pago real usado para probar el cobro/
+webhook (paso 5d/8) puede seguir asociado a una cuenta de alumno de
+prueba -- si aparece ahí, se va a borrar en cascada junto con esa cuenta y
+no se puede recuperar después. Guardá esos datos aparte si los necesitás
+para algo (por ejemplo, todavía no reconciliaste ese pago a mano en
+`pagos.estado`) antes de confirmar.
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de
