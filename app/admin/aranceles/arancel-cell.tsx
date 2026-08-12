@@ -27,7 +27,7 @@ export function ArancelCell({
           name="valor_mensual"
           min={1}
           defaultValue={valorMensual}
-          className="w-24 rounded-lg border border-neutral-300 px-2 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+          className="w-20 rounded-lg border border-neutral-300 px-2 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
         />
         <Button type="submit" size="sm" loading={pending} className="px-3 py-1">
           Guardar

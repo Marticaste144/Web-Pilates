@@ -162,6 +162,38 @@ export async function notificarCuotaVencida(params: {
   });
 }
 
+// Invitación a un/a profesor/a nuevo/a (lib/admin/profesores-actions.ts).
+// Se manda por acá (no con el mail default de Supabase) para poder armar el
+// link nosotros mismos apuntando directo a /auth/confirm-invite con
+// token_hash -- ver el comentario en esa página sobre por qué.
+export async function notificarInvitacionProfesor(params: {
+  email: string;
+  nombre: string;
+  confirmUrl: string;
+}): Promise<void> {
+  const html = plantillaBase(
+    "Invitación",
+    `
+      <h1 style="font-size: 18px; margin: 0 0 12px;">Hola ${params.nombre},</h1>
+      <p style="font-size: 14px; line-height: 1.5; margin: 0 0 12px;">
+        Te invitaron a sumarte como profesor/a en MUV Gimnasia Postural. Confirmá tu cuenta para elegir
+        tu contraseña y empezar a usarla.
+      </p>
+      ${boton(params.confirmUrl, "Confirmar cuenta")}
+      <p style="font-size: 12px; color: #94a3b8; margin: 16px 0 0; word-break: break-all;">
+        Si el botón no funciona, copiá y pegá este link en el navegador:<br />${params.confirmUrl}
+      </p>
+    `,
+  );
+
+  await enviarEmail({
+    contexto: "invitacion-profesor",
+    to: params.email,
+    subject: "Te invitaron a MUV Gimnasia Postural",
+    html,
+  });
+}
+
 // Caso 3: la admin publica un aviso -- se manda a todos los alumnos y
 // profesores afectados de una sola vez. Se manda con resend.batch.send
 // (hasta 100 emails por llamada, cada uno con su propio "to" -- nadie ve la

@@ -24,7 +24,6 @@ export function EditarProfesorForm({ profesor }: { profesor: ProfesorListItem })
       <Field label="Teléfono">
         <Input name="telefono" defaultValue={profesor.telefono ?? ""} />
       </Field>
-      <p className="text-sm text-neutral-500">Email: {profesor.email} (no editable acá)</p>
 
       <FormAlert state={state} />
 

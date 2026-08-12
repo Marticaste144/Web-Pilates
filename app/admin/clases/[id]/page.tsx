@@ -1,13 +1,27 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { obtenerClase, listarSedes, listarProfesoresParaSelect } from "@/lib/admin/clases-data";
+import {
+  obtenerClase,
+  listarSedes,
+  listarProfesoresParaSelect,
+  listarInscriptosDeClase,
+} from "@/lib/admin/clases-data";
 import { actualizarClase } from "@/lib/admin/clases-actions";
 import { ClaseForm } from "../clase-form";
 import { ToggleActivaButton } from "../toggle-activa-button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ChevronRightIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
+
+const CUOTA_VARIANT: Record<string, { texto: string; variant: "success" | "warning" | "error" | "neutral" }> = {
+  al_dia: { texto: "Al día", variant: "success" },
+  por_vencer: { texto: "Por vencer", variant: "warning" },
+  vencida: { texto: "Vencida", variant: "error" },
+  sin_pagos: { texto: "Sin pagos", variant: "neutral" },
+};
 
 export default async function EditarClasePage({
   params,
@@ -24,6 +38,8 @@ export default async function EditarClasePage({
   if (!clase) {
     notFound();
   }
+
+  const inscriptos = await listarInscriptosDeClase(clase.id, clase.sedeId);
 
   return (
     <div className="flex flex-col gap-6">
@@ -52,6 +68,63 @@ export default async function EditarClasePage({
           submitLabel="Guardar cambios"
         />
       </Card>
+
+      <div className="flex flex-col gap-3">
+        <h2 className="font-semibold text-neutral-900">
+          Alumnos anotados ({inscriptos.filter((i) => i.estado === "activa").length}/{clase.cupo})
+        </h2>
+        {inscriptos.length === 0 ? (
+          <EmptyState title="Todavía no hay nadie anotado en esta clase" />
+        ) : (
+          <Card padded={false} className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-neutral-50 text-neutral-500">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Nombre</th>
+                  <th className="px-4 py-3 font-medium">Contacto</th>
+                  <th className="px-4 py-3 font-medium">Estado</th>
+                  <th className="px-4 py-3 font-medium">Cuota</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {inscriptos.map((a) => {
+                  const cuota = CUOTA_VARIANT[a.cuotaEstado];
+                  return (
+                    <tr key={a.alumnoId} className="border-t border-neutral-100">
+                      <td className="px-4 py-3 font-medium text-neutral-900">
+                        {a.nombre} {a.apellido}
+                      </td>
+                      <td className="px-4 py-3 text-neutral-600">
+                        {a.email}
+                        {a.telefono ? ` · ${a.telefono}` : ""}
+                      </td>
+                      <td className="px-4 py-3">
+                        {a.estado === "activa" ? (
+                          <Badge variant="success">Anotado/a</Badge>
+                        ) : (
+                          <Badge variant="warning">Lista de espera -- #{a.posicionEspera}</Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={cuota.variant}>{cuota.texto}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          href={`/admin/alumnos/${a.alumnoId}`}
+                          className="font-medium text-primary-600 hover:underline"
+                        >
+                          Ver
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

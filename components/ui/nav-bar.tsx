@@ -8,6 +8,7 @@ import {
   CalendarIcon,
   ListIcon,
   WalletIcon,
+  UserIcon,
   UsersIcon,
   TagIcon,
   MegaphoneIcon,
@@ -30,6 +31,7 @@ const LINKS_POR_ROL: Record<"admin" | "alumno" | "profesor", NavLink[]> = {
   admin: [
     { href: "/admin", label: "Inicio", icon: HomeIcon },
     { href: "/admin/profesores", label: "Profesores", icon: UsersIcon },
+    { href: "/admin/alumnos", label: "Alumnos", icon: UserIcon },
     { href: "/admin/clases", label: "Clases", icon: CalendarIcon },
     { href: "/admin/aranceles", label: "Aranceles", icon: TagIcon },
     { href: "/admin/avisos", label: "Avisos", icon: MegaphoneIcon },

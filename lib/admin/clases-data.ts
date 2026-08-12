@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import type { EstadoInscripcion, EstadoVisualCuota } from "@/types/database";
 
 export type SedeItem = { id: string; nombre: string };
 export type ProfesorSelectItem = { profileId: string; nombre: string; apellido: string; activo: boolean };
@@ -106,4 +107,68 @@ export async function obtenerClase(id: string): Promise<ClaseListItem | null> {
     cupo: c.cupo,
     activa: c.activa,
   };
+}
+
+export type InscriptoClaseItem = {
+  alumnoId: string;
+  nombre: string;
+  apellido: string;
+  email: string;
+  telefono: string | null;
+  estado: EstadoInscripcion;
+  posicionEspera: number | null;
+  cuotaEstado: EstadoVisualCuota | "sin_pagos";
+};
+
+// A diferencia del roster del profesor, acá se ven TODOS los anotados (sin
+// la restricción de "invisible hasta la primera cuota aprobada" -- esa
+// regla es específica de la visibilidad del profesor, no aplica a la
+// admin) y también los de lista de espera, no solo los activos.
+export async function listarInscriptosDeClase(
+  claseId: string,
+  sedeId: string,
+): Promise<InscriptoClaseItem[]> {
+  const supabase = await createClient();
+
+  const { data: inscripciones } = await supabase
+    .from("inscripciones")
+    .select("alumno_id, estado, posicion_espera")
+    .eq("clase_id", claseId)
+    .in("estado", ["activa", "lista_espera"]);
+
+  if (!inscripciones || inscripciones.length === 0) return [];
+
+  const alumnoIds = [...new Set(inscripciones.map((i) => i.alumno_id))];
+  const [{ data: perfiles }, { data: cuotas }] = await Promise.all([
+    supabase.from("profiles").select("id, nombre, apellido, email, telefono").in("id", alumnoIds),
+    supabase
+      .from("v_estado_cuota_alumno_sede")
+      .select("alumno_id, estado_visual")
+      .eq("sede_id", sedeId)
+      .in("alumno_id", alumnoIds),
+  ]);
+
+  const perfilPorId = new Map((perfiles ?? []).map((p) => [p.id, p]));
+  const cuotaPorAlumno = new Map((cuotas ?? []).map((c) => [c.alumno_id, c.estado_visual]));
+
+  return inscripciones
+    .map((i): InscriptoClaseItem | null => {
+      const perfil = perfilPorId.get(i.alumno_id);
+      if (!perfil) return null;
+      return {
+        alumnoId: i.alumno_id,
+        nombre: perfil.nombre,
+        apellido: perfil.apellido,
+        email: perfil.email,
+        telefono: perfil.telefono,
+        estado: i.estado,
+        posicionEspera: i.posicion_espera,
+        cuotaEstado: cuotaPorAlumno.get(i.alumno_id) ?? "sin_pagos",
+      };
+    })
+    .filter((x): x is InscriptoClaseItem => x !== null)
+    .sort((a, b) => {
+      if (a.estado !== b.estado) return a.estado === "activa" ? -1 : 1;
+      return (a.posicionEspera ?? 0) - (b.posicionEspera ?? 0);
+    });
 }

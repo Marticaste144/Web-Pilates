@@ -5,6 +5,13 @@ import { Card } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
+// Antes era una tabla ancha (sede x 4 frecuencias, cada celda con un
+// mini-formulario) dentro del contenedor de contenido de max-w-3xl -- no
+// entraba ni en desktop, así que quedaba con scroll horizontal. Un grid de
+// una card por sede, con las 4 frecuencias apiladas adentro, evita el
+// problema de raíz (nunca es más ancho que el contenedor) en vez de
+// pelearse con anchos de columna, y de paso se ve bien tanto en mobile
+// como en desktop sin tener que armar dos layouts distintos.
 export default async function ArancelesPage() {
   const aranceles = await listarArancelesVigentes();
 
@@ -18,43 +25,33 @@ export default async function ArancelesPage() {
         subtitle="Un cambio no pisa el histórico: queda una fila nueva vigente desde hoy."
       />
 
-      <Card padded={false} className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-neutral-50 text-neutral-500">
-            <tr>
-              <th className="px-4 py-3 font-medium">Sede</th>
-              {frecuencias.map((f) => (
-                <th key={f} className="px-4 py-3 font-medium">
-                  {f} {f === 1 ? "vez" : "veces"} / semana
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {sedes.map(([sedeId, sedeNombre]) => (
-              <tr key={sedeId} className="border-t border-neutral-100">
-                <td className="px-4 py-3 font-medium text-neutral-900">{sedeNombre}</td>
-                {frecuencias.map((f) => {
-                  const item = aranceles.find((a) => a.sedeId === sedeId && a.clasesPorSemana === f);
-                  return (
-                    <td key={f} className="px-4 py-3">
-                      {item ? (
-                        <ArancelCell
-                          sedeId={sedeId}
-                          clasesPorSemana={f}
-                          valorMensual={item.valorMensual}
-                        />
-                      ) : (
-                        <span className="text-neutral-400">sin definir</span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {sedes.map(([sedeId, sedeNombre]) => (
+          <Card key={sedeId}>
+            <h2 className="mb-3 font-semibold text-neutral-900">{sedeNombre}</h2>
+            <div className="flex flex-col gap-3">
+              {frecuencias.map((f) => {
+                const item = aranceles.find((a) => a.sedeId === sedeId && a.clasesPorSemana === f);
+                return (
+                  <div
+                    key={f}
+                    className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-3 first:border-t-0 first:pt-0"
+                  >
+                    <span className="shrink-0 text-sm text-neutral-600">
+                      {f} {f === 1 ? "vez" : "veces"} / semana
+                    </span>
+                    {item ? (
+                      <ArancelCell sedeId={sedeId} clasesPorSemana={f} valorMensual={item.valorMensual} />
+                    ) : (
+                      <span className="text-xs text-neutral-400">sin definir</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

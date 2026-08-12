@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
-import { UsersIcon, CalendarIcon, TagIcon, MegaphoneIcon, ChevronRightIcon } from "@/components/ui/icons";
+import { UserIcon, UsersIcon, CalendarIcon, TagIcon, MegaphoneIcon, ChevronRightIcon } from "@/components/ui/icons";
 
 const SECCIONES = [
   { href: "/admin/profesores", titulo: "Profesores", desc: "Invitar, editar y activar/desactivar.", icon: UsersIcon },
+  { href: "/admin/alumnos", titulo: "Alumnos", desc: "Listado, datos de contacto y estado de cuota.", icon: UserIcon },
   { href: "/admin/clases", titulo: "Clases", desc: "Asignar día, horario, sede y profesor/a.", icon: CalendarIcon },
   { href: "/admin/aranceles", titulo: "Aranceles", desc: "Editar el valor de la cuota por sede.", icon: TagIcon },
   { href: "/admin/avisos", titulo: "Avisos", desc: "Publicar avisos y notificar por email a la sede.", icon: MegaphoneIcon },
@@ -15,7 +16,7 @@ export default function AdminHomePage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Hola 👋"
-        subtitle="Dashboard con métricas (ingresos, ocupación) y gestión de alumnos/pagos llegan en próximas etapas."
+        subtitle="Dashboard con métricas (ingresos, ocupación) llega en una próxima etapa."
       />
       <div className="grid gap-3 sm:grid-cols-2">
         {SECCIONES.map((s) => (

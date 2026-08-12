@@ -3,6 +3,8 @@ import Link from "next/link";
 import { obtenerProfesor } from "@/lib/admin/profesores-data";
 import { ToggleActivoButton } from "../toggle-activo-button";
 import { EditarProfesorForm } from "./editar-form";
+import { EditarEmailForm } from "./editar-email-form";
+import { EliminarProfesorButton } from "./eliminar-button";
 import { Card } from "@/components/ui/card";
 import { ChevronRightIcon } from "@/components/ui/icons";
 
@@ -39,7 +41,21 @@ export default async function EditarProfesorPage({
       </div>
 
       <Card className="max-w-md">
+        <h2 className="mb-3 font-semibold text-neutral-900">Datos personales</h2>
         <EditarProfesorForm profesor={profesor} />
+      </Card>
+
+      <Card className="max-w-md">
+        <h2 className="mb-3 font-semibold text-neutral-900">Acceso</h2>
+        <EditarEmailForm profileId={profesor.profileId} email={profesor.email} />
+      </Card>
+
+      <Card className="max-w-md">
+        <h2 className="mb-1 font-semibold text-neutral-900">Zona peligrosa</h2>
+        <p className="mb-3 text-sm text-neutral-500">
+          Elimina la cuenta por completo. No se puede deshacer.
+        </p>
+        <EliminarProfesorButton profileId={profesor.profileId} />
       </Card>
     </div>
   );

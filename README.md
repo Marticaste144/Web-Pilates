@@ -996,6 +996,174 @@ porque este entorno no tiene credenciales de Supabase reales -- quedan
 validadas por build + lint + revisión de código, mismo patrón usado en el
 resto del proyecto para todo lo que depende de un backend real.
 
+## Paso 8: link de invitación roto, gestión de profesores/alumnos en admin, y sandbox de Mercado Pago
+
+### Fix: el link de invitación a profesores daba "El link no es válido o ya expiró" incluso al toque de recibirlo
+
+El paso 5a había diagnosticado el bug de invitación como "PKCE vs
+implicit flow" y armado `/auth/callback` para resolverlo -- ese
+diagnóstico estaba **incompleto**. La causa real: `inviteUserByEmail`
+manda un mail cuyo botón apunta al propio endpoint de Supabase
+(`/auth/v1/verify?token=...`), que consume el token de un solo uso con
+un GET plano *antes* de que el link llegue a la app -- y los escaneres
+de seguridad de los clientes de correo (Gmail, Outlook, etc.) pre-visitan
+todos los links de un mail apenas llega, no cuando la persona lo hace
+click. Pasa exactamente igual con PKCE que con implicit flow, así que
+cambiar de flujo no lo arreglaba.
+
+La mitigación documentada por Supabase para este caso es evitar el
+endpoint `/verify` por completo:
+
+- `invitarProfesor` (`lib/admin/profesores-actions.ts`) ahora usa
+  `admin.generateLink({ type: "invite", ... })` en vez de
+  `inviteUserByEmail` -- genera el link con el `token_hash` pero **no**
+  manda ningún mail (Supabase no llega a tocar `/verify`).
+- El mail lo mandamos nosotros con Resend
+  (`notificarInvitacionProfesor` en `lib/email/notificaciones.ts`), con
+  un botón que apunta a `/auth/confirm-invite?token_hash=...&type=invite`,
+  una página de la app.
+- `/auth/confirm-invite` (`confirm-invite-client.tsx`) **no confirma
+  solo al cargar** -- muestra un botón "Confirmar cuenta" y recién ahí,
+  con un click real de la persona, llama a
+  `supabase.auth.verifyOtp({ token_hash, type: "invite" })`. Un scanner
+  automático puede visitar la página sin problema: no consume nada hasta
+  que alguien clickea.
+- Se borró `app/auth/callback/` (la página vieja, ya no se usa).
+
+**Los links de invitación ya mandados con el código viejo siguen rotos**
+-- fueron generados con `inviteUserByEmail`, que ya consumió (o va a
+consumir en cuanto algún scanner lo toque) el token real. A cualquier
+profesor invitado antes de este fix hay que reinvitarlo desde
+`/admin/profesores` con el código nuevo.
+
+### Admin -- editar email y eliminar profesores
+
+- **Editar email** (`editar-email-form.tsx` +
+  `actualizarEmailProfesor`): es un formulario separado del resto de los
+  datos, porque cambiar el email toca dos tablas con requisitos
+  distintos -- `auth.users.email` necesita el cliente `service_role`
+  (`admin.auth.admin.updateUserById`), y el `profiles.email` espejo
+  necesita el cliente de la sesión, porque el trigger
+  `fn_restringir_columnas_profile` que protege esa columna decide según
+  `auth.uid()`, que una conexión service_role no tiene (siempre da
+  `null`, así que el trigger lo rechazaría). Se actualiza con
+  `email_confirm: true` -- no hace falta que el profesor reconfirme un
+  email que la admin está cambiando a mano.
+- **Eliminar** (`eliminar-button.tsx` + `eliminarProfesor`): acá sí es un
+  DELETE real (a diferencia de "eliminar" clase/profesor del paso 5a,
+  que eran togglear `activo`/`activa`). `profiles.id → auth.users(id)`
+  y `profesores.profile_id → profiles(id)` son `on delete cascade`, así
+  que borrar el `auth.users` del profesor se lleva todo en cascada --
+  pero `clases.profesor_id → profesores(profile_id)` es `on delete
+  restrict`, así que si tiene alguna clase asignada (activa o no) el
+  borrado se bloquea solo (a nivel de base, no hay forma de que se
+  cuele) y la Server Action lo detecta antes y devuelve un mensaje
+  explicando qué clases hay que reasignar primero. Se pidió la
+  confirmación con `ConfirmButton` (ya existía en el design system).
+
+### Admin -- `/admin/alumnos`: listado y ficha por alumno
+
+No había ninguna pantalla para ver alumnos desde la admin. Se armó:
+
+- **`/admin/alumnos`** -- listado con buscador simple (nombre/email,
+  `?q=` por GET, sin JS) en una tabla.
+- **`/admin/alumnos/[id]`** -- ficha con datos de contacto, estado de
+  cuota por sede (mismo cálculo que ya usa `/alumno/cuota`, vía
+  `v_estado_cuota_alumno_sede`), y las clases en las que está anotado.
+- **`/admin/clases/[id]`** también ahora lista los alumnos anotados a
+  esa clase puntual (activos + lista de espera, con link a su ficha) --
+  a diferencia del roster que ve el profesor, acá no aplica la regla de
+  "invisible hasta la primera cuota aprobada" (esa restricción es
+  específica de qué le mostramos al profesor, no de la admin).
+
+### Fix: aranceles con scroll horizontal
+
+La tabla vieja (sede × 4 frecuencias, con un mini-formulario por celda)
+no entraba ni en desktop dentro del contenedor de contenido
+(`max-w-3xl`) y quedaba con scroll horizontal. Se reemplazó por un grid
+de una card por sede con las 4 frecuencias apiladas adentro
+(`app/admin/aranceles/page.tsx`) -- nunca es más ancho que el
+contenedor, así que el problema no puede volver a aparecer aunque se
+agreguen más sedes.
+
+Un primer intento (`sm:grid-cols-2 lg:grid-cols-3`) parecía andar bien
+según un chequeo automático de `scrollWidth`, pero una captura real con
+Playwright mostró el botón "Guardar" cortado adentro de las cards en
+desktop: `grid-cols-3` de Tailwind fija cada columna a
+`minmax(0, 1fr)`, lo que recorta contenido en fila que no envuelve
+adentro de la columna, sin que eso dispare scroll a nivel de página (el
+chequeo de `scrollWidth` no lo detecta -- hace falta mirar la captura).
+Se corrigió bajando a `sm:grid-cols-2` como máximo, agregando
+`flex-wrap` a cada fila de frecuencia, y achicando el input de
+`w-24` a `w-20`. Confirmado con captura de Playwright en 390px y
+1280px: sin recorte, sin scroll horizontal, en ninguno de los dos
+anchos.
+
+### Mercado Pago: cómo armar un pago de prueba de punta a punta en sandbox
+
+El error típico acá ("Una de las partes con la que intentás hacer el
+pago es de prueba") no es un bug de esta app -- pasa siempre que se
+mezcla una cuenta real con una de prueba en el mismo pago (por ejemplo,
+credenciales de **producción** de tu cuenta real, con un comprador
+logueado en una cuenta de **prueba**, o viceversa). La solución es
+simular *todo* el circuito con cuentas y credenciales de prueba,
+consistentes entre sí:
+
+1. En el [panel de Mercado Pago Developers](https://www.mercadopago.com.ar/developers/panel),
+   logueado con tu cuenta real (la dueña de la app), andá a **Tus
+   integraciones → tu app → Cuentas de prueba → Crear cuenta de
+   prueba**. Creá **dos**: una para el rol Vendedor y otra para el rol
+   Comprador. No se puede usar la misma cuenta de prueba para los dos
+   roles -- Mercado Pago te da un usuario/contraseña autogenerado para
+   cada una (guardalos, no se muestran de nuevo).
+2. Abrí una ventana de incógnito y logueate con la cuenta de prueba
+   **Vendedor**. Sin salir de esa sesión, entrá al panel de developers
+   de esa cuenta de prueba y copiá sus **credenciales de prueba** (Public
+   Key + Access Token) -- son distintas de las credenciales de
+   producción de tu cuenta real.
+3. Poné esas credenciales de prueba en tu `.env.local` (o las env vars
+   del entorno donde estés probando, no producción):
+   `MERCADOPAGO_ACCESS_TOKEN` y `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY`.
+   Como el webhook necesita que Mercado Pago te pueda llamar de vuelta
+   (`notification_url` sale de `NEXT_PUBLIC_SITE_URL`), esto solo
+   funciona de punta a punta en una URL pública real (un deploy de
+   Vercel, por ejemplo) -- en `localhost` sin túnel (`ngrok` o similar)
+   el pago se puede completar pero el webhook nunca va a llegar.
+4. Iniciá el pago como alumno normal (con tu usuario real de la app,
+   eso no tiene nada que ver con las cuentas de Mercado Pago). Cuando te
+   redirija al checkout de Mercado Pago, logueate ahí con el
+   usuario/contraseña de la cuenta de prueba **Comprador** del paso 1 --
+   nunca con tu cuenta personal real de Mercado Pago.
+5. Pagá con una tarjeta de prueba (las números vigentes están en el
+   panel de developers, sección "Tarjetas de prueba", logueado como la
+   cuenta de prueba Vendedor -- rotan, así que mejor sacarlos de ahí que
+   de una lista vieja). Cualquier fecha de vencimiento futura y
+   cualquier CVV de 3 dígitos sirven. Lo que define el resultado es el
+   **nombre del titular** que cargues en el formulario:
+   - `APRO` → pago aprobado.
+   - `OTHE` → rechazado por error general.
+   - `CONT` → pendiente.
+   - `CALL`, `FUND`, `SECU`, `EXPI`, `FORM` → distintos motivos de
+     rechazo específicos (validación, fondos, seguridad, vencimiento,
+     error de formulario).
+
+Si el pago con `APRO` se aprueba y el webhook responde 200, esto
+también termina de validar en la práctica el bug de firma del webhook
+del paso 5d (`MERCADOPAGO_WEBHOOK_SECRET`) -- hasta ahora solo se había
+probado con la simulación de firma del SDK, nunca con un pago real
+llegando por HTTP.
+
+**Verificación:** items de admin (editar email, eliminar profesor,
+`/admin/alumnos`, roster de `/admin/clases/[id]`) y el fix de aranceles
+pasan `tsc`/`build`/lint limpios; el de aranceles además se confirmó
+visualmente con capturas de Playwright en mobile y desktop. El fix del
+link de invitación también compila limpio, pero **no se pudo probar el
+flujo real de punta a punta** (no hay credenciales de Supabase en este
+entorno) -- falta que invites a un profesor de prueba y confirmes que
+el mail llega vía Resend y que "Confirmar cuenta" funciona. La parte de
+Mercado Pago es una guía para que puedas correr el circuito vos mismo;
+no se tocó código de pagos en este paso.
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de
