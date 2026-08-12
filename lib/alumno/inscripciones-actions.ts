@@ -76,6 +76,8 @@ export async function inscribirseAClase(claseId: string): Promise<InscripcionRes
   return { ok: true, message: "La clase está llena: quedaste en lista de espera." };
 }
 
+const LOG = "[baja/lugar-liberado]";
+
 export async function darseDeBaja(inscripcionId: string): Promise<InscripcionResult> {
   const supabase = await createClient();
 
@@ -84,6 +86,10 @@ export async function darseDeBaja(inscripcionId: string): Promise<InscripcionRes
     .select("clase_id")
     .eq("id", inscripcionId)
     .single();
+
+  if (!inscripcion) {
+    console.warn(`${LOG} no se encontró la inscripción ${inscripcionId} antes de la baja (¿RLS o id inválido?)`);
+  }
 
   // Se toma una "foto" de quiénes están en lista de espera de esta clase
   // ANTES de dar la baja -- fn_promover_lista_espera (trigger) promueve a
@@ -104,12 +110,17 @@ export async function darseDeBaja(inscripcionId: string): Promise<InscripcionRes
       ).data
     : null;
 
+  console.log(
+    `${LOG} inscripcionId=${inscripcionId} claseId=${inscripcion?.clase_id ?? "?"} candidatos en lista de espera antes de la baja: ${candidatos?.length ?? 0}`,
+  );
+
   const { error } = await supabase
     .from("inscripciones")
     .update({ estado: "baja" })
     .eq("id", inscripcionId);
 
   if (error) {
+    console.error(`${LOG} falló el update a 'baja'`, error);
     return { ok: false, message: error.message };
   }
 
@@ -122,8 +133,10 @@ export async function darseDeBaja(inscripcionId: string): Promise<InscripcionRes
     try {
       await notificarPromocionSiCorresponde(admin, inscripcion.clase_id, candidatos);
     } catch (err) {
-      console.error("No se pudo enviar el email de lugar liberado", err);
+      console.error(`${LOG} excepción no controlada mandando el email de lugar liberado`, err);
     }
+  } else {
+    console.log(`${LOG} no había nadie en lista de espera para esta clase -- no hay a quién notificar`);
   }
 
   revalidatePath("/alumno/clases");
@@ -141,30 +154,66 @@ async function notificarPromocionSiCorresponde(
   claseId: string,
   candidatos: { id: string; alumno_id: string }[],
 ): Promise<void> {
-  const { data: promovido } = await admin
+  const { data: promovidos, error: errorPromovidos } = await admin
     .from("inscripciones")
     .select("alumno_id")
     .in(
       "id",
       candidatos.map((c) => c.id),
     )
-    .eq("estado", "activa")
-    .maybeSingle();
+    .eq("estado", "activa");
 
-  if (!promovido) return;
+  if (errorPromovidos) {
+    console.error(`${LOG} no se pudo consultar quién quedó 'activa' entre los candidatos`, errorPromovidos);
+    return;
+  }
 
-  const { data: clase } = await admin
+  if (!promovidos || promovidos.length === 0) {
+    // Si había candidatos pero ninguno quedó 'activa', lo más probable es
+    // que el trigger fn_promover_lista_espera (migración
+    // 20260812041659_notificaciones_email.sql) no esté aplicado en esta
+    // base -- sin él, nadie pasa de lista_espera a activa automáticamente,
+    // así que este código nunca tiene a quién avisarle (no es un bug de acá,
+    // es la causa más común de este WARNING).
+    console.warn(
+      `${LOG} había ${candidatos.length} candidato(s) en lista de espera pero NINGUNO quedó 'activa' tras la baja -- ` +
+        "revisá si la migración 20260812041659_notificaciones_email.sql (trigger fn_promover_lista_espera) está aplicada en Supabase.",
+    );
+    return;
+  }
+
+  if (promovidos.length > 1) {
+    console.warn(
+      `${LOG} ${promovidos.length} candidatos quedaron 'activa' a la vez (se esperaba 1) -- se notifica solo al primero`,
+    );
+  }
+
+  const promovido = promovidos[0];
+
+  const { data: clase, error: errorClase } = await admin
     .from("clases")
     .select("sede_id, dia_semana, hora_inicio, hora_fin")
     .eq("id", claseId)
     .single();
-  if (!clase) return;
+  if (errorClase || !clase) {
+    console.error(`${LOG} no se pudo leer la clase ${claseId} para armar el email`, errorClase);
+    return;
+  }
 
-  const [{ data: perfil }, { data: sede }] = await Promise.all([
+  const [{ data: perfil, error: errorPerfil }, { data: sede, error: errorSede }] = await Promise.all([
     admin.from("profiles").select("email, nombre").eq("id", promovido.alumno_id).single(),
     admin.from("sedes").select("nombre").eq("id", clase.sede_id).single(),
   ]);
-  if (!perfil || !sede) return;
+  if (errorPerfil || !perfil) {
+    console.error(`${LOG} no se pudo leer el perfil del alumno promovido ${promovido.alumno_id}`, errorPerfil);
+    return;
+  }
+  if (errorSede || !sede) {
+    console.error(`${LOG} no se pudo leer la sede ${clase.sede_id}`, errorSede);
+    return;
+  }
+
+  console.log(`${LOG} alumno promovido: ${promovido.alumno_id} (${perfil.email}) -- mandando email...`);
 
   await notificarLugarLiberado({
     alumnoEmail: perfil.email,

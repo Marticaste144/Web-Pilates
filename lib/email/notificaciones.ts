@@ -3,18 +3,46 @@ import { plantillaBase, boton } from "./plantilla";
 import { getSiteUrl } from "@/lib/site-url";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 
-async function enviarEmail(params: { to: string; subject: string; html: string }): Promise<void> {
-  const resend = getResendClient();
-  const { error } = await resend.emails.send({
-    from: getEmailFrom(),
+async function enviarEmail(params: {
+  contexto: string;
+  to: string;
+  subject: string;
+  html: string;
+}): Promise<void> {
+  const tag = `[email:${params.contexto}]`;
+
+  // Diagnóstico de config, sin loguear el valor de la API key -- solo si
+  // está presente y cuántos caracteres tiene, para poder confirmar desde
+  // los logs de Vercel que la env var realmente está siendo leída en
+  // runtime (y no, por ejemplo, vacía o con espacios de más).
+  const apiKeyPresente = Boolean(process.env.RESEND_API_KEY);
+  console.log(
+    `${tag} intentando enviar a ${params.to} -- RESEND_API_KEY presente=${apiKeyPresente} (largo=${process.env.RESEND_API_KEY?.length ?? 0}), EMAIL_FROM="${process.env.EMAIL_FROM ?? ""}"`,
+  );
+
+  let resend;
+  let from: string;
+  try {
+    resend = getResendClient();
+    from = getEmailFrom();
+  } catch (err) {
+    console.error(`${tag} falta configuración (RESEND_API_KEY / EMAIL_FROM)`, err);
+    throw err;
+  }
+
+  const { data, error } = await resend.emails.send({
+    from,
     to: params.to,
     subject: params.subject,
     html: params.html,
   });
 
   if (error) {
+    console.error(`${tag} Resend devolvió un error`, { to: params.to, error });
     throw new Error(`Resend: ${error.message}`);
   }
+
+  console.log(`${tag} enviado OK a ${params.to} -- id de Resend: ${data?.id ?? "desconocido"}`);
 }
 
 function diaLabel(dia: number): string {
@@ -65,7 +93,12 @@ export async function notificarLugarLiberado(params: {
     `,
   );
 
-  await enviarEmail({ to: params.alumnoEmail, subject: "Ya tenés tu lugar en la clase", html });
+  await enviarEmail({
+    contexto: "lugar-liberado",
+    to: params.alumnoEmail,
+    subject: "Ya tenés tu lugar en la clase",
+    html,
+  });
 }
 
 // Caso 2 (cron diario): cuota a 5 días o menos de vencer.
@@ -90,7 +123,12 @@ export async function notificarCuotaPorVencer(params: {
     `,
   );
 
-  await enviarEmail({ to: params.alumnoEmail, subject: "Tu cuota está por vencer", html });
+  await enviarEmail({
+    contexto: "cuota-por-vencer",
+    to: params.alumnoEmail,
+    subject: "Tu cuota está por vencer",
+    html,
+  });
 }
 
 // Caso 2 (cron diario): cuota ya vencida.
@@ -116,7 +154,12 @@ export async function notificarCuotaVencida(params: {
     `,
   );
 
-  await enviarEmail({ to: params.alumnoEmail, subject: "Tu cuota está vencida", html });
+  await enviarEmail({
+    contexto: "cuota-vencida",
+    to: params.alumnoEmail,
+    subject: "Tu cuota está vencida",
+    html,
+  });
 }
 
 // Caso 3: la admin publica un aviso -- se manda a todos los alumnos y
@@ -132,12 +175,26 @@ export async function notificarAviso(params: {
   fechaFin: string;
   sedesTexto: string;
 }): Promise<{ enviados: number; fallidos: number }> {
+  const tag = "[email:aviso]";
+
   if (params.destinatarios.length === 0) {
+    console.log(`${tag} 0 destinatarios -- no se manda nada`);
     return { enviados: 0, fallidos: 0 };
   }
 
-  const resend = getResendClient();
-  const from = getEmailFrom();
+  console.log(
+    `${tag} preparando envío a ${params.destinatarios.length} destinatario(s) -- RESEND_API_KEY presente=${Boolean(process.env.RESEND_API_KEY)}, EMAIL_FROM="${process.env.EMAIL_FROM ?? ""}"`,
+  );
+
+  let resend;
+  let from: string;
+  try {
+    resend = getResendClient();
+    from = getEmailFrom();
+  } catch (err) {
+    console.error(`${tag} falta configuración (RESEND_API_KEY / EMAIL_FROM) -- no se manda nada`, err);
+    return { enviados: 0, fallidos: params.destinatarios.length };
+  }
 
   const html = plantillaBase(
     "Aviso",
@@ -156,17 +213,27 @@ export async function notificarAviso(params: {
 
   for (let i = 0; i < params.destinatarios.length; i += TAMANO_LOTE) {
     const lote = params.destinatarios.slice(i, i + TAMANO_LOTE);
-    const { data, error } = await resend.batch.send(
-      lote.map((d) => ({ from, to: d.email, subject: `Aviso: ${params.titulo}`, html })),
-    );
+    console.log(`${tag} mandando lote de ${lote.length} (desde índice ${i})`);
 
-    if (error) {
+    try {
+      const { data, error } = await resend.batch.send(
+        lote.map((d) => ({ from, to: d.email, subject: `Aviso: ${params.titulo}`, html })),
+      );
+
+      if (error) {
+        fallidos += lote.length;
+        console.error(`${tag} error mandando lote de emails de aviso`, error);
+      } else {
+        const ok = data?.data.length ?? lote.length;
+        enviados += ok;
+        console.log(`${tag} lote OK -- ${ok} emails aceptados por Resend`);
+      }
+    } catch (err) {
       fallidos += lote.length;
-      console.error("Error mandando lote de emails de aviso", error);
-    } else {
-      enviados += data?.data.length ?? lote.length;
+      console.error(`${tag} excepción no controlada mandando el lote`, err);
     }
   }
 
+  console.log(`${tag} resumen final: enviados=${enviados} fallidos=${fallidos}`);
   return { enviados, fallidos };
 }

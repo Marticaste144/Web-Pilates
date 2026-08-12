@@ -24,8 +24,13 @@ function estadoVisual(vencimiento: string): EstadoVisualCuota {
   return "al_dia";
 }
 
+const LOG = "[cron:revisar-cuotas]";
+
 export async function GET(request: NextRequest) {
+  console.log(`${LOG} disparado`);
+
   if (!autorizado(request)) {
+    console.warn(`${LOG} no autorizado -- CRON_SECRET ausente o Authorization no coincide`);
     return NextResponse.json({ error: "no autorizado" }, { status: 401 });
   }
 
@@ -44,6 +49,7 @@ export async function GET(request: NextRequest) {
     .order("aprobado_en", { ascending: false });
 
   if (errorPagos) {
+    console.error(`${LOG} no se pudo leer "pagos"`, errorPagos);
     return NextResponse.json({ error: errorPagos.message }, { status: 500 });
   }
 
@@ -62,6 +68,10 @@ export async function GET(request: NextRequest) {
     if (estado === "vencida" && !p.notificado_vencida_en) return true;
     return false;
   });
+
+  console.log(
+    `${LOG} pagos aprobados=${pagos?.length ?? 0} últimos por alumno+sede=${ultimoPagoPorAlumnoSede.length} pendientes de notificar=${pendientes.length}`,
+  );
 
   let porVencerEnviados = 0;
   let vencidaEnviados = 0;
@@ -82,7 +92,12 @@ export async function GET(request: NextRequest) {
     for (const pago of pendientes) {
       const perfil = perfilPorId.get(pago.alumno_id);
       const sede = sedePorId.get(pago.sede_id);
-      if (!perfil || !sede || !pago.vencimiento) continue;
+      if (!perfil || !sede || !pago.vencimiento) {
+        console.warn(
+          `${LOG} pago ${pago.id}: falta perfil (${!perfil}) o sede (${!sede}) o vencimiento (${!pago.vencimiento}) -- se saltea`,
+        );
+        continue;
+      }
 
       const estado = estadoVisual(pago.vencimiento);
 
@@ -115,10 +130,16 @@ export async function GET(request: NextRequest) {
           vencidaEnviados++;
         }
       } catch (err) {
-        errores.push(`pago ${pago.id}: ${err instanceof Error ? err.message : "error desconocido"}`);
+        const mensaje = err instanceof Error ? err.message : "error desconocido";
+        console.error(`${LOG} pago ${pago.id} (${estado}) -- falló el envío`, err);
+        errores.push(`pago ${pago.id}: ${mensaje}`);
       }
     }
   }
+
+  console.log(
+    `${LOG} resumen final: porVencerEnviados=${porVencerEnviados} vencidaEnviados=${vencidaEnviados} errores=${errores.length}`,
+  );
 
   return NextResponse.json({ ok: true, porVencerEnviados, vencidaEnviados, errores });
 }

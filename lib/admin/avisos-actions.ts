@@ -8,6 +8,8 @@ import type { FormState } from "@/lib/form-state";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
+const LOG = "[avisos]";
+
 // Alumnos con alguna inscripción vigente (activa o en espera) en clases de
 // las sedes dadas -- o de cualquier sede si sedeIds es null (todas_las_sedes).
 async function alumnoIdsPorSedes(supabase: SupabaseServerClient, sedeIds: string[] | null) {
@@ -77,8 +79,11 @@ export async function crearAviso(_prevState: FormState, formData: FormData): Pro
     .single();
 
   if (error || !aviso) {
+    console.error(`${LOG} no se pudo insertar el aviso`, error);
     return { status: "error", message: error?.message ?? "No se pudo crear el aviso." };
   }
+
+  console.log(`${LOG} aviso ${aviso.id} creado -- todasLasSedes=${todasLasSedes} sedeIds=${sedeIds.join(",") || "-"}`);
 
   if (!todasLasSedes && sedeIds.length > 0) {
     const { error: errorSedes } = await supabase
@@ -86,6 +91,7 @@ export async function crearAviso(_prevState: FormState, formData: FormData): Pro
       .insert(sedeIds.map((sedeId) => ({ aviso_id: aviso.id, sede_id: sedeId })));
 
     if (errorSedes) {
+      console.error(`${LOG} aviso ${aviso.id} creado pero falló el insert de avisos_sedes`, errorSedes);
       return { status: "error", message: errorSedes.message };
     }
   }
@@ -103,6 +109,10 @@ export async function crearAviso(_prevState: FormState, formData: FormData): Pro
     ]);
 
     const destinatarioIds = [...new Set([...alumnoIds, ...profesorIds])];
+
+    console.log(
+      `${LOG} aviso ${aviso.id}: alumnos=${alumnoIds.length} profesores=${profesorIds.length} destinatarios únicos=${destinatarioIds.length}`,
+    );
 
     if (destinatarioIds.length > 0) {
       const { data: perfiles } = await supabase
@@ -131,12 +141,13 @@ export async function crearAviso(_prevState: FormState, formData: FormData): Pro
       };
     }
   } catch (err) {
-    console.error("No se pudieron enviar los emails del aviso", err);
+    console.error(`${LOG} aviso ${aviso.id}: excepción no controlada mandando los emails`, err);
     return {
       status: "success",
       message: "Aviso publicado, pero no se pudieron mandar los emails (revisá la config de Resend).",
     };
   }
 
+  console.log(`${LOG} aviso ${aviso.id}: 0 destinatarios, no se manda ningún email`);
   return { status: "success", message: "Aviso publicado (sin destinatarios para avisar por email)." };
 }
