@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { notificarLugarLiberado } from "@/lib/email/notificaciones";
 
 export type InscripcionResult = { ok: boolean; message: string };
 
@@ -76,6 +78,32 @@ export async function inscribirseAClase(claseId: string): Promise<InscripcionRes
 
 export async function darseDeBaja(inscripcionId: string): Promise<InscripcionResult> {
   const supabase = await createClient();
+
+  const { data: inscripcion } = await supabase
+    .from("inscripciones")
+    .select("clase_id")
+    .eq("id", inscripcionId)
+    .single();
+
+  // Se toma una "foto" de quiénes están en lista de espera de esta clase
+  // ANTES de dar la baja -- fn_promover_lista_espera (trigger) promueve a
+  // uno de ellos automáticamente si se libera un lugar, pero por RLS un
+  // alumno no puede ver las filas de otros alumnos para saber a cuál le
+  // tocó, así que hace falta el cliente admin para esto (no para el update
+  // de la baja en sí, que sigue yendo con la sesión del alumno).
+  const admin = createAdminClient();
+  const candidatos = inscripcion
+    ? (
+        await admin
+          .from("inscripciones")
+          .select("id, alumno_id")
+          .eq("clase_id", inscripcion.clase_id)
+          .eq("estado", "lista_espera")
+          .order("posicion_espera", { ascending: true })
+          .limit(10)
+      ).data
+    : null;
+
   const { error } = await supabase
     .from("inscripciones")
     .update({ estado: "baja" })
@@ -85,8 +113,65 @@ export async function darseDeBaja(inscripcionId: string): Promise<InscripcionRes
     return { ok: false, message: error.message };
   }
 
+  if (candidatos && candidatos.length > 0 && inscripcion) {
+    // Se espera el envío (no "fire and forget"): en una función serverless
+    // no hay garantía de que una promesa sin awaitear siga corriendo después
+    // de que la Server Action ya devolvió la respuesta -- la plataforma
+    // puede cortar la ejecución ahí mismo. El try/catch es para que, si
+    // Resend falla, igual se confirme la baja (ya se aplicó arriba).
+    try {
+      await notificarPromocionSiCorresponde(admin, inscripcion.clase_id, candidatos);
+    } catch (err) {
+      console.error("No se pudo enviar el email de lugar liberado", err);
+    }
+  }
+
   revalidatePath("/alumno/clases");
   revalidatePath("/alumno/inscripciones");
   revalidatePath("/alumno");
   return { ok: true, message: "Te diste de baja de la clase." };
+}
+
+// De los candidatos a heredar el lugar (en orden de posicion_espera), se
+// busca cuál efectivamente quedó "activa" -- el trigger puede haber saltado
+// al primero si tenía superposición de horario, límite semanal, etc., así
+// que no se puede asumir que fue el de la posición 1.
+async function notificarPromocionSiCorresponde(
+  admin: ReturnType<typeof createAdminClient>,
+  claseId: string,
+  candidatos: { id: string; alumno_id: string }[],
+): Promise<void> {
+  const { data: promovido } = await admin
+    .from("inscripciones")
+    .select("alumno_id")
+    .in(
+      "id",
+      candidatos.map((c) => c.id),
+    )
+    .eq("estado", "activa")
+    .maybeSingle();
+
+  if (!promovido) return;
+
+  const { data: clase } = await admin
+    .from("clases")
+    .select("sede_id, dia_semana, hora_inicio, hora_fin")
+    .eq("id", claseId)
+    .single();
+  if (!clase) return;
+
+  const [{ data: perfil }, { data: sede }] = await Promise.all([
+    admin.from("profiles").select("email, nombre").eq("id", promovido.alumno_id).single(),
+    admin.from("sedes").select("nombre").eq("id", clase.sede_id).single(),
+  ]);
+  if (!perfil || !sede) return;
+
+  await notificarLugarLiberado({
+    alumnoEmail: perfil.email,
+    alumnoNombre: perfil.nombre,
+    sedeNombre: sede.nombre,
+    diaSemana: clase.dia_semana,
+    horaInicio: clase.hora_inicio,
+    horaFin: clase.hora_fin,
+  });
 }

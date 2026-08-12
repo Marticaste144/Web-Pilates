@@ -4,14 +4,15 @@ const SECCIONES = [
   { href: "/admin/profesores", titulo: "Profesores", desc: "Invitar, editar y activar/desactivar." },
   { href: "/admin/clases", titulo: "Clases", desc: "Asignar día, horario, sede y profesor/a." },
   { href: "/admin/aranceles", titulo: "Aranceles", desc: "Editar el valor de la cuota por sede." },
+  { href: "/admin/avisos", titulo: "Avisos", desc: "Publicar avisos y notificar por email a la sede." },
 ];
 
 export default function AdminHomePage() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-slate-500">
-        Dashboard con métricas (ingresos, ocupación) y gestión de alumnos/pagos/avisos llegan en
-        próximas etapas.
+        Dashboard con métricas (ingresos, ocupación) y gestión de alumnos/pagos llegan en próximas
+        etapas.
       </p>
       <div className="grid gap-4 sm:grid-cols-3">
         {SECCIONES.map((s) => (

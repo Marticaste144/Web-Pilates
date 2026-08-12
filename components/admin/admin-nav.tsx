@@ -5,6 +5,7 @@ const LINKS = [
   { href: "/admin/profesores", label: "Profesores" },
   { href: "/admin/clases", label: "Clases" },
   { href: "/admin/aranceles", label: "Aranceles" },
+  { href: "/admin/avisos", label: "Avisos" },
 ];
 
 export function AdminNav() {

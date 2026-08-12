@@ -11,7 +11,10 @@ export const dynamic = "force-dynamic";
 export default function AlumnoHomePage() {
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-slate-500">Los avisos de la sede llegan en una próxima etapa.</p>
+      <p className="text-slate-500">
+        Te avisamos por email cuando haya novedades de tu sede, tu cuota esté por vencer, o se libere un
+        lugar en una lista de espera.
+      </p>
       <div className="grid gap-4 sm:grid-cols-3">
         {SECCIONES.map((s) => (
           <Link

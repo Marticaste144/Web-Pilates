@@ -220,6 +220,10 @@ export type Database = {
           aprobado_en: string | null;
           /** Calculado por trigger = aprobado_en + 1 mes; no se setea a mano. */
           vencimiento: string | null;
+          /** Cuándo se mandó el email de "por vencer" de este ciclo. Null = todavía no. */
+          notificado_por_vencer_en: string | null;
+          /** Cuándo se mandó el email de "vencida" de este ciclo. Null = todavía no. */
+          notificado_vencida_en: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -237,6 +241,8 @@ export type Database = {
           marcado_en?: string | null;
           aprobado_en?: string | null;
           vencimiento?: string | null;
+          notificado_por_vencer_en?: string | null;
+          notificado_vencida_en?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -254,6 +260,8 @@ export type Database = {
           marcado_en?: string | null;
           aprobado_en?: string | null;
           vencimiento?: string | null;
+          notificado_por_vencer_en?: string | null;
+          notificado_vencida_en?: string | null;
           created_at?: string;
           updated_at?: string;
         };

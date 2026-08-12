@@ -5,7 +5,7 @@ MUV POSTURAL, MUV PILATES) — inscripciones, cuotas, asistencia y avisos, con
 3 roles: admin, profesor y alumno.
 
 **Stack:** Next.js (App Router) + TypeScript · Supabase (Postgres + Auth + Storage)
-· Tailwind CSS · Mercado Pago (Checkout Pro) · PWA.
+· Tailwind CSS · Mercado Pago (Checkout Pro) · Resend (emails) · PWA.
 
 ## Etapas del proyecto
 
@@ -13,7 +13,8 @@ MUV POSTURAL, MUV PILATES) — inscripciones, cuotas, asistencia y avisos, con
 2. ✅ Modelo de datos (Sede, Profesor, Alumno, Clase, Inscripción, Pago, Asistencia, Aviso)
 3. ✅ Autenticación con 3 roles y protección de rutas
 4. ✅ Pantalla de login (web y mobile)
-5. 🔶 Pantallas funcionales por rol -- en curso: 5a Admin ✅ · 5b Alumno ✅ · 5c Profesor ✅ · 5d Mercado Pago ✅
+5. ✅ Pantallas funcionales por rol -- 5a Admin ✅ · 5b Alumno ✅ · 5c Profesor ✅ · 5d Mercado Pago ✅
+6. ✅ Notificaciones automáticas por email (Resend) -- lugar liberado en lista de espera, cuota por vencer/vencida, avisos de la admin
 
 ## Setup
 
@@ -759,6 +760,144 @@ en sí no expone el secreto, un endpoint que calcula HMACs con un secreto de
 producción a pedido no debería quedar vivo indefinidamente. El asistente
 tiene un recordatorio propio armado para este pendiente; igual conviene que
 quede anotado acá por si el proyecto sigue por otro canal.
+
+## Paso 6: notificaciones por email (Resend)
+
+Se eligió **email en vez de push del navegador** (decisión del usuario: más
+simple y confiable -- push necesita permiso del navegador, service worker
+registrado, y falla silenciosamente en muchos casos; email llega siempre).
+Servicio: **Resend** -- plan gratis de 3.000 emails/mes (100/día), SDK
+oficial simple, se integra sin fricción con Next.js/Vercel.
+
+### Configurar
+
+1. Cuenta en [resend.com](https://resend.com) (gratis) → **API Keys → Create
+   API Key** → copiar la clave (`re_...`, se muestra una sola vez).
+2. En Vercel (Project Settings → Environment Variables), agregar:
+   - `RESEND_API_KEY` → la clave del paso 1.
+   - `EMAIL_FROM` → `"MUV Gimnasia Postural <onboarding@resend.dev>"` si
+     todavía no hay dominio propio verificado en Resend (**modo sandbox: solo
+     entrega a la casilla con la que te registraste en Resend**, sirve para
+     probar el circuito, no para alumnos reales), o
+     `"MUV Gimnasia Postural <notificaciones@tudominio.com>"` una vez
+     verificado el dominio propio en Resend → Domains (agrega unos registros
+     DNS en el panel de donde se compró el dominio).
+   - `CRON_SECRET` → cualquier string random largo. Vercel lo manda solo
+     como header `Authorization: Bearer <esto>` al llamar al cron diario
+     (comportamiento documentado de Vercel Cron Jobs) -- no hace falta
+     configurar nada más para que esto funcione, solo que la variable exista.
+3. El cron (`vercel.json`, ver más abajo) se registra solo al hacer deploy,
+   sin ningún paso manual en el dashboard de Vercel.
+
+### Los 3 casos, y un hallazgo importante en el camino
+
+**Antes de este paso, la lista de espera NO promovía a nadie automáticamente.**
+El paso 5b (agosto) había armado `fn_asignar_posicion_espera` (asigna el
+número de orden FIFO al anotarse), pero nunca se escribió el otro lado: qué
+pasa cuando se libera un lugar. `darseDeBaja` solo marcaba `estado='baja'` y
+ahí quedaba -- el primero de la lista de espera se enteraba (si se enteraba)
+recién si alguien miraba manualmente. Se encontró revisando el código para
+enganchar el email del caso 1, y se corrigió como parte de este mismo paso
+(no es opcional para que el caso 1 tenga sentido: no hay "lugar liberado"
+que notificar si nadie asigna ese lugar primero).
+
+1. **Lugar liberado en lista de espera** (`supabase/migrations/20260812041659_notificaciones_email.sql`):
+   - `fn_promover_lista_espera` (trigger `after update on inscripciones`):
+     cuando una inscripción pasa de `activa` a `baja`, recorre la lista de
+     espera de esa clase en orden de `posicion_espera` y promueve al primero
+     que pase las validaciones existentes (superposición de horario, límite
+     de 4 clases/semana, aviso activo bloqueando la sede) -- si el primero
+     no puede (por ejemplo se anotó a otra clase con el mismo horario
+     mientras esperaba), prueba con el siguiente en vez de dejar el lugar
+     sin asignar. Es `security definer` por el mismo motivo que
+     `fn_asignar_posicion_espera`: por RLS, la sesión de quien se da de baja
+     no puede ver ni actualizar filas de otros alumnos.
+   - Postgres no puede mandar HTTP sin extensiones que este proyecto no usa,
+     así que el trigger NO manda el email -- solo garantiza el invariante
+     (quién queda activo). El email lo manda `darseDeBaja`
+     (`lib/alumno/inscripciones-actions.ts`) después: toma una "foto" de
+     los primeros 10 candidatos en lista de espera ANTES del update (con
+     `createAdminClient()`, porque por RLS un alumno no puede ver las filas
+     de otros), hace la baja, y después chequea cuál de esos candidatos
+     terminó `activa` -- no se puede asumir que fue el de posición 1, porque
+     el trigger pudo haberlo salteado. El envío se **espera** (no
+     "fire-and-forget"): en una función serverless no hay garantía de que
+     una promesa sin awaitear siga corriendo después de que la Server Action
+     ya devolvió la respuesta.
+
+2. **Cuota por vencer / vencida** (`app/api/cron/revisar-cuotas/route.ts` +
+   `vercel.json`): cron diario (Vercel Cron, `0 12 * * *` = 9am
+   Argentina) que revisa el último pago aprobado de cada alumno+sede (no se
+   puede usar la vista `v_estado_cuota_alumno_sede` acá -- esa vista filtra
+   por `auth.uid()`, que con la service_role key da null y devolvería 0
+   filas siempre -- se replica la misma lógica a mano contra `pagos`). Dos
+   columnas nuevas en `pagos` (`notificado_por_vencer_en`,
+   `notificado_vencida_en`) evitan mandar el mismo email todos los días
+   mientras dure el estado -- como cada ciclo de cobro es una fila nueva
+   (paso 2), arrancan en `null` solas en cada ciclo, no hace falta resetearlas.
+   Protegido con `CRON_SECRET`.
+
+3. **Avisos de la admin** (`app/admin/avisos/`, nuevo -- **tampoco existía
+   una pantalla para publicar avisos hasta este paso**, aunque la tabla y
+   las reglas de bloqueo sí estaban desde el paso 3; se creaban a mano por
+   SQL Editor para probar. `lib/admin/avisos-actions.ts` → `crearAviso`
+   inserta el aviso (+ `avisos_sedes` si no es "todas las sedes"), y ahí
+   mismo -- sin trigger ni webhook, porque esta es la única vía por la que
+   se puede crear un aviso -- calcula destinatarios (alumnos con alguna
+   inscripción vigente + profesores activos con alguna clase activa, de
+   la(s) sede(s) elegida(s) o de todas) y manda el email con
+   `resend.batch.send()` (hasta 100 por llamada, cada uno con su propio
+   "to" -- nadie ve la lista de destinatarios de los demás). Si falla el
+   envío de emails, el aviso queda publicado igual (ya bloquea la sede por
+   los triggers del paso 3) -- no se revierte la publicación por un
+   problema de Resend.
+
+### Validé localmente
+
+- **El trigger de promoción**, contra Postgres local, con un escenario
+  armado a propósito para probar el caso difícil: alumno en lista de espera
+  con superposición de horario con otra clase → se lo saltea correctamente
+  y promueve al siguiente. Sin superposición, promueve al primero.
+- **La lógica de fechas/dedupe del cron** (`estadoVisual`, "última fila por
+  alumno+sede") con casos límite (vence hoy, vence justo al día 5, vence al
+  día 6) en un script Node aislado, sin necesitar Supabase.
+- **El gate de autorización del cron**: sin `CRON_SECRET` seteado, 401
+  siempre; con el secreto correcto, pasa el chequeo y falla recién al
+  intentar hablar con Supabase (esperable, no hay credenciales reales en
+  este entorno -- mismo patrón de validación que se usó en todos los pasos
+  anteriores).
+- `tsc`, `eslint` y `next build` limpios con las 3 rutas nuevas.
+
+**Lo que no pude probar acá** (sin credenciales reales de Resend/Supabase en
+este entorno): el envío real de un email, el flujo completo de principio a
+fin de cada uno de los 3 casos contra tu proyecto real, y el cron
+disparándose solo en producción.
+
+### Para probar en producción
+
+1. **Lugar liberado**: con dos alumnos de prueba, anotá al primero hasta
+   llenar el cupo de una clase (poné el cupo en 1 para probar rápido),
+   anotá a un segundo (debería quedar en lista de espera), y dale "Darse de
+   baja" al primero. El segundo debería recibir el email en segundos.
+2. **Avisos**: `/admin/avisos` → publicá un aviso de prueba para una sede
+   donde tengas al menos un alumno con inscripción vigente → debería llegar
+   el email casi al instante (no depende del cron).
+3. **Cuota por vencer/vencida**: no hace falta esperar al cron real --
+   llamalo a mano una vez desplegado:
+   ```bash
+   curl -H "Authorization: Bearer <tu CRON_SECRET>" https://tu-dominio/api/cron/revisar-cuotas
+   ```
+   Devuelve `{"ok":true,"porVencerEnviados":N,"vencidaEnviados":N,"errores":[]}`.
+   Para forzar un caso de prueba sin esperar al vencimiento real, se puede
+   actualizar a mano en el SQL Editor el `vencimiento` de un pago de prueba
+   a una fecha dentro de los próximos 5 días (o ya pasada) antes de llamar
+   al cron.
+
+**Importante sobre el modo sandbox de Resend** (`EMAIL_FROM` con
+`onboarding@resend.dev`): los 3 casos de arriba solo van a entregar el email
+si el destinatario de prueba es la MISMA casilla con la que te registraste
+en Resend -- para alumnos reales hace falta el dominio propio verificado
+(ver "Configurar" más arriba).
 
 ## Deploy
 
