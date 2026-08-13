@@ -1339,6 +1339,52 @@ end-to-end porque este entorno no tiene credenciales de Supabase -- esa
 lógica en sí no se tocó, así que debería seguir funcionando igual que
 antes.
 
+## Paso 10: eliminar avisos publicados
+
+No había forma de dar de baja un aviso ya publicado -- necesario para
+cuando la situación que lo motivó cambia (ej.: "no hay clases el viernes
+por paro", pero el paro se levanta antes de esa fecha).
+
+- El listado de avisos en `/admin/avisos` ya existía (título, sede(s),
+  rango de fechas); se le agregó un badge "Bloqueando hoy" a los que están
+  vigentes en este momento (compara la fecha de hoy contra
+  `fecha_inicio`/`fecha_fin`, mismo criterio que usa `fn_sede_bloqueada` en
+  la base) -- ayuda a encontrar rápido cuál borrar cuando hay varios.
+- `eliminarAviso` (`lib/admin/avisos-actions.ts`) + `EliminarAvisoButton`
+  (mismo patrón de `ConfirmButton` que ya se usaba para eliminar un
+  profesor).
+- **El desbloqueo es automático, sin ningún paso manual extra:**
+  `fn_sede_bloqueada(sede_id, fecha)` (paso 3) es una consulta en vivo
+  contra `avisos`/`avisos_sedes`, no un flag cacheado en otro lado --
+  apenas se borra la fila, esa función deja de encontrarla y las próximas
+  inscripciones/bajas/asistencia de la sede dejan de estar bloqueadas.
+  `avisos_sedes.aviso_id` tiene `on delete cascade`, así que tampoco queda
+  nada huérfano ahí.
+
+**Sobre mandar un email de "se reabren las clases" al eliminar (se pidió
+recomendación, no se asumió nada):** decidí que **no** conviene
+automatizarlo, y no lo implementé. Un aviso se borra por motivos muy
+distintos entre sí -- la situación se revirtió, pero también: se cargó
+con una fecha mal, es un duplicado, era una prueba -- y el código no tiene
+forma de saber cuál de esos es. Mandar "se reabren las clases" en todos
+los casos por igual generaría emails confusos o directamente falsos en
+los que no aplica. La app ya tiene el mecanismo justo para el caso real
+que sí amerita avisar (la situación se revirtió y hay algo genuino para
+contar): publicar un aviso nuevo y corto con la novedad ("Se levantó el
+paro, las clases del viernes están confirmadas") -- reusa el envío de
+emails que ya existe, y le deja a la admin escribir el mensaje exacto en
+vez de que el sistema le adivine la redacción.
+
+**Validé:** `tsc`/`eslint`/`build` limpios, y la pantalla armada en una
+ruta de preview temporal (borrada antes de este commit) capturada con
+Playwright en 390px y 1280px. No pude probar el borrado real contra
+Supabase (sin credenciales en este entorno) ni confirmar en la práctica
+que una inscripción/baja/asistencia se desbloquea después de borrar --
+la lógica de bloqueo (`fn_sede_bloqueada`) no se tocó, así que debería
+funcionar igual que siempre, pero vale la pena que lo confirmes vos con
+un aviso de prueba: publicalo para una sede, confirmá que bloquea, borralo,
+y confirmá que un alumno de esa sede puede volver a anotarse.
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de

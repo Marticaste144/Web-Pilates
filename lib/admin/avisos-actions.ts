@@ -151,3 +151,26 @@ export async function crearAviso(_prevState: FormState, formData: FormData): Pro
   console.log(`${LOG} aviso ${aviso.id}: 0 destinatarios, no se manda ningún email`);
   return { status: "success", message: "Aviso publicado (sin destinatarios para avisar por email)." };
 }
+
+// El bloqueo de una sede (fn_sede_bloqueada, paso 3) es una consulta en vivo
+// contra avisos/avisos_sedes -- no hay ningún flag cacheado en otra tabla que
+// haya que "apagar" aparte. Borrar la fila alcanza: en cuanto se borra, esa
+// función deja de encontrarla y las próximas inscripciones/bajas/asistencia
+// de la sede dejan de estar bloqueadas, sin ninguna acción manual extra.
+// avisos_sedes tiene "on delete cascade" sobre aviso_id, así que también se
+// limpia sola. A propósito NO manda ningún email de "se reabren las
+// clases" -- ver el apartado del README sobre esta decisión.
+export async function eliminarAviso(avisoId: string): Promise<{ ok: boolean; message: string }> {
+  await requireAdminProfile();
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("avisos").delete().eq("id", avisoId);
+
+  if (error) {
+    console.error(`${LOG} no se pudo eliminar el aviso ${avisoId}`, error);
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/admin/avisos");
+  return { ok: true, message: "Aviso eliminado -- la sede ya no está bloqueada para ese rango de fechas." };
+}
