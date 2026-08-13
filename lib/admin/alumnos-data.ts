@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { EstadoInscripcion, EstadoVisualCuota } from "@/types/database";
+import type { EstadoInscripcion, EstadoVisualCuota, EstadoPago, MedioPago } from "@/types/database";
 
 export type AlumnoListItem = {
   profileId: string;
@@ -69,6 +69,15 @@ export type AlumnoCuotaItem = {
   estado: EstadoVisualCuota | "sin_pagos";
   vencimiento: string | null;
   monto: number | null;
+  medio: MedioPago | null;
+};
+
+export type ComprobanteItem = {
+  pagoId: string;
+  sedeNombre: string;
+  monto: number;
+  estado: EstadoPago;
+  createdAt: string;
 };
 
 export type AlumnoDetalle = {
@@ -79,6 +88,7 @@ export type AlumnoDetalle = {
   telefono: string | null;
   inscripciones: AlumnoInscripcionItem[];
   cuotas: AlumnoCuotaItem[];
+  comprobantes: ComprobanteItem[];
 };
 
 export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | null> {
@@ -93,18 +103,29 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
 
   if (!perfil) return null;
 
-  const [{ data: inscripcionesRaw }, { data: sedes }, { data: cuotasRaw }] = await Promise.all([
-    supabase
-      .from("inscripciones")
-      .select("id, clase_id, estado, posicion_espera")
-      .eq("alumno_id", profileId)
-      .in("estado", ["activa", "lista_espera"]),
-    supabase.from("sedes").select("id, nombre"),
-    supabase
-      .from("v_estado_cuota_alumno_sede")
-      .select("sede_id, estado_visual, vencimiento, monto")
-      .eq("alumno_id", profileId),
-  ]);
+  const [{ data: inscripcionesRaw }, { data: sedes }, { data: cuotasRaw }, { data: comprobantesRaw }] =
+    await Promise.all([
+      supabase
+        .from("inscripciones")
+        .select("id, clase_id, estado, posicion_espera")
+        .eq("alumno_id", profileId)
+        .in("estado", ["activa", "lista_espera"]),
+      supabase.from("sedes").select("id, nombre"),
+      supabase
+        .from("v_estado_cuota_alumno_sede")
+        .select("sede_id, estado_visual, vencimiento, monto, medio")
+        .eq("alumno_id", profileId),
+      // Pagos con comprobante subido por el alumno -- puede haber quedado
+      // "pendiente" (esperando revisión) o ya "aprobado" (si la admin lo
+      // confirmó, o si además se pagó por Mercado Pago). Se listan todos,
+      // no solo los pendientes, como "registro visual" según lo pedido.
+      supabase
+        .from("pagos")
+        .select("id, sede_id, monto, estado, created_at")
+        .eq("alumno_id", profileId)
+        .not("comprobante_url", "is", null)
+        .order("created_at", { ascending: false }),
+    ]);
 
   const sedeNombrePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
 
@@ -151,6 +172,7 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
       estado: c.estado_visual,
       vencimiento: c.vencimiento,
       monto: c.monto,
+      medio: c.medio,
     })),
     ...sedeIdsInscripcion
       .filter((sedeId) => !cuotaPorSede.has(sedeId))
@@ -160,8 +182,17 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
         estado: "sin_pagos" as const,
         vencimiento: null,
         monto: null,
+        medio: null,
       })),
   ];
+
+  const comprobantes: ComprobanteItem[] = (comprobantesRaw ?? []).map((p) => ({
+    pagoId: p.id,
+    sedeNombre: sedeNombrePorId.get(p.sede_id) ?? "?",
+    monto: p.monto,
+    estado: p.estado,
+    createdAt: p.created_at,
+  }));
 
   return {
     profileId: perfil.id,
@@ -171,5 +202,6 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
     telefono: perfil.telefono,
     inscripciones,
     cuotas,
+    comprobantes,
   };
 }

@@ -390,6 +390,7 @@ export type Database = {
           aprobado_en: string;
           frecuencia_semanal: number;
           monto: number;
+          medio: MedioPago;
           vencimiento: string;
           estado_visual: EstadoVisualCuota;
         };

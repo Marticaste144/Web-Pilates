@@ -1428,6 +1428,151 @@ paso le impidiera a la gente anotarse o darse de baja.
   `bloquea` en absoluto -- se manda exactamente igual en los dos casos,
   como pedía la consigna.
 
+## Paso 12: pago manual, comprobantes, dashboards y PDF de asistencias
+
+Cinco features nuevas, encaradas en el orden que menos riesgo tenía primero:
+las dos de pagos (que no necesitaban ninguna migración -- las columnas ya
+estaban desde el paso 5d, pensadas para esto), después los dos dashboards
+(solo lectura, agregan datos que ya existían), y al final el PDF de
+asistencias (la única con una librería nueva). En ningún punto se tocó
+`lib/alumno/pago-actions.ts` ni `app/api/mercadopago/webhook/route.ts` --
+confirmado con `git diff` antes de cerrar el paso: el flujo de Mercado Pago
+sigue exactamente como estaba.
+
+### Marcar pago como efectivo (admin)
+
+`marcarPagoEfectivo` (`lib/admin/pagos-actions.ts`) inserta una fila nueva en
+`pagos` con `estado='aprobado'`, `medio='efectivo'`, y `marcado_por`/
+`marcado_en` (columnas que ya existían, pensadas para esto desde el paso
+5d). Mismo criterio que `iniciarPagoMercadoPago`: cada pago es una fila
+propia, nunca se pisa una existente -- `fn_calcular_vencimiento_pago` calcula
+`vencimiento` solo, sea cual sea el medio. Botón en `/admin/alumnos/[id]`,
+uno por sede con cuota no al día.
+
+`v_estado_cuota_alumno_sede` ahora también expone `medio`
+(`20260813160000_vista_cuota_medio.sql`) para poder mostrar en la ficha del
+alumno con qué medio se pagó la cuota vigente. Nota de Postgres: `create or
+replace view` no permite insertar una columna en el medio de la lista, solo
+agregar al final -- el primer intento de esta migración falló en Postgres
+local por eso, quedó documentado en el propio archivo.
+
+`ConfirmButton` (`components/ui/confirm-button.tsx`) gana un prop `tone`
+(`"destructive"` default, sin cambiar ningún uso existente) para poder
+confirmar acciones que no son destructivas -- un botón rojo para "marcar
+pagado" habría dado la señal visual equivocada.
+
+**Validé la migración de la vista + el insert real contra Postgres local**
+(no solo leyéndola): aplicué todas las migraciones desde cero, inserté un
+pago en efectivo tal cual lo hace la Server Action, y confirmé que la vista
+lo muestra con `medio='efectivo'`, `vencimiento` calculado, y que el filtro
+de seguridad de la vista (admin ve todo, el propio alumno ve el suyo, un
+tercero no ve nada) sigue intacto.
+
+### Comprobante de pago (alumno sube, admin ve)
+
+`comprobante_url` también existía desde el paso 5d (`-- path en Supabase
+Storage`, literalmente el comentario de la columna). Lo que faltaba era el
+bucket:
+
+- **Bucket privado `comprobantes`** (`20260813170000_storage_comprobantes.sql`),
+  10 MiB máx, solo imágenes/PDF. RLS en `storage.objects` con la convención
+  de path `<alumno_id>/<pago_id>.<ext>`: el alumno solo puede insertar/ver
+  en su propia carpeta, la admin ve todo. **Validado con un stub local del
+  esquema `storage`** (Supabase no es Postgres plano, así que armé
+  `storage.buckets`/`storage.objects`/`storage.foldername()` mínimos para
+  poder probar la RLS de verdad): confirmé que un alumno puede subir a su
+  carpeta, no puede subir a la de otro (rechazado), y que solo él mismo y
+  la admin pueden verlo (un tercero, 0 filas).
+- `subirComprobantePago` (`lib/alumno/comprobante-actions.ts`): sube el
+  archivo ANTES de crear la fila en `pagos` (si la subida falla, no queda
+  un `pendiente` húerfano -- el alumno no tiene permiso para borrar sus
+  propios pagos, RLS a propósito desde el paso 3, así que un rollback
+  manual no sería posible). Crea el pago con `estado='pendiente'`,
+  `medio='efectivo'` -- no lo aprueba solo, queda para que la admin lo
+  revise.
+- `aprobarComprobante` (`lib/admin/pagos-actions.ts`): a diferencia de
+  `marcarPagoEfectivo`, ACTUALIZA la fila existente (no crea una nueva) --
+  por eso sí dispara `fn_registrar_auditoria_pago` (es un UPDATE), dejando
+  rastro en `pagos_auditoria` además de `marcado_por`/`marcado_en`. El
+  `where estado='pendiente'` evita reprocesar un pago ya resuelto por otra
+  vía.
+- **Ver el comprobante**: `/admin/comprobantes/[pagoId]` (Route Handler)
+  genera una URL firmada de Storage EN EL MOMENTO del click y redirige --
+  nunca una URL vieja/vencida embebida en el HTML. Usa el cliente de
+  sesión (no service_role), así que la RLS de arriba es la que manda de
+  verdad, no un bypass.
+
+Deliberadamente NO se automatizó ningún vínculo entre "comprobante subido" y
+"marcarPagoEfectivo" -- son dos caminos independientes (uno actualiza en el
+momento del alta, el otro inserta fresco) para no tener que adivinar de qué
+pago-pendiente-sin-comprobante viene cada marcado manual.
+
+### Dashboard con métricas (admin) y panorama del profesor
+
+`lib/admin/dashboard-data.ts` / `lib/profesor/dashboard-data.ts`: todo
+calculado con fetch + reduce en JS (mismo criterio que el resto de
+`lib/admin/*`/`lib/profesor/*`, nunca RPC ni agregación en SQL -- no hace
+falta para el volumen de un centro chico). `StatCard`
+(`components/ui/stat-card.tsx`) es el único componente nuevo, reusado en
+las dos pantallas.
+
+- **Admin** (`/admin`): alumnos activos (total + por sede), facturación del
+  mes separada por medio, ocupación promedio, clases activas, profesores
+  activos, lista de espera, cuotas vencidas (resaltada si hay alguna). Se
+  actualizó el subtítulo de la página, que decía "llega en una próxima
+  etapa" -- ya no aplicaba.
+- **Profesor** (`/profesor`): próxima clase (día/hora/sede -- función pura
+  `calcularProximaClase` en `lib/profesor/dashboard-data.ts`, **probada con
+  6 casos sueltos antes de integrarla**: hoy más tarde vs. hoy ya pasada,
+  wrap-around de domingo a lunes, una sola clase, sin clases), clases a
+  cargo, alumnos únicos, ocupación promedio.
+
+### PDF de asistencias semanales (profesor)
+
+Único punto que necesitó una librería nueva: `@react-pdf/renderer` (genera
+el PDF en Node, sin headless browser -- no viable en serverless). Botón
+"Descargar PDF" en `/profesor/clases`, con selector de fecha (cualquier
+fecha de la semana que se quiera, no hace falta que sea justo el lunes).
+
+- `lib/profesor/asistencias-pdf-data.ts`: para cada clase del profesor,
+  calcula la fecha calendario exacta de su ocurrencia esa semana (recurrente
+  por `dia_semana`, mismo criterio que el selector de día del alumno,
+  paso 9) y REUSA `obtenerClaseDetalle` (ya probado, el mismo que usa
+  `/profesor/clases/[id]`) para el roster -- misma regla de visibilidad de
+  siempre (un alumno sin cuota aprobada no aparece, ni en la pantalla ni
+  acá). **El cálculo de fechas se probó con 6 casos sueltos** (cruce de
+  mes, domingo de la misma semana vs. la próxima, etc.) antes de integrarlo.
+- `lib/profesor/asistencias-pdf.tsx`: el documento en sí (`Document`/`Page`
+  de react-pdf), un bloque por clase con `wrap={false}` para que la lista
+  de alumnos de una clase nunca quede partida entre dos páginas.
+- `app/api/profesor/asistencias-pdf/route.tsx`: `GET` protegido con
+  `requireRole("profesor")`, devuelve el PDF con
+  `Content-Disposition: attachment`.
+
+**Validé la generación del PDF de punta a punta, no solo el código:** armé
+una ruta de prueba temporal que llama a `renderToBuffer` con datos falsos
+(sin depender de Supabase), generé el PDF real, lo abrí con `pdfinfo`
+(confirma que es un PDF válido) y lo convertí a imagen con `pdftoppm` para
+mirarlo -- primero con un caso chico, después con un caso grande (24 clases,
+8 alumnos cada una, la carga real de Sabina en MUV Pilates) para confirmar
+que pagina bien: 5 páginas, ningún bloque de clase partido a la mitad,
+tildes/ñ renderizando bien, sin recortes.
+
+**Validé también visualmente con Playwright** (mobile y desktop, sin
+overflow horizontal) el formulario de comprobante, la ficha de alumno con
+comprobantes, los dos dashboards, y la pantalla de "Mis clases" con el
+botón de descarga -- en este último encontré y corregí un bug real (el
+texto "Descargar PDF" se cortaba en dos líneas en desktop por faltar
+`whitespace-nowrap`; de paso lo pasé a usar `LinkButton`, que no estaba
+usando).
+
+**Lo que no pude probar:** el flujo real end-to-end contra Supabase (subir
+un comprobante de verdad, marcar un pago, generar el PDF con datos reales)
+-- este entorno no tiene credenciales. Todo lo que SÍ se pudo probar sin
+Supabase (migraciones contra Postgres local, RLS de Storage con un stub del
+esquema, funciones puras de fechas, generación real del PDF) se probó de
+verdad, no se dio por sentado.
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de

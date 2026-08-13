@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { obtenerAlumno } from "@/lib/admin/alumnos-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
+import { MarcarEfectivoButton } from "./marcar-efectivo-button";
+import { AprobarComprobanteButton } from "./aprobar-comprobante-button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -16,8 +18,23 @@ const CUOTA_VARIANT: Record<string, { texto: string; variant: "success" | "warni
   sin_pagos: { texto: "Sin pagos registrados", variant: "neutral" },
 };
 
+const COMPROBANTE_VARIANT: Record<string, { texto: string; variant: "success" | "warning" | "error" | "neutral" }> = {
+  pendiente: { texto: "Pendiente de revisión", variant: "warning" },
+  aprobado: { texto: "Aprobado", variant: "success" },
+  rechazado: { texto: "Rechazado", variant: "error" },
+  procesando: { texto: "Procesando", variant: "neutral" },
+};
+
+// Para columnas date (ej. vencimiento) -- appendear T00:00:00 evita que el
+// shift a hora local corra la fecha un día para atrás cerca de medianoche.
 function formatearFecha(fechaIso: string): string {
   return new Date(`${fechaIso}T00:00:00`).toLocaleDateString("es-AR");
+}
+
+// Para columnas timestamptz (ej. created_at de un comprobante) -- estas ya
+// vienen con hora y zona, así que se parsean tal cual.
+function formatearFechaHora(fechaIso: string): string {
+  return new Date(fechaIso).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" });
 }
 
 export default async function AlumnoDetallePage({
@@ -68,16 +85,53 @@ export default async function AlumnoDetallePage({
                     {c.vencimiento && (
                       <p className="text-sm text-neutral-500">
                         ${c.monto?.toLocaleString("es-AR")} -- vence el {formatearFecha(c.vencimiento)}
+                        {c.medio && ` -- pagado con ${c.medio === "efectivo" ? "efectivo" : "Mercado Pago"}`}
                       </p>
                     )}
                   </div>
-                  <Badge variant={label.variant}>{label.texto}</Badge>
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <Badge variant={label.variant}>{label.texto}</Badge>
+                    {c.estado !== "al_dia" && <MarcarEfectivoButton alumnoId={alumno.profileId} sedeId={c.sedeId} />}
+                  </div>
                 </Card>
               );
             })}
           </div>
         )}
       </div>
+
+      {alumno.comprobantes.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <h2 className="font-semibold text-neutral-900">Comprobantes subidos</h2>
+          <div className="flex flex-col gap-2.5">
+            {alumno.comprobantes.map((c) => {
+              const label = COMPROBANTE_VARIANT[c.estado];
+              return (
+                <Card key={c.pagoId} className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-neutral-900">
+                      {c.sedeNombre} -- ${c.monto.toLocaleString("es-AR")}
+                    </p>
+                    <p className="text-sm text-neutral-500">Subido el {formatearFechaHora(c.createdAt)}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <Badge variant={label.variant}>{label.texto}</Badge>
+                    <a
+                      href={`/admin/comprobantes/${c.pagoId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-medium text-primary-600 hover:underline"
+                    >
+                      Ver comprobante
+                    </a>
+                    {c.estado === "pendiente" && <AprobarComprobanteButton pagoId={c.pagoId} />}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         <h2 className="font-semibold text-neutral-900">Clases</h2>
