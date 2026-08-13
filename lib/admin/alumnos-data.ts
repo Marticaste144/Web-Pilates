@@ -14,22 +14,41 @@ export type AlumnoListItem = {
 // visibilidad por cuota -- la admin ve a todos los alumnos siempre (RLS:
 // "admin ve todos los perfiles"/"admin ve todos los alumnos", sin el
 // fn_alumno_visible() que sí aplica para profesores).
-export async function listarAlumnos(query?: string): Promise<AlumnoListItem[]> {
+//
+// El filtro de texto se hace en JS, no con .or()/ilike de PostgREST -- antes
+// armaba el filtro a mano con `.or(\`nombre.ilike.${like},...\`)`, el
+// "escape hatch" crudo de postgrest-js (su propio código fuente lo dice:
+// "value are used as-is... you need to make sure they are properly
+// sanitized"). Eso es justo el bug reportado: buscar "LU" no encontraba a
+// "Lucía" pero "LUC" sí -- consistente con un problema de esa capa cruda,
+// no de la lógica de negocio. En vez de perseguir el detalle exacto de
+// escaping de PostgREST, se saca la incertidumbre de raíz: para el volumen
+// de alumnos de un centro chico, filtrar en JS (mismo criterio que el resto
+// de lib/admin/*, que ya hace todo con fetch + reduce) es tan rápido como
+// necesita ser y queda 100% determinístico -- se puede probar con datos
+// sueltos sin depender de Supabase.
+export type OrdenAlumnos = "apellido" | "nombre";
+
+export async function listarAlumnos(query?: string, orden: OrdenAlumnos = "apellido"): Promise<AlumnoListItem[]> {
   const supabase = await createClient();
 
-  let q = supabase
+  const { data: todos } = await supabase
     .from("profiles")
     .select("id, nombre, apellido, email, telefono")
-    .eq("role", "alumno");
+    .eq("role", "alumno")
+    .order(orden);
 
-  const texto = query?.trim();
-  if (texto) {
-    const like = `%${texto}%`;
-    q = q.or(`nombre.ilike.${like},apellido.ilike.${like},email.ilike.${like}`);
-  }
+  const texto = query?.trim().toLowerCase();
+  const perfiles = texto
+    ? (todos ?? []).filter(
+        (p) =>
+          p.nombre.toLowerCase().includes(texto) ||
+          p.apellido.toLowerCase().includes(texto) ||
+          p.email.toLowerCase().includes(texto),
+      )
+    : (todos ?? []);
 
-  const { data: perfiles } = await q.order("apellido");
-  if (!perfiles || perfiles.length === 0) return [];
+  if (perfiles.length === 0) return [];
 
   const alumnoIds = perfiles.map((p) => p.id);
   const { data: inscripciones } = await supabase
@@ -103,29 +122,47 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
 
   if (!perfil) return null;
 
-  const [{ data: inscripcionesRaw }, { data: sedes }, { data: cuotasRaw }, { data: comprobantesRaw }] =
-    await Promise.all([
-      supabase
-        .from("inscripciones")
-        .select("id, clase_id, estado, posicion_espera")
-        .eq("alumno_id", profileId)
-        .in("estado", ["activa", "lista_espera"]),
-      supabase.from("sedes").select("id, nombre"),
-      supabase
-        .from("v_estado_cuota_alumno_sede")
-        .select("sede_id, estado_visual, vencimiento, monto, medio")
-        .eq("alumno_id", profileId),
-      // Pagos con comprobante subido por el alumno -- puede haber quedado
-      // "pendiente" (esperando revisión) o ya "aprobado" (si la admin lo
-      // confirmó, o si además se pagó por Mercado Pago). Se listan todos,
-      // no solo los pendientes, como "registro visual" según lo pedido.
-      supabase
-        .from("pagos")
-        .select("id, sede_id, monto, estado, created_at")
-        .eq("alumno_id", profileId)
-        .not("comprobante_url", "is", null)
-        .order("created_at", { ascending: false }),
-    ]);
+  const [
+    { data: inscripcionesRaw, error: errorInscripciones },
+    { data: sedes, error: errorSedes },
+    { data: cuotasRaw, error: errorCuotas },
+    { data: comprobantesRaw, error: errorComprobantes },
+  ] = await Promise.all([
+    supabase
+      .from("inscripciones")
+      .select("id, clase_id, estado, posicion_espera")
+      .eq("alumno_id", profileId)
+      .in("estado", ["activa", "lista_espera"]),
+    supabase.from("sedes").select("id, nombre"),
+    supabase
+      .from("v_estado_cuota_alumno_sede")
+      .select("sede_id, estado_visual, vencimiento, monto, medio")
+      .eq("alumno_id", profileId),
+    // Pagos con comprobante subido por el alumno -- puede haber quedado
+    // "pendiente" (esperando revisión) o ya "aprobado" (si la admin lo
+    // confirmó, o si además se pagó por Mercado Pago). Se listan todos,
+    // no solo los pendientes, como "registro visual" según lo pedido.
+    supabase
+      .from("pagos")
+      .select("id, sede_id, monto, estado, created_at")
+      .eq("alumno_id", profileId)
+      .not("comprobante_url", "is", null)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  // Antes estos 4 errores se descartaban en silencio (solo se desestructuraba
+  // "data") -- un error acá (ej. falta aplicar una migración en la base real,
+  // como 20260813160000_vista_cuota_medio.sql, que agrega la columna "medio"
+  // que se pide más abajo) hacía que cuotasRaw quedara undefined, y TODA
+  // cuota -- pagada o no, por Mercado Pago o efectivo -- se mostrara como
+  // "sin_pagos": exactamente el bug reportado de "marcar pagado en efectivo
+  // no persiste" (el pago sí se insertaba bien, pero esta lectura fallaba
+  // sola y silenciosamente). Ahora cualquier error de estas 4 queries queda
+  // en los logs del servidor en vez de disfrazarse de "no hay datos".
+  if (errorInscripciones) console.error(`[alumnos-data] obtenerAlumno(${profileId}): error leyendo inscripciones`, errorInscripciones);
+  if (errorSedes) console.error(`[alumnos-data] obtenerAlumno(${profileId}): error leyendo sedes`, errorSedes);
+  if (errorCuotas) console.error(`[alumnos-data] obtenerAlumno(${profileId}): error leyendo v_estado_cuota_alumno_sede -- ¿falta aplicar una migración? (medio se agregó en 20260813160000_vista_cuota_medio.sql)`, errorCuotas);
+  if (errorComprobantes) console.error(`[alumnos-data] obtenerAlumno(${profileId}): error leyendo pagos/comprobantes`, errorComprobantes);
 
   const sedeNombrePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
 

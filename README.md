@@ -1573,6 +1573,138 @@ Supabase (migraciones contra Postgres local, RLS de Storage con un stub del
 esquema, funciones puras de fechas, generación real del PDF) se probó de
 verdad, no se dio por sentado.
 
+## Paso 13: ajustes y bugs de la ronda de pruebas
+
+### ⚠️ Acción pendiente de tu parte: correr las migraciones que faltan
+
+Si todavía no lo hiciste, correlas en orden en el SQL Editor de Supabase (o
+como corras migraciones normalmente):
+`20260813150000_avisos_bloquea_opcional.sql`,
+`20260813160000_vista_cuota_medio.sql`,
+`20260813170000_storage_comprobantes.sql`,
+`20260814090000_solapamiento_clases.sql`. Ver el bug 3 más abajo -- es la
+causa más probable de ese bug.
+
+### Bug 3: "Marcar pagado (efectivo)" no persiste -- causa encontrada
+
+**Diagnóstico, con una prueba real (no solo lectura de código):** el pago en
+efectivo se inserta bien -- ese INSERT nunca dependió de la columna nueva.
+El problema está en la LECTURA que arma la pantalla: `obtenerAlumno`
+(`lib/admin/alumnos-data.ts`) le pide a `v_estado_cuota_alumno_sede` la
+columna `medio`, agregada por la migración `20260813160000_vista_cuota_medio.sql`
+del paso 12. **Si esa migración todavía no corrió contra tu base real, esa
+columna no existe ahí** -- la consulta falla, y el código (antes de este
+fix) descartaba el error silenciosamente (`const { data } = await ...`, sin
+mirar `error`). Con `cuotasRaw` vacío por el error, TODAS las cuotas de esa
+pantalla cae al fallback "sin_pagos", sin importar si en realidad están
+pagas -- exactamente el síntoma reportado.
+
+Reproduje esto en Postgres local a propósito: apliqué las migraciones
+salteando la del `medio`, inserté un pago en efectivo real, y corrí la
+consulta exacta que hace `obtenerAlumno` -- da
+`ERROR: column "medio" does not exist`, confirmando el mecanismo.
+
+**Fix aplicado:** `obtenerAlumno` ahora chequea el `error` de las 4
+consultas del `Promise.all` y lo loguea con `console.error` (mensaje
+explícito para esta en particular: "¿falta aplicar una migración?"). Esto
+no reemplaza correr la migración -- si no la corriste, el bug sigue
+pasando, pero ahora en vez de fallar en silencio te va a quedar un error
+bien visible en los logs de Vercel la próxima vez, en vez de un misterio.
+**Si después de correr la migración pendiente el bug persiste**, ese log
+te va a decir exactamente por qué.
+
+### Bug 1: clases duplicadas en el mismo horario/sede
+
+`fn_validar_solapamiento_clase` (`20260814090000_solapamiento_clases.sql`),
+mismo criterio que `fn_validar_solapamiento_horario` del paso 3 (que evita
+que UN ALUMNO se anote a dos clases que se pisan) -- invariante a nivel de
+base, no solo validación de formulario. Bloquea cualquier clase nueva o
+editada que se superponga en horario con otra clase ACTIVA de la misma sede
+y mismo día, sea el mismo profesor u otro. Una clase desactivada libera el
+horario (no compite contra sí misma al reactivarla en otro lado).
+
+**Probé 8 escenarios reales contra Postgres local**, no solo la lógica en
+teoría: mismo horario exacto (rechaza), mismo horario con otro profesor
+(rechaza igual), superposición parcial (rechaza), horarios consecutivos sin
+pisarse (pasa), mismo horario otro día (pasa), mismo horario otra sede
+(pasa), reusar un horario después de desactivar la clase vieja (pasa), y
+editar una clase existente sin tocar el horario -- para confirmar que no
+choca contra sí misma (pasa).
+
+### Bug 2: el buscador de `/admin/alumnos` no encontraba con texto corto
+
+Causa: `listarAlumnos` armaba el filtro con `.or()` de postgrest-js, el
+"escape hatch" crudo del cliente -- confirmado leyendo su código fuente
+(`node_modules/@supabase/postgrest-js`): ese método no transforma ni
+sanitiza nada, solo envuelve el string tal cual en la URL ("you need to
+make sure they are properly sanitized", dice su propio comentario). Buscar
+"LU" no encontraba a "Lucía" pero "LUC" sí -- un síntoma consistente con un
+problema de esa capa cruda, no de la lógica de negocio en sí.
+
+En vez de perseguir el detalle exacto de escaping de PostgREST, se sacó la
+incertidumbre de raíz: el filtro ahora se hace en JS (`.includes()` sobre
+nombre/apellido/email, ya en minúsculas), mismo criterio que el resto de
+`lib/admin/*` (fetch + reduce, nunca queries armadas a mano). Para el
+volumen de alumnos de un centro chico esto es más que suficiente, y queda
+100% determinístico -- lo probé con 6 casos sueltos (incluido el caso real:
+"LU" matchea a Lucía por nombre y de paso a los 3 alumnos de prueba por
+email, porque "alumno" contiene "lu" -- comportamiento correcto, no un
+bug, ya que el placeholder dice "por nombre, apellido o email").
+
+De paso, se agregó la opción de orden pedida: "Ordenar por: Apellido /
+Nombre" arriba del listado (antes solo ordenaba por apellido, sin
+alternativa).
+
+### Textos sacados
+
+- `/alumno/cuota`: se sacó el subtítulo "Estado por sede, con pago online
+  vía Mercado Pago."
+- `/profesor` (home): se sacó el subtítulo sobre cuándo aparece un alumno
+  en el roster. **No hizo falta moverlo a ningún lado**: esa misma
+  explicación ya existe, mejor ubicada, como `Alert` contextual en
+  `/profesor/clases/[id]` (`{clase.alumnosNoVisibles > 0 && <Alert>...`) --
+  aparece solo cuando de verdad hay alumnos ocultos en esa clase puntual,
+  en vez de una advertencia genérica en la home que la mayoría de las
+  veces no aplica a nada.
+
+### Home del alumno, con contenido de verdad
+
+`/alumno` tenía solo 3 cards de navegación. Se agregó (arriba de esas
+mismas cards, que se mantienen):
+
+- **Próxima clase** (día/hora/sede) -- misma lógica de "próxima ocurrencia
+  semanal" que ya se había armado y probado para el panorama del profesor
+  (paso 12), ahora extraída a `lib/proxima-ocurrencia.ts` (función pura,
+  genérica, ya no vive solo en `lib/profesor/`) para no duplicar el cálculo
+  entre las dos homes.
+- **Resumen de cuota**: una badge por sede (Al día / Por vencer / Vencida /
+  Sin pagos) con link a "Ver detalle" -- reusa `listarEstadoCuotaAlumno`
+  que ya existía para `/alumno/cuota`, no se agregó ninguna consulta nueva.
+- Clases anotado/a y en lista de espera, como stat cards chicas.
+
+### Formato de fechas día/mes/año
+
+- **Todo lo armado en código** (labels, fechas en listados, emails) ya
+  usaba `toLocaleDateString("es-AR")`/`toLocaleString("es-AR", ...)` --
+  confirmé con Node que ese locale devuelve día/mes/año
+  (`new Date(...).toLocaleDateString("es-AR")` → `"5/8/2026"`, no
+  `"8/5/2026"`), así que no hacía falta tocar nada ahí.
+- **Los `<input type="date">` nativos** (`aviso-form.tsx`, `fecha-picker.tsx`
+  en `/profesor/clases/[id]`, el selector de semana del PDF de asistencias)
+  son la excepción real: **confirmé empíricamente, no solo de memoria**,
+  que ni el `lang="es"` del `<html>` ni el locale del propio navegador
+  cambian cómo el navegador MUESTRA el campo mientras se edita -- probé
+  con Playwright, mismo input, tres configuraciones de locale del
+  navegador distintas, mismo resultado (`08/05/2026`, formato mes/día) en
+  las tres. Es una limitación real del control nativo del navegador/SO, no
+  algo que este código pueda forzar sin reemplazar el input nativo por un
+  selector de fecha custom hecho a medida -- una opción real, pero
+  bastante más trabajo que "un ajuste", así que no lo armé sin que lo
+  pidas explícitamente. Importante: esto es solo un tema de qué formato
+  ve la persona mientras edita -- el VALOR que se guarda siempre es
+  `YYYY-MM-DD` (estándar HTML), así que no hay ningún bug de datos acá,
+  ninguna fecha se guarda ni se interpreta mal.
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de

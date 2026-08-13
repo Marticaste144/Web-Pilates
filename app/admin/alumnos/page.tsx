@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listarAlumnos } from "@/lib/admin/alumnos-data";
+import { listarAlumnos, type OrdenAlumnos } from "@/lib/admin/alumnos-data";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,24 +11,45 @@ export const dynamic = "force-dynamic";
 export default async function AlumnosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; orden?: string }>;
 }) {
-  const { q } = await searchParams;
-  const alumnos = await listarAlumnos(q);
+  const { q, orden: ordenParam } = await searchParams;
+  const orden: OrdenAlumnos = ordenParam === "nombre" ? "nombre" : "apellido";
+  const alumnos = await listarAlumnos(q, orden);
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Alumnos" subtitle="Listado general, con sus datos de contacto y clases activas." />
 
-      <form method="get" className="flex gap-2">
-        <Input
-          type="search"
-          name="q"
-          defaultValue={q ?? ""}
-          placeholder="Buscar por nombre, apellido o email..."
-          className="max-w-sm"
-        />
-      </form>
+      <div className="flex flex-wrap items-center gap-4">
+        <form method="get" className="flex gap-2">
+          <Input
+            type="search"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Buscar por nombre, apellido o email..."
+            className="max-w-sm"
+          />
+          <input type="hidden" name="orden" value={orden} />
+        </form>
+
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-neutral-500">Ordenar por</span>
+          <Link
+            href={`/admin/alumnos?${new URLSearchParams({ ...(q ? { q } : {}), orden: "apellido" })}`}
+            className={`font-medium ${orden === "apellido" ? "text-primary-600" : "text-neutral-400 hover:text-primary-600"}`}
+          >
+            Apellido
+          </Link>
+          <span className="text-neutral-300">·</span>
+          <Link
+            href={`/admin/alumnos?${new URLSearchParams({ ...(q ? { q } : {}), orden: "nombre" })}`}
+            className={`font-medium ${orden === "nombre" ? "text-primary-600" : "text-neutral-400 hover:text-primary-600"}`}
+          >
+            Nombre
+          </Link>
+        </div>
+      </div>
 
       {alumnos.length === 0 && (
         <EmptyState

@@ -17,10 +17,7 @@ export default async function ProfesorHomePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Hola 👋"
-        subtitle="Un alumno inscripto recién aparece en tu roster cuando tiene su primera cuota aprobada en esa sede -- hasta entonces cuenta para el cupo pero no ves sus datos."
-      />
+      <PageHeader title="Hola 👋" />
 
       <Card className="flex flex-col gap-1">
         <p className="text-xs font-medium text-neutral-500">Próxima clase</p>

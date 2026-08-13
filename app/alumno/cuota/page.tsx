@@ -36,7 +36,7 @@ export default async function CuotaPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Mi cuota" subtitle="Estado por sede, con pago online vía Mercado Pago." />
+      <PageHeader title="Mi cuota" />
 
       {banner && <Alert variant={banner.variant}>{banner.texto}</Alert>}
 
