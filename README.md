@@ -1705,6 +1705,71 @@ mismas cards, que se mantienen):
   `YYYY-MM-DD` (estándar HTML), así que no hay ningún bug de datos acá,
   ninguna fecha se guarda ni se interpreta mal.
 
+## Paso 14: favicon con el logo real + Términos y Condiciones / Política de Privacidad
+
+### Favicon: la causa real no era el SVG reconstruido
+
+El isotipo (`app/icon.png`, `app/apple-icon.png`, `public/icons/icon-*.png`)
+ya se había corregido en un paso anterior para usar el PNG real subido por
+la usuaria en vez de la reconstrucción en SVG -- **eso confirmé que seguía
+bien, sin cambios** (regeneré los cuatro archivos igual desde
+`public/laura-pagola-isotipo@2000px.png` para sacarme la duda del todo, y el
+resultado fue byte a byte el mismo que ya estaba: `git diff` no mostró
+ningún cambio en esos cuatro archivos).
+
+El archivo que sí estaba mal, y que ese paso anterior nunca tocó (no
+aparece en su diff), es **`app/favicon.ico`**: seguía siendo el ícono
+genérico de plantilla de Next.js (un círculo negro con un triángulo
+blanco), sin ninguna relación con el logo de MUV -- confirmado extrayendo
+las imágenes del `.ico` con PIL antes de tocar nada. Ese es el ícono que
+usa la pestaña del navegador por default, así que aunque `icon.png` ya
+estuviera bien, la pestaña seguía mostrando el genérico.
+
+**Fix:** regeneré `favicon.ico` desde el mismo PNG fuente, como un `.ico`
+multi-resolución moderno (frames PNG embebidos de 16/32/48px, vía `sharp` +
+`png-to-ico`, instalado con `npm install --no-save` para no tocar
+`package.json`/`package-lock.json`). Verifiqué con PIL que ahora extrae el
+logo real (azul/turquesa), y con `curl` contra un build de producción que
+las tres etiquetas `<link rel="icon"/apple-touch-icon">` del `<head>`
+apuntan y sirven bien (200) los archivos correctos. `public/manifest.json`
+ya apuntaba correctamente a `icons/icon-192.png`/`icon-512.png` con
+`purpose: "any"` -- no hizo falta tocarlo. Es un cambio 100% de assets
+estáticos, sin dependencia de base de datos ni migraciones: aplica solo con
+el próximo deploy.
+
+### Términos y Condiciones + Política de Privacidad
+
+**Página pública nueva: `/legal`** (`app/legal/page.tsx`). No está bajo
+ningún layout autenticado y `/legal` no figura en `PROTECTED_PREFIXES`
+(`lib/supabase/middleware.ts`), así que no hizo falta ningún cambio de
+routing para que sea accesible sin login -- confirmé además que el build la
+genera como `○` (estática, sin dependencia de auth). Contiene el texto
+completo de Términos y Condiciones y Política de Privacidad que me pasaste,
+con navegación por anclas (`#terminos`, `#privacidad`) y el mismo sistema
+de diseño que el resto de la app.
+
+**Enlaces agregados en tres lugares:**
+- Footer de `AuthShell` (`components/auth/auth-shell.tsx`) -- visible en
+  login, signup, "olvidé mi contraseña" y "restablecer contraseña".
+- Footer de `RoleShell` (`components/role-shell.tsx`) -- visible en todas
+  las pantallas ya logueado, para los 3 roles (admin/profesor/alumno). No
+  existe ninguna pantalla de "configuración de cuenta" en la app (la
+  busqué explícitamente, no existe), así que en vez de crear una pantalla
+  nueva solo para alojar este link -- que hubiera sido agregar alcance no
+  pedido -- lo puse en el shell compartido, donde queda accesible desde
+  cualquier pantalla logueada de cualquier rol.
+- Checkbox del formulario de signup, con link directo a cada sección
+  (`/legal#terminos`, `/legal#privacidad`).
+
+**Checkbox obligatorio en el signup**, con validación en dos capas (mismo
+patrón que se usa en todo el resto de la app para Server Actions):
+`required` en el `<input type="checkbox">` (bloquea el submit del lado del
+navegador) **y** un chequeo explícito en `signUpAlumno`
+(`lib/auth/actions.ts`) que rechaza la creación de la cuenta si
+`acepta_terminos` no viene marcado -- necesario porque una Server Action se
+puede invocar directo, sin pasar por el formulario ni por su validación
+HTML.
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de

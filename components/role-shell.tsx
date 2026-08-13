@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { signOut } from "@/lib/auth/actions";
 import type { CurrentProfile } from "@/lib/auth/session";
 import { Isotipo } from "@/components/ui/isotipo";
@@ -44,7 +45,14 @@ export function RoleShell({
         </form>
       </header>
       {nav}
-      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col p-4 pb-24 sm:pb-8">{children}</div>
+      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col p-4 pb-24 sm:pb-8">
+        {children}
+        <footer className="mt-8 border-t border-neutral-200 pt-4 text-center text-xs text-neutral-400">
+          <Link href="/legal" className="hover:text-primary-600 hover:underline">
+            Términos y Condiciones y Política de Privacidad
+          </Link>
+        </footer>
+      </div>
     </div>
   );
 }
