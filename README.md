@@ -1292,6 +1292,53 @@ no se puede recuperar después. Guardá esos datos aparte si los necesitás
 para algo (por ejemplo, todavía no reconciliaste ese pago a mano en
 `pagos.estado`) antes de confirmar.
 
+## Paso 9: navegación de clases del alumno por sede + día (antes: lista única mezclada)
+
+`/alumno/clases` mostraba de una todos los horarios de las 3 sedes
+mezclados -- no escala a medida que se cargan más clases, y a la mayoría
+de los alumnos solo le interesa una sede. Ahora es un flujo de 2 pantallas,
+sin tocar la lógica de inscripción/baja/lista de espera (`inscripcion-
+control.tsx`, `lib/alumno/inscripciones-actions.ts`) ni las reglas de cupo
+-- esto era puramente de navegación/presentación:
+
+- **`/alumno/clases`** -- 3 cards, una por sede, con la cantidad de
+  horarios activos de cada una (o "Todavía sin horarios"). Mismo patrón
+  visual que las cards de `/admin` (icono en caja de color + título +
+  chevron).
+- **`/alumno/clases/[sedeId]`** -- título con el nombre de la sede, un
+  selector de día horizontal (pills con scroll horizontal en mobile,
+  `flex-wrap` en desktop -- mismo truco `-mx-4`/`px-4` que ya usa
+  `/admin/clases/[id]` para sangrar hasta el borde del contenedor
+  `p-4` de `RoleShell`), y debajo los horarios de ese día con el mismo
+  `Card`+`InscripcionControl` de siempre.
+- El selector es por **día de la semana** (Lunes..Domingo), no por fecha
+  de calendario -- los horarios son recurrentes semana a semana, no hay
+  "el lunes 18" ni nada parecido, coherente con cómo ya se guardan
+  (`clases.dia_semana`, sin fecha). Abre por default en el día de hoy.
+- `lib/alumno/clases-data.ts` gana un `listarSedes()` nuevo (lee `sedes`
+  directo, cualquier autenticado puede por RLS) -- hace falta para poder
+  mostrar las 3 cards aunque alguna todavía no tenga clases cargadas,
+  cosa que `listarClasesParaAlumno()` sola no permite (una sede sin
+  clases no aparece ahí). `listarClasesParaAlumno()` en sí no cambió: las
+  dos pantallas nuevas la llaman tal cual y filtran/agrupan en memoria.
+- Único cambio fuera de la vista: `inscripciones-actions.ts` ahora también
+  hace `revalidatePath("/alumno/clases/[sedeId]", "page")` (la forma
+  documentada de invalidar una ruta dinámica por su patrón, sin necesitar
+  el id real) además del `revalidatePath("/alumno/clases")` que ya
+  existía -- si no, después de anotarse/darse de baja la pantalla de
+  detalle de sede podía quedar con el estado viejo hasta navegar afuera y
+  volver.
+
+**Validé:** `tsc`/`eslint`/`build` limpios, y las dos pantallas armadas en
+una ruta de preview temporal (borrada antes de este commit) y capturadas
+con Playwright en 390px y 1280px -- confirmé que no hay scroll horizontal
+a nivel de página en ninguno de los dos anchos (el selector de día sí
+scrollea horizontalmente *dentro suyo* en mobile, a propósito, como un
+carrusel de días). No pude probar el flujo real de inscripción/baja
+end-to-end porque este entorno no tiene credenciales de Supabase -- esa
+lógica en sí no se tocó, así que debería seguir funcionando igual que
+antes.
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de

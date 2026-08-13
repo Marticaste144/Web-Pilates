@@ -1,0 +1,114 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { listarClasesParaAlumno, listarSedes } from "@/lib/alumno/clases-data";
+import { InscripcionControl } from "../inscripcion-control";
+import { DIAS_SEMANA } from "@/lib/dias-semana";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ChevronRightIcon } from "@/components/ui/icons";
+
+export const dynamic = "force-dynamic";
+
+// Los horarios son recurrentes semana a semana (todos los lunes son el mismo
+// horario), así que el selector es por día de la semana, no por fecha de
+// calendario -- no hay "próximo lunes 18" ni nada parecido, solo el nombre
+// del día. Por default se abre en el día de hoy (Date#getDay() da 0=domingo,
+// se convierte a la convención 1=lunes..7=domingo que ya usa el resto de la
+// app -- ver lib/dias-semana.ts).
+function diaDeHoyISO(): number {
+  const js = new Date().getDay();
+  return js === 0 ? 7 : js;
+}
+
+export default async function ClasesDeSedePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ sedeId: string }>;
+  searchParams: Promise<{ dia?: string }>;
+}) {
+  const { sedeId } = await params;
+  const { dia: diaParam } = await searchParams;
+
+  const [sedes, clases] = await Promise.all([listarSedes(), listarClasesParaAlumno()]);
+  const sede = sedes.find((s) => s.id === sedeId);
+  if (!sede) {
+    notFound();
+  }
+
+  const clasesDeSede = clases.filter((c) => c.sedeId === sedeId);
+
+  const diaParseado = Number(diaParam);
+  const diaSeleccionado = DIAS_SEMANA.some((d) => d.value === diaParseado) ? diaParseado : diaDeHoyISO();
+
+  const clasesDelDia = clasesDeSede
+    .filter((c) => c.diaSemana === diaSeleccionado)
+    .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <Link
+          href="/alumno/clases"
+          className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:underline"
+        >
+          <ChevronRightIcon className="h-3.5 w-3.5 rotate-180" />
+          Volver a sedes
+        </Link>
+        <h1 className="mt-2 text-xl font-bold text-neutral-900 sm:text-2xl">{sede.nombre}</h1>
+      </div>
+
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+        {DIAS_SEMANA.map((d) => {
+          const activo = d.value === diaSeleccionado;
+          return (
+            <Link
+              key={d.value}
+              href={`/alumno/clases/${sedeId}?dia=${d.value}`}
+              scroll={false}
+              className={`shrink-0 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ${
+                activo
+                  ? "border-primary-600 bg-primary-600 text-white"
+                  : "border-neutral-200 bg-white text-neutral-600 hover:border-primary-300"
+              }`}
+            >
+              {d.label.slice(0, 3)}
+            </Link>
+          );
+        })}
+      </div>
+
+      {clasesDelDia.length === 0 ? (
+        <EmptyState
+          title="No hay horarios este día"
+          description="Probá con otro día de la semana en el selector de arriba."
+        />
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {clasesDelDia.map((c) => {
+            const lleno = c.inscriptosActivos >= c.cupo;
+            return (
+              <Card key={c.id} className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="font-medium text-neutral-900">
+                    {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
+                  </p>
+                  <div className="mt-1 flex items-center gap-2 text-sm text-neutral-500">
+                    <span>Prof. {c.profesorNombre}</span>
+                    <Badge variant={lleno ? "warning" : "neutral"}>
+                      {c.inscriptosActivos}/{c.cupo} lugares
+                    </Badge>
+                  </div>
+                </div>
+                <div className="shrink-0">
+                  <InscripcionControl claseId={c.id} miInscripcionId={c.miInscripcionId} miEstado={c.miEstado} />
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

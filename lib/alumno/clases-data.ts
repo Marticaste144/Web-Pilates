@@ -15,6 +15,18 @@ export type ClaseDisponible = {
   miEstado: EstadoInscripcion | null;
 };
 
+export type SedeItem = { id: string; nombre: string };
+
+// Las 3 sedes son fijas y cualquier usuario autenticado puede leerlas (RLS:
+// "autenticados ven sedes"). Se usa para listar las 3 cards aunque alguna
+// todavía no tenga clases cargadas -- listarClasesParaAlumno() por sí sola
+// no alcanzaría para eso, porque una sede sin clases no aparecería ahí.
+export async function listarSedes(): Promise<SedeItem[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("sedes").select("id, nombre").order("nombre");
+  return data ?? [];
+}
+
 export async function listarClasesParaAlumno(): Promise<ClaseDisponible[]> {
   const supabase = await createClient();
   const {
