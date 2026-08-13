@@ -340,6 +340,7 @@ export type Database = {
           fecha_fin: string;
           publicado_por: string;
           created_at: string;
+          bloquea: boolean;
         };
         Insert: {
           id?: string;
@@ -350,6 +351,7 @@ export type Database = {
           fecha_fin: string;
           publicado_por: string;
           created_at?: string;
+          bloquea?: boolean;
         };
         Update: {
           id?: string;
@@ -360,6 +362,7 @@ export type Database = {
           fecha_fin?: string;
           publicado_por?: string;
           created_at?: string;
+          bloquea?: boolean;
         };
         Relationships: [];
       };

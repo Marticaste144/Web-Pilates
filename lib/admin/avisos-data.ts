@@ -9,6 +9,7 @@ export type AvisoListItem = {
   fechaInicio: string;
   fechaFin: string;
   createdAt: string;
+  bloquea: boolean;
 };
 
 export async function listarAvisos(): Promise<AvisoListItem[]> {
@@ -16,7 +17,7 @@ export async function listarAvisos(): Promise<AvisoListItem[]> {
 
   const { data: avisos } = await supabase
     .from("avisos")
-    .select("id, titulo, mensaje, todas_las_sedes, fecha_inicio, fecha_fin, created_at")
+    .select("id, titulo, mensaje, todas_las_sedes, fecha_inicio, fecha_fin, created_at, bloquea")
     .order("created_at", { ascending: false });
 
   if (!avisos || avisos.length === 0) return [];
@@ -53,5 +54,6 @@ export async function listarAvisos(): Promise<AvisoListItem[]> {
     fechaInicio: a.fecha_inicio,
     fechaFin: a.fecha_fin,
     createdAt: a.created_at,
+    bloquea: a.bloquea,
   }));
 }

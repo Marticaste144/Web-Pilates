@@ -28,7 +28,7 @@ export default async function AvisosPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Avisos"
-        subtitle="Un aviso bloquea toda actividad (inscripción, baja, asistencia) de la sede en su rango de fechas, y manda un email a los alumnos y profesores/as afectados."
+        subtitle="Un aviso siempre manda un email a los alumnos y profesores/as afectados. Bloquear inscripción, baja y asistencia de la sede en el rango de fechas es opcional -- se elige al crearlo."
       />
 
       <Card>
@@ -59,7 +59,11 @@ export default async function AvisosPage() {
                   <Badge variant="info">
                     {a.todasLasSedes ? "Todas las sedes" : a.sedesNombres.join(", ") || "Sin sede asignada"}
                   </Badge>
-                  {vigente && <Badge variant="warning">Bloqueando hoy</Badge>}
+                  {a.bloquea ? (
+                    <Badge variant="warning">{vigente ? "Bloqueando hoy" : "Bloquea clases"}</Badge>
+                  ) : (
+                    <Badge variant="neutral">Informativo</Badge>
+                  )}
                 </div>
                 <EliminarAvisoButton avisoId={a.id} />
               </div>

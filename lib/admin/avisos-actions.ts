@@ -55,6 +55,7 @@ export async function crearAviso(_prevState: FormState, formData: FormData): Pro
   const fechaFin = String(formData.get("fecha_fin") ?? "");
   const todasLasSedes = formData.get("todas_las_sedes") === "on";
   const sedeIds = formData.getAll("sede_ids").map(String).filter(Boolean);
+  const bloquea = formData.get("bloquea") === "on";
 
   if (!titulo || !mensaje || !fechaInicio || !fechaFin) {
     return { status: "error", message: "Completá todos los campos." };
@@ -65,6 +66,8 @@ export async function crearAviso(_prevState: FormState, formData: FormData): Pro
 
   const supabase = await createClient();
 
+  // El envío de emails más abajo no depende de "bloquea" -- se manda siempre
+  // igual, sea el aviso informativo o de los que bloquean la sede.
   const { data: aviso, error } = await supabase
     .from("avisos")
     .insert({
@@ -74,6 +77,7 @@ export async function crearAviso(_prevState: FormState, formData: FormData): Pro
       fecha_inicio: fechaInicio,
       fecha_fin: fechaFin,
       publicado_por: admin.id,
+      bloquea,
     })
     .select("id")
     .single();

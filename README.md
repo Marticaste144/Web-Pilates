@@ -1385,6 +1385,49 @@ funcionar igual que siempre, pero vale la pena que lo confirmes vos con
 un aviso de prueba: publicalo para una sede, confirmá que bloquea, borralo,
 y confirmá que un alumno de esa sede puede volver a anotarse.
 
+## Paso 11: avisos que bloquean vs. avisos informativos
+
+Hasta ahora todo aviso bloqueaba inscripción/baja/asistencia de la(s)
+sede(s) en su rango de fechas -- no había forma de publicar algo puramente
+informativo ("che, el viernes va a hacer calor, traigan agua") sin que de
+paso le impidiera a la gente anotarse o darse de baja.
+
+- **Migración** `20260813150000_avisos_bloquea_opcional.sql`: agrega
+  `avisos.bloquea boolean not null default true`, y redefine
+  `fn_sede_bloqueada` (paso 3) para que solo cuente avisos con
+  `bloquea = true`. El `default true` cubre el requisito de no cambiarle
+  el comportamiento a los avisos ya publicados antes de este cambio, sin
+  que haga falta ningún backfill a mano -- ALTER TABLE ADD COLUMN con
+  default no-null completa sola las filas existentes.
+- **Validé la migración contra Postgres local** (no solo leyéndola): la
+  apliqué completa desde cero, confirmé que un aviso nuevo sin especificar
+  `bloquea` queda en `true`, y probé `fn_sede_bloqueada` -- y el trigger
+  real `trg_validar_aviso_inscripcion` haciendo un `insert` real en
+  `inscripciones` -- con `bloquea=true` (rechaza el insert, mismo mensaje
+  de siempre) y `bloquea=false` (el insert pasa) sobre el mismo aviso.
+- **`/admin/avisos`**: nuevo checkbox "¿Este aviso bloquea las clases?" en
+  el formulario, con el texto de ayuda cambiando según el estado para que
+  quede clara la diferencia antes de publicar. **Default: bloquea (`true`)
+  -- decisión mía, distinta de lo que la consigna sugería como punto de
+  partida (default "no bloquea").** Razón: hasta este cambio, el 100% de
+  los avisos alguna vez publicados bloqueaban -- es el comportamiento que
+  la admin ya espera por costumbre. Si el default fuera "no bloquea" y en
+  algún momento se publica un aviso tipo "no hay clases por feriado" sin
+  fijarse en el checkbox nuevo, la sede queda sin bloquear: alguien se
+  anota o se presenta a una clase que en realidad no existe ese día, y
+  nadie se entera hasta que ya pasó. Al revés (default bloquea, y algún
+  aviso informativo queda bloqueando sin querer), el error se nota
+  enseguida -- alguien no puede anotarse, avisa, se corrige. Ante dos
+  defaults igual de "olvidables", se eligió el que falla de forma visible
+  en vez del que falla en silencio.
+- El listado ahora distingue tres estados con badge: **"Bloqueando hoy"**
+  (bloquea y está vigente ahora), **"Bloquea clases"** (bloquea pero no
+  está vigente todavía/ya pasó), **"Informativo"** (no bloquea nunca,
+  vigente o no).
+- El envío de emails (`notificarAviso`) no se tocó ni depende de
+  `bloquea` en absoluto -- se manda exactamente igual en los dos casos,
+  como pedía la consigna.
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de
