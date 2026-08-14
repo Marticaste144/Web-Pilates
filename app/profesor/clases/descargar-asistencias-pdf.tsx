@@ -4,10 +4,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/field";
 import { LinkButton } from "@/components/ui/button";
-
-function hoyISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+import { hoyISO } from "@/lib/fecha";
 
 // Cualquier fecha dentro de la semana elegida sirve -- el servidor calcula
 // el lunes de esa semana y arma el PDF con la ocurrencia de cada clase ahí

@@ -3,12 +3,9 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { requireRole } from "@/lib/auth/session";
 import { obtenerAsistenciasSemana } from "@/lib/profesor/asistencias-pdf-data";
 import { AsistenciasPdfDocument } from "@/lib/profesor/asistencias-pdf";
+import { hoyISO } from "@/lib/fecha";
 
 export const dynamic = "force-dynamic";
-
-function hoyISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 // GET en vez de Server Action a propósito: un botón/link de descarga con
 // ?fecha=... es lo más simple para que el navegador maneje el PDF (guardar/

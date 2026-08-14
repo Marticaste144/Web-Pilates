@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { obtenerClaseDetalle } from "@/lib/profesor/clases-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
+import { hoyISO } from "@/lib/fecha";
 import { FechaPicker } from "./fecha-picker";
 import { AlumnoRow } from "./alumno-row";
 import { Badge } from "@/components/ui/badge";
@@ -10,10 +11,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ChevronRightIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
-
-function hoyISO() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default async function ClaseDetallePage({
   params,

@@ -20,10 +20,7 @@ export default async function ArancelesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Aranceles"
-        subtitle="Un cambio no pisa el histórico: queda una fila nueva vigente desde hoy."
-      />
+      <PageHeader title="Aranceles" />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {sedes.map(([sedeId, sedeNombre]) => (

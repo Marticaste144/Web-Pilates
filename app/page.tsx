@@ -25,7 +25,7 @@ export default async function Home() {
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center bg-neutral-50 px-6 py-12 text-center">
+    <main className="flex flex-1 flex-col items-center justify-center bg-neutral-50 px-6 py-12 text-center">
       <Isotipo className="h-16 w-16" />
       <div className="mt-4 max-w-md">
         <h1 className="text-2xl font-bold text-neutral-900 sm:text-3xl">MUV Gimnasia Postural</h1>

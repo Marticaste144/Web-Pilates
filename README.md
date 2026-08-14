@@ -1924,6 +1924,81 @@ email personal (no de un tercero) como respaldo puro, no una cuenta de uso
 diario. **No creé ninguna cuenta nueva** -- como pediste, queda para que lo
 pidas explícitamente si querés seguir ese camino.
 
+## Paso 16: textos, bug de asistencias vs. PDF por huso horario, y landing sin espacio muerto
+
+### Textos sacados
+
+- `/admin/aranceles`: se sacó el subtítulo "Un cambio no pisa el histórico:
+  queda una fila nueva vigente desde hoy."
+- `/admin` (home): se sacó el subtítulo "Panorama rápido del centro --
+  ingresos, ocupación y alumnado.", debajo del saludo.
+
+### Bug: asistencia marcada "Presente" pero el PDF semanal la muestra "Sin tomar" -- causa real
+
+**Causa encontrada y confirmada por reproducción, no por hipótesis:**
+`hoyISO()` (usada como default de fecha en `/profesor/clases/[id]` y en el
+PDF de asistencias) calculaba "hoy" con
+`new Date().toISOString().slice(0, 10)` -- eso da la fecha en **UTC**, que
+se adelanta un día respecto al calendario real en Argentina (UTC-3) durante
+la noche: desde las 21:00 hora Argentina en adelante, ya es "mañana" en
+UTC.
+
+Si un profesor toma asistencia de una clase que termina a esa hora (ej.
+20:00-21:00) sin elegir la fecha a mano, la asistencia se guarda con la
+fecha de MAÑANA en vez de la fecha real de la clase. El PDF semanal no
+tiene este problema para calcular QUÉ fecha buscar -- calcula la ocurrencia
+exacta de cada clase a partir de su día de la semana (lunes de la semana +
+offset), no de "hoy" -- así que busca la fecha CORRECTA, no encuentra la
+fila (guardada bajo la fecha equivocada) y muestra "Sin tomar" pese a que
+sí se había marcado.
+
+**Reproducido con un script Node** usando las funciones reales del código
+(no una versión simplificada): simulé marcar presente a las 21:05 hora
+Argentina de un jueves -- la versión vieja de `hoyISO()` guardaba la
+asistencia con la fecha del VIERNES; el PDF, calculando la ocurrencia del
+jueves de esa semana, buscaba la fecha del jueves y no la encontraba.
+Confirmé el mecanismo exacto antes de tocar código.
+
+**Fix:** `lib/fecha.ts` (nuevo) exporta un `hoyISO()` que usa
+`Intl.DateTimeFormat` con `timeZone: "America/Argentina/Buenos_Aires"`
+explícito -- no depende de la zona horaria configurada en el servidor (los
+runtimes de Vercel suelen correr en UTC) ni de la del navegador, así que
+funciona igual en servidor y cliente. Reemplaza al `hoyISO()` local en los
+3 lugares donde esto causaba el bug: `/profesor/clases/[id]/page.tsx`
+(fecha default al tomar asistencia), `/api/profesor/asistencias-pdf/route.tsx`
+(fecha de referencia default del PDF) y
+`descargar-asistencias-pdf.tsx` (fecha default del selector, corre en el
+navegador). **Volví a correr la misma reproducción con el fix aplicado:
+ahora la asistencia se guarda con la fecha correcta del jueves, y el PDF la
+encuentra.** Probé además los casos límite (23:59 y 00:01 hora Argentina)
+para confirmar que no hay ningún otro corrimiento de un día en ningún
+punto del día.
+
+**Nota para más adelante, no tocada en este paso:** el mismo patrón
+(`new Date().toISOString().slice(0, 10)` para "hoy") existe en otros
+lugares del código (avisos, exportar CSV, aranceles, comprobantes, el cron
+de cuotas, `lib/alumno/pago-actions.ts`) -- ninguno de esos causa HOY un
+bug reportado, y no los toqué para mantener el cambio acotado a lo pedido
+(y porque `lib/alumno/pago-actions.ts` en particular es el flujo de pagos,
+que la regla de siempre pide no tocar sin que se pida explícitamente). Si
+en algún momento aparece un síntoma parecido en otra pantalla (algo que
+"pisa" al día siguiente cerca de la noche), la causa más probable es la
+misma, y el fix es reusar `hoyISO()` de `lib/fecha.ts` ahí también.
+
+### Landing: espacio vacío/scroll de más
+
+Causa: `<main>` en `/` usa `flex-1` para ocupar toda la altura disponible
+del viewport, pero el contenido no estaba centrado verticalmente -- quedaba
+pegado arriba, dejando un bloque de fondo vacío abajo en cualquier pantalla
+más alta que el contenido (se veía clarísimo en la captura de escritorio
+del paso anterior). Fix de una clase: se agregó `justify-center` al mismo
+`<main>`. Verificado con Playwright, no solo a ojo:
+`document.documentElement.scrollHeight === clientHeight` en mobile (390px)
+y desktop (1280px) antes y después -- ahora el contenido queda centrado
+verticalmente sin generar scroll extra en ningún caso, y si el contenido
+llegara a ser más alto que la pantalla (ej. una fuente muy grande), la
+página sigue scrolleando normal sin quedar cortada.
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de

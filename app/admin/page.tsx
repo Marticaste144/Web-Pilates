@@ -25,7 +25,7 @@ export default async function AdminHomePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Hola 👋" subtitle="Panorama rápido del centro -- ingresos, ocupación y alumnado." />
+      <PageHeader title="Hola 👋" />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Card className="flex flex-col gap-2">
