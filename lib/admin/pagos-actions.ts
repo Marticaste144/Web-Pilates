@@ -114,5 +114,38 @@ export async function aprobarComprobante(pagoId: string): Promise<PagoResult> {
   revalidatePath(`/admin/alumnos/${pago.alumno_id}`);
   revalidatePath("/admin/alumnos");
   revalidatePath("/admin");
+  revalidatePath("/admin/comprobantes");
   return { ok: true, message: `Comprobante aprobado por $${pago.monto.toLocaleString("es-AR")} -- la cuota ya está al día.` };
+}
+
+// Rechaza un comprobante que no corresponde (monto equivocado, transferencia
+// que no llegó, etc.) -- mismo criterio que aprobarComprobante (UPDATE de la
+// fila existente, no borrado: pagos nunca se borra, queda como historial).
+// El WHERE por estado='pendiente' evita reprocesar un comprobante que ya se
+// resolvió por otra vía.
+export async function rechazarComprobante(pagoId: string): Promise<PagoResult> {
+  const admin = await requireAdminProfile();
+
+  const supabase = await createClient();
+
+  const { data: pago, error } = await supabase
+    .from("pagos")
+    .update({ estado: "rechazado", marcado_por: admin.id, marcado_en: new Date().toISOString() })
+    .eq("id", pagoId)
+    .eq("estado", "pendiente")
+    .select("alumno_id")
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+  if (!pago) {
+    return { ok: false, message: "Este comprobante ya fue revisado (o no está pendiente)." };
+  }
+
+  revalidatePath(`/admin/alumnos/${pago.alumno_id}`);
+  revalidatePath("/admin/alumnos");
+  revalidatePath("/admin");
+  revalidatePath("/admin/comprobantes");
+  return { ok: true, message: "Comprobante rechazado. El alumno puede subir uno nuevo." };
 }

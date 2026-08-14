@@ -95,6 +95,7 @@ export type ComprobanteItem = {
   pagoId: string;
   sedeNombre: string;
   monto: number;
+  medio: MedioPago;
   estado: EstadoPago;
   createdAt: string;
 };
@@ -144,7 +145,7 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
     // no solo los pendientes, como "registro visual" según lo pedido.
     supabase
       .from("pagos")
-      .select("id, sede_id, monto, estado, created_at")
+      .select("id, sede_id, monto, medio, estado, created_at")
       .eq("alumno_id", profileId)
       .not("comprobante_url", "is", null)
       .order("created_at", { ascending: false }),
@@ -227,6 +228,7 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
     pagoId: p.id,
     sedeNombre: sedeNombrePorId.get(p.sede_id) ?? "?",
     monto: p.monto,
+    medio: p.medio,
     estado: p.estado,
     createdAt: p.created_at,
   }));

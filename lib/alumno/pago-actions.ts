@@ -5,6 +5,8 @@ import { Preference } from "mercadopago";
 import { createClient } from "@/lib/supabase/server";
 import { getMercadoPagoConfig } from "@/lib/mercadopago/client";
 import { getSiteUrl } from "@/lib/site-url";
+import { obtenerConfiguracionPagos } from "@/lib/configuracion-pagos";
+import { calcularRecargoMercadoPago } from "@/lib/recargo-mercadopago";
 
 export type PagoResult = { ok: boolean; message: string };
 
@@ -59,6 +61,14 @@ export async function iniciarPagoMercadoPago(sedeId: string): Promise<PagoResult
 
   const { data: sede } = await supabase.from("sedes").select("nombre").eq("id", sedeId).single();
 
+  // "monto" sigue siendo siempre el valor neto de la cuota (lo que le
+  // corresponde a MUV) -- el recargo de Mercado Pago se guarda aparte en
+  // recargo_mercadopago, y es lo único que cambia respecto de lo que se le
+  // cobra al alumno (ver lib/configuracion-pagos.ts para la fórmula).
+  const config = await obtenerConfiguracionPagos();
+  const recargo = calcularRecargoMercadoPago(monto, config.recargoMercadopagoPct);
+  const montoConRecargo = monto + recargo;
+
   const { data: pago, error: errorPago } = await supabase
     .from("pagos")
     .insert({
@@ -66,6 +76,7 @@ export async function iniciarPagoMercadoPago(sedeId: string): Promise<PagoResult
       sede_id: sedeId,
       frecuencia_semanal: frecuenciaSemanal,
       monto,
+      recargo_mercadopago: recargo,
       medio: "mercadopago",
       estado: "pendiente",
     })
@@ -94,7 +105,7 @@ export async function iniciarPagoMercadoPago(sedeId: string): Promise<PagoResult
             id: pago.id,
             title: `Cuota MUV ${sede?.nombre ?? ""} -- ${frecuenciaSemanal}x/semana`,
             quantity: 1,
-            unit_price: monto,
+            unit_price: montoConRecargo,
             currency_id: "ARS",
           },
         ],

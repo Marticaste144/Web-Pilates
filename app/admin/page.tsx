@@ -3,7 +3,7 @@ import { obtenerMetricas } from "@/lib/admin/dashboard-data";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
-import { UserIcon, UsersIcon, CalendarIcon, TagIcon, MegaphoneIcon, ChevronRightIcon } from "@/components/ui/icons";
+import { UserIcon, UsersIcon, CalendarIcon, TagIcon, MegaphoneIcon, ChevronRightIcon, WalletIcon } from "@/components/ui/icons";
 import { LinkButton } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
@@ -12,8 +12,9 @@ const SECCIONES = [
   { href: "/admin/profesores", titulo: "Profesores", desc: "Invitar, editar y activar/desactivar.", icon: UsersIcon },
   { href: "/admin/alumnos", titulo: "Alumnos", desc: "Listado, datos de contacto y estado de cuota.", icon: UserIcon },
   { href: "/admin/clases", titulo: "Clases", desc: "Asignar día, horario, sede y profesor/a.", icon: CalendarIcon },
-  { href: "/admin/aranceles", titulo: "Aranceles", desc: "Editar el valor de la cuota por sede.", icon: TagIcon },
+  { href: "/admin/aranceles", titulo: "Aranceles", desc: "Editar el valor de la cuota y el recargo de Mercado Pago.", icon: TagIcon },
   { href: "/admin/avisos", titulo: "Avisos", desc: "Publicar avisos y notificar por email a la sede.", icon: MegaphoneIcon },
+  { href: "/admin/comprobantes", titulo: "Comprobantes", desc: "Revisar transferencias pendientes de verificación.", icon: WalletIcon },
 ];
 
 function formatearMonto(monto: number): string {
@@ -53,6 +54,9 @@ export default async function AdminHomePage() {
               Mercado Pago: <span className="font-medium text-neutral-700">{formatearMonto(m.facturacionMes.mercadopago)}</span>
             </span>
             <span>
+              Transferencia: <span className="font-medium text-neutral-700">{formatearMonto(m.facturacionMes.transferencia)}</span>
+            </span>
+            <span>
               Efectivo: <span className="font-medium text-neutral-700">{formatearMonto(m.facturacionMes.efectivo)}</span>
             </span>
           </div>
@@ -70,6 +74,14 @@ export default async function AdminHomePage() {
           tone={m.cuotasVencidas > 0 ? "error" : "neutral"}
           sub={m.cuotasVencidas > 0 ? "conviene revisar" : "todo al día"}
         />
+        <Link href="/admin/comprobantes">
+          <StatCard
+            label="Comprobantes pendientes"
+            value={m.comprobantesPendientes}
+            tone={m.comprobantesPendientes > 0 ? "warning" : "neutral"}
+            sub={m.comprobantesPendientes > 0 ? "para revisar" : "todo revisado"}
+          />
+        </Link>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { iniciarPagoMercadoPago } from "@/lib/alumno/pago-actions";
 import { Button } from "@/components/ui/button";
 
-export function PagarButton({ sedeId }: { sedeId: string }) {
+export function PagarButton({ sedeId, montoConRecargo }: { sedeId: string; montoConRecargo: number }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -23,7 +23,7 @@ export function PagarButton({ sedeId }: { sedeId: string }) {
           })
         }
       >
-        {pending ? "Redirigiendo..." : "Pagar con Mercado Pago"}
+        {pending ? "Redirigiendo..." : `Pagar $${montoConRecargo.toLocaleString("es-AR")} con Mercado Pago`}
       </Button>
       {error && <p className="max-w-[220px] text-right text-xs text-error-600">{error}</p>}
     </div>

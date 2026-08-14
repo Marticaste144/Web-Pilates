@@ -4,10 +4,12 @@ import { obtenerAlumno } from "@/lib/admin/alumnos-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { MarcarEfectivoButton } from "./marcar-efectivo-button";
 import { AprobarComprobanteButton } from "./aprobar-comprobante-button";
+import { RechazarComprobanteButton } from "./rechazar-comprobante-button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ChevronRightIcon } from "@/components/ui/icons";
+import type { MedioPago } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +25,12 @@ const COMPROBANTE_VARIANT: Record<string, { texto: string; variant: "success" | 
   aprobado: { texto: "Aprobado", variant: "success" },
   rechazado: { texto: "Rechazado", variant: "error" },
   procesando: { texto: "Procesando", variant: "neutral" },
+};
+
+const MEDIO_TEXTO: Record<MedioPago, string> = {
+  mercadopago: "Mercado Pago",
+  efectivo: "efectivo",
+  transferencia: "transferencia",
 };
 
 // Para columnas date (ej. vencimiento) -- appendear T00:00:00 evita que el
@@ -85,7 +93,7 @@ export default async function AlumnoDetallePage({
                     {c.vencimiento && (
                       <p className="text-sm text-neutral-500">
                         ${c.monto?.toLocaleString("es-AR")} -- vence el {formatearFecha(c.vencimiento)}
-                        {c.medio && ` -- pagado con ${c.medio === "efectivo" ? "efectivo" : "Mercado Pago"}`}
+                        {c.medio && ` -- pagado con ${MEDIO_TEXTO[c.medio]}`}
                       </p>
                     )}
                   </div>
@@ -112,7 +120,9 @@ export default async function AlumnoDetallePage({
                     <p className="font-medium text-neutral-900">
                       {c.sedeNombre} -- ${c.monto.toLocaleString("es-AR")}
                     </p>
-                    <p className="text-sm text-neutral-500">Subido el {formatearFechaHora(c.createdAt)}</p>
+                    <p className="text-sm text-neutral-500">
+                      {MEDIO_TEXTO[c.medio]} -- subido el {formatearFechaHora(c.createdAt)}
+                    </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
                     <Badge variant={label.variant}>{label.texto}</Badge>
@@ -124,7 +134,12 @@ export default async function AlumnoDetallePage({
                     >
                       Ver comprobante
                     </a>
-                    {c.estado === "pendiente" && <AprobarComprobanteButton pagoId={c.pagoId} />}
+                    {c.estado === "pendiente" && (
+                      <>
+                        <AprobarComprobanteButton pagoId={c.pagoId} />
+                        <RechazarComprobanteButton pagoId={c.pagoId} />
+                      </>
+                    )}
                   </div>
                 </Card>
               );

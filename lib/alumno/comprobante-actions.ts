@@ -14,17 +14,19 @@ function extensionDe(nombre: string, tipo: string): string {
   return tipo === "application/pdf" ? "pdf" : "jpg";
 }
 
-// Sube un comprobante (imagen o PDF) como respaldo de un pago hecho fuera
-// del sistema -- NO reemplaza al flujo de Mercado Pago (esa cuota se sigue
+// Sube un comprobante (imagen o PDF) como respaldo de una transferencia por
+// alias/CBU -- NO reemplaza al flujo de Mercado Pago (esa cuota se sigue
 // aprobando sola por el webhook) ni pisa nada de lib/alumno/pago-actions.ts,
 // a propósito: es un camino totalmente aparte, para no arriesgar el flujo
 // de pagos que ya funciona.
 //
 // Crea una fila NUEVA en pagos con estado='pendiente' (la RLS "alumno crea
-// su intento de pago" ya permite exactamente esto) y medio='efectivo' --
-// queda a la vista de la admin, que la revisa y la aprueba a mano (ver
-// aprobarComprobante en lib/admin/pagos-actions.ts) o usa "Marcar pagado"
-// si prefiere no depender de este registro puntual.
+// su intento de pago" ya permite exactamente esto) y medio='transferencia'
+// -- queda a la vista de la admin, que la revisa y la aprueba o la rechaza
+// (ver aprobarComprobante/rechazarComprobante en lib/admin/pagos-actions.ts).
+// Sin recargo: a diferencia de medio='mercadopago', acá "monto" es
+// exactamente lo que se le pide transferir al alumno (ver
+// lib/configuracion-pagos.ts).
 //
 // El archivo se sube ANTES de insertar la fila (no al revés): si la subida
 // falla, no queda ninguna fila "pendiente" húerfana sin comprobante -- y el
@@ -102,7 +104,7 @@ export async function subirComprobantePago(_prevState: FormState, formData: Form
     sede_id: sedeId,
     frecuencia_semanal: frecuenciaSemanal,
     monto,
-    medio: "efectivo",
+    medio: "transferencia",
     estado: "pendiente",
     comprobante_url: path,
   });

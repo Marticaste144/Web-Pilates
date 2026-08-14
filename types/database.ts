@@ -15,7 +15,7 @@
 
 export type RolUsuario = "admin" | "profesor" | "alumno";
 export type EstadoInscripcion = "activa" | "lista_espera" | "baja";
-export type MedioPago = "mercadopago" | "efectivo";
+export type MedioPago = "mercadopago" | "efectivo" | "transferencia";
 export type EstadoPago = "pendiente" | "procesando" | "aprobado" | "rechazado";
 export type EstadoAsistencia = "presente" | "ausente";
 export type EstadoVisualCuota = "al_dia" | "por_vencer" | "vencida";
@@ -134,6 +134,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      configuracion_pagos: {
+        Row: {
+          id: boolean;
+          recargo_mercadopago_pct: number;
+          alias_transferencia: string | null;
+          cbu_transferencia: string | null;
+          titular_transferencia: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: boolean;
+          recargo_mercadopago_pct?: number;
+          alias_transferencia?: string | null;
+          cbu_transferencia?: string | null;
+          titular_transferencia?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: boolean;
+          recargo_mercadopago_pct?: number;
+          alias_transferencia?: string | null;
+          cbu_transferencia?: string | null;
+          titular_transferencia?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       clases: {
         Row: {
           id: string;
@@ -210,6 +237,8 @@ export type Database = {
           sede_id: string;
           frecuencia_semanal: number;
           monto: number;
+          /** Solo para medio='mercadopago': extra cobrado sobre "monto" para compensar la comisión de MP. NULL para efectivo/transferencia. */
+          recargo_mercadopago: number | null;
           medio: MedioPago;
           estado: EstadoPago;
           mercadopago_payment_id: string | null;
@@ -233,6 +262,7 @@ export type Database = {
           sede_id: string;
           frecuencia_semanal: number;
           monto: number;
+          recargo_mercadopago?: number | null;
           medio: MedioPago;
           estado?: EstadoPago;
           mercadopago_payment_id?: string | null;
@@ -252,6 +282,7 @@ export type Database = {
           sede_id?: string;
           frecuencia_semanal?: number;
           monto?: number;
+          recargo_mercadopago?: number | null;
           medio?: MedioPago;
           estado?: EstadoPago;
           mercadopago_payment_id?: string | null;

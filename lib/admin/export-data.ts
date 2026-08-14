@@ -21,6 +21,7 @@ const ESTADO_PAGO_TEXTO: Record<EstadoPago, string> = {
 const MEDIO_TEXTO: Record<MedioPago, string> = {
   mercadopago: "Mercado Pago",
   efectivo: "Efectivo",
+  transferencia: "Transferencia",
 };
 
 export type AlumnoExportRow = {

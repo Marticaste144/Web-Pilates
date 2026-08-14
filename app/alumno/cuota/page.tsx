@@ -1,4 +1,6 @@
 import { listarEstadoCuotaAlumno } from "@/lib/alumno/cuota-data";
+import { obtenerConfiguracionPagos } from "@/lib/configuracion-pagos";
+import { calcularRecargoMercadoPago } from "@/lib/recargo-mercadopago";
 import { PagarButton } from "./pagar-button";
 import { SubirComprobanteForm } from "./subir-comprobante-form";
 import { PageHeader } from "@/components/ui/page-header";
@@ -25,14 +27,20 @@ const BANNER: Record<string, { texto: string; variant: "success" | "warning" | "
   fallo: { texto: "El pago no se pudo completar. Podés intentarlo de nuevo.", variant: "error" },
 };
 
+function formatearFechaHora(fechaIso: string): string {
+  return new Date(fechaIso).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" });
+}
+
 export default async function CuotaPage({
   searchParams,
 }: {
   searchParams: Promise<{ pago?: string }>;
 }) {
   const { pago } = await searchParams;
-  const cuotas = await listarEstadoCuotaAlumno();
+  const [cuotas, configPagos] = await Promise.all([listarEstadoCuotaAlumno(), obtenerConfiguracionPagos()]);
   const banner = pago ? BANNER[pago] : null;
+
+  const tieneDatosTransferencia = Boolean(configPagos.aliasTransferencia || configPagos.cbuTransferencia);
 
   return (
     <div className="flex flex-col gap-6">
@@ -51,6 +59,9 @@ export default async function CuotaPage({
         {cuotas.map((c) => {
           const label = ESTADO_LABEL[c.estado];
           const puedePagar = c.estado !== "al_dia";
+          const recargo = c.precioActual ? calcularRecargoMercadoPago(c.precioActual, configPagos.recargoMercadopagoPct) : 0;
+          const montoConRecargo = (c.precioActual ?? 0) + recargo;
+
           return (
             <Card key={c.sedeId} className="flex flex-col gap-3">
               <div className="flex items-center justify-between gap-4">
@@ -67,18 +78,71 @@ export default async function CuotaPage({
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
                   <Badge variant={label.variant}>{label.texto}</Badge>
-                  {puedePagar && <PagarButton sedeId={c.sedeId} />}
                 </div>
               </div>
-              {puedePagar && (
-                <div className="border-t border-neutral-100 pt-3">
-                  <p className="mb-1.5 text-xs text-neutral-500">
-                    ¿Pagaste en efectivo o por fuera del sistema? Subí el comprobante como respaldo -- la
-                    administración lo revisa y confirma la cuota.
-                  </p>
-                  <SubirComprobanteForm sedeId={c.sedeId} />
-                </div>
+
+              {c.transferenciaPendiente && (
+                <Alert variant="warning">
+                  Ya subiste un comprobante por ${c.transferenciaPendiente.monto.toLocaleString("es-AR")} el{" "}
+                  {formatearFechaHora(c.transferenciaPendiente.createdAt)} -- está pendiente de que la administración
+                  lo revise. Todavía no hace falta que subas otro.
+                </Alert>
               )}
+
+              {puedePagar &&
+                (c.precioActual === null ? (
+                  <p className="border-t border-neutral-100 pt-3 text-sm text-error-600">
+                    No hay un arancel definido para tu frecuencia en esta sede todavía -- contactá a la
+                    administración.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-3 border-t border-neutral-100 pt-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm text-neutral-600">
+                        Pagar con Mercado Pago: <span className="font-medium text-neutral-900">${montoConRecargo.toLocaleString("es-AR")}</span>{" "}
+                        <span className="text-xs text-neutral-400">(incluye recargo)</span>
+                      </p>
+                      <PagarButton sedeId={c.sedeId} montoConRecargo={montoConRecargo} />
+                    </div>
+
+                    <div className="rounded-xl bg-neutral-50 p-3">
+                      <p className="text-sm font-medium text-neutral-900">
+                        Transferir por alias/CBU: ${c.precioActual.toLocaleString("es-AR")}{" "}
+                        <span className="text-xs font-normal text-neutral-400">(sin recargo)</span>
+                      </p>
+                      {tieneDatosTransferencia ? (
+                        <div className="mt-1.5 flex flex-col gap-0.5 text-xs text-neutral-600">
+                          {configPagos.aliasTransferencia && (
+                            <p>
+                              Alias: <span className="font-medium text-neutral-800">{configPagos.aliasTransferencia}</span>
+                            </p>
+                          )}
+                          {configPagos.cbuTransferencia && (
+                            <p>
+                              CBU: <span className="font-medium text-neutral-800">{configPagos.cbuTransferencia}</span>
+                            </p>
+                          )}
+                          {configPagos.titularTransferencia && (
+                            <p>
+                              Titular: <span className="font-medium text-neutral-800">{configPagos.titularTransferencia}</span>
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="mt-1.5 text-xs text-neutral-400">
+                          La administración todavía no cargó los datos de transferencia.
+                        </p>
+                      )}
+                      <p className="mt-2 text-xs text-neutral-500">
+                        Después de transferir, subí el comprobante acá abajo -- es obligatorio: la cuota queda
+                        pendiente de verificación hasta que la administración lo revise.
+                      </p>
+                      <div className="mt-2">
+                        <SubirComprobanteForm sedeId={c.sedeId} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
             </Card>
           );
         })}

@@ -8,7 +8,8 @@ export type DashboardMetricas = {
   profesoresActivosTotal: number;
   listaEsperaTotal: number;
   cuotasVencidas: number;
-  facturacionMes: { total: number; mercadopago: number; efectivo: number };
+  facturacionMes: { total: number; mercadopago: number; efectivo: number; transferencia: number };
+  comprobantesPendientes: number;
 };
 
 // Todo se calcula acá con fetch + reduce en JS (mismo criterio que el resto
@@ -31,6 +32,7 @@ export async function obtenerMetricas(): Promise<DashboardMetricas> {
     { data: cuotas },
     { data: pagosMes },
     { data: cupos },
+    { count: comprobantesPendientes },
   ] = await Promise.all([
     supabase.from("sedes").select("id, nombre"),
     supabase.from("clases").select("id, sede_id, cupo, activa"),
@@ -44,6 +46,7 @@ export async function obtenerMetricas(): Promise<DashboardMetricas> {
       .eq("estado", "aprobado")
       .gte("aprobado_en", inicioMes.toISOString()),
     supabase.from("v_cupo_clases").select("clase_id, inscriptos_activos"),
+    supabase.from("pagos").select("id", { count: "exact", head: true }).eq("estado", "pendiente").not("comprobante_url", "is", null),
   ]);
 
   const clasePorId = new Map((clases ?? []).map((c) => [c.id, c]));
@@ -82,8 +85,10 @@ export async function obtenerMetricas(): Promise<DashboardMetricas> {
 
   let mercadopago = 0;
   let efectivo = 0;
+  let transferencia = 0;
   for (const p of pagosMes ?? []) {
     if (p.medio === "mercadopago") mercadopago += p.monto;
+    else if (p.medio === "transferencia") transferencia += p.monto;
     else efectivo += p.monto;
   }
 
@@ -95,6 +100,7 @@ export async function obtenerMetricas(): Promise<DashboardMetricas> {
     profesoresActivosTotal: (profesoresActivos ?? []).length,
     listaEsperaTotal: listaEsperaTotal ?? 0,
     cuotasVencidas,
-    facturacionMes: { total: mercadopago + efectivo, mercadopago, efectivo },
+    facturacionMes: { total: mercadopago + efectivo + transferencia, mercadopago, efectivo, transferencia },
+    comprobantesPendientes: comprobantesPendientes ?? 0,
   };
 }

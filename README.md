@@ -1999,6 +1999,149 @@ verticalmente sin generar scroll extra en ningún caso, y si el contenido
 llegara a ser más alto que la pantalla (ej. una fuente muy grande), la
 página sigue scrolleando normal sin quedar cortada.
 
+## Paso 17: recargo de Mercado Pago, transferencias con alias/CBU y comprobantes
+
+Confirmado con un pago real: Mercado Pago se queda con una comisión
+(~4-5%, varía según tarjeta/cuotas) que hasta ahora perdía el negocio en
+cada cobro. Este paso agrega un recargo configurable que compensa esa
+comisión, y separa "transferencia" de "efectivo" como medios de pago
+distintos, con su propio flujo de verificación.
+
+### 1. Recargo configurable -- por qué es GLOBAL, no por sede
+
+`/admin/aranceles` ahora tiene, arriba de las cards de arancel por sede, un
+formulario de "Recargo de Mercado Pago y transferencias" con el % de
+recargo y los datos de la cuenta (alias/CBU/titular). Es un valor **global**
+(una sola fila en `configuracion_pagos`, no una columna por sede) a
+propósito: la comisión de Mercado Pago no depende de en qué sede se paga
+la cuota -- depende de qué tarjeta/cuotas elige quien paga en el checkout
+de MP, algo que MP calcula de su lado y que esta app no controla. La
+cuenta bancaria de destino de una transferencia tampoco es "por sede" salvo
+que MUV tuviera una cuenta distinta por local, que hoy no es el caso. Si
+alguna vez cambia esa premisa (cuentas separadas por sede), la tabla está
+pensada para poder pasar a una fila por sede sin mucho trabajo.
+
+### 2. La fórmula -- por qué no alcanza con sumar el %
+
+Sumar X% directo **no compensa** una comisión que Mercado Pago descuenta
+DESPUÉS de cobrar: si cobramos `base*(1+pct)`, MP se queda con `pct%` de
+ese número más grande, y a MUV le llega MENOS del neto esperado. Para que
+a MUV le llegue exactamente `base` luego de que MP se quede con su
+comisión, hay que **dividir**, no multiplicar:
+
+```
+cobrado * (1 - pct/100) = base   =>   cobrado = base / (1 - pct/100)
+```
+
+Ejemplo con base=$41.000 y pct=5%: sumar 5% da $43.050 -- MP se queda con
+el 5% de ESE número ($2.152,50), a MUV le llegan $40.897,50 (**faltan
+$102,50**). Con la fórmula de dividir: cobrado = 41000 / 0.95 = $43.157,89,
+redondeado a $43.158 -- MP se queda con el 5% de $43.158 ($2.157,90), a MUV
+le llegan $43.158 - $2.157,90 = **$41.000,10** (prácticamente exacto; los
+~10 centavos son solo por redondear el cobro final al peso entero, igual
+que el resto de los precios de la app). Implementada en
+`lib/recargo-mercadopago.ts`.
+
+### 3. Dónde vive el recargo en la base -- por qué NO se mete en "monto"
+
+`pagos.monto` sigue significando exactamente lo mismo que significaba
+antes de este paso: **el valor neto de la cuota**, lo que le corresponde a
+MUV. El recargo se guarda aparte, en una columna nueva
+(`pagos.recargo_mercadopago`, NULL para efectivo/transferencia). Esto es
+deliberado: si el recargo se hubiera sumado directo a `monto`, el
+dashboard, el CSV de pagos, y `v_estado_cuota_alumno_sede` habrían
+empezado a sobreestimar la facturación real (contando plata que en
+realidad se queda Mercado Pago) -- **sin tocar una sola línea de esos
+lugares**, siguen sumando lo correcto. Probé esto de punta a punta contra
+Postgres local: inserté un pago de $41.000 con $2.386 de recargo
+(monto=41000, recargo_mercadopago=2386), lo aprobé, y confirmé que
+`v_estado_cuota_alumno_sede.monto` sigue devolviendo 41000 (no 43386) y
+que el vencimiento se calculó bien (trigger sin cambios).
+
+`lib/alumno/pago-actions.ts` (el único lugar donde hacía falta tocar el
+flujo de pago real) ahora calcula el recargo antes de armar la preferencia
+de Checkout Pro, y usa `monto + recargo` como `unit_price` -- pero sigue
+guardando `monto` sin tocar. **El webhook de Mercado Pago no se tocó ni una
+línea** (`git diff` del archivo: vacío) -- no lo necesitaba, porque nunca
+le importó cuánto se cobró, solo actualiza `estado`/`mercadopago_payment_id`
+re-consultando el pago a la API de MP.
+
+### 4. Transferencia como medio de pago propio, con verificación obligatoria
+
+Antes, subir un comprobante siempre guardaba `medio='efectivo'`, sin
+importar si el alumno pagó en mano o transfirió. Se agregó `'transferencia'`
+al enum `medio_pago` (migración aparte, `20260815090000_medio_transferencia.sql`
+-- Postgres no deja usar un valor de enum recién agregado en la misma
+transacción en la que se agrega, así que va en su propio archivo) y
+`subirComprobantePago` ahora guarda `medio='transferencia'`. `efectivo`
+queda reservado para cuando la admin marca un pago en mano sin comprobante
+(`marcarPagoEfectivo`, sin cambios).
+
+En `/alumno/cuota`, cada sede que puede pagar ahora muestra dos opciones
+lado a lado: **"Pagar con Mercado Pago: $X (incluye recargo)"** y
+**"Transferir por alias/CBU: $Y (sin recargo)"** con los datos de la
+cuenta visibles ahí mismo, y el formulario de subir comprobante
+inmediatamente debajo con la aclaración de que es obligatorio para que la
+cuota se verifique. El precio mostrado (`precioActual` en
+`lib/alumno/cuota-data.ts`) es el arancel VIGENTE HOY para la frecuencia
+real del alumno en esa sede -- no el monto de su último pago aprobado, que
+podría haber quedado viejo si el arancel subió después.
+
+**No hace falta "elegir transferencia" y quedarse sin subir nada**: la fila
+en `pagos` con `estado='pendiente'` recién se crea cuando el archivo
+realmente se sube (mismo mecanismo de siempre, `subirComprobantePago` sube
+el archivo y crea la fila en el mismo paso) -- no hay forma de generar un
+estado "elegido pero sin comprobante" a mitad de camino. Lo que sí faltaba,
+y se agregó, es el recordatorio: si ya hay una transferencia con
+comprobante subido esperando revisión, la card de esa sede muestra un
+`Alert` visible ("Ya subiste un comprobante... está pendiente de que la
+administración lo revise") en vez de dejarlo sin ningún indicio.
+
+### 5. Del lado de la admin: encontrar y revisar comprobantes
+
+Ya existía la revisión por alumno (`/admin/alumnos/[id]`), pero no había
+forma de ver TODOS los comprobantes pendientes de una sin entrar alumno
+por alumno. Se agregó:
+
+- **`/admin/comprobantes`** (página nueva): lista todos los comprobantes
+  pendientes, de cualquier alumno, ordenados por más viejo primero, con
+  botones de Aprobar/Rechazar ahí mismo (mismas Server Actions que ya
+  existían por alumno).
+- **Stat card "Comprobantes pendientes"** en `/admin` (home), con badge de
+  advertencia si hay alguno, que linkea directo a esa lista.
+- **Botón "Rechazar"** (`rechazarComprobante`, nuevo en
+  `lib/admin/pagos-actions.ts`) -- antes solo existía "Aprobar"; si un
+  comprobante no corresponde (monto equivocado, no llegó la plata), ahora
+  se puede rechazar, y el alumno puede subir uno nuevo. Queda auditado
+  igual que cualquier cambio de estado (`pagos_auditoria`, vía el trigger
+  que ya existía).
+- Se agregó también un tercer bucket "Transferencia" a "Facturación de este
+  mes" en el dashboard (antes se mezclaba con "Efectivo" porque hasta este
+  paso compartían el mismo `medio`).
+
+Probé todo el flujo admin contra Postgres local: insertar un pago
+`medio='transferencia', estado='pendiente'` con comprobante, confirmar que
+aparece en la consulta de "pendientes", rechazarlo como admin autenticado
+(RLS), confirmar que desaparece de "pendientes" y que quedó registrado en
+`pagos_auditoria` con `estado_anterior='pendiente'`,
+`estado_nuevo='rechazado'`.
+
+### ⚠️ Acciones pendientes de tu parte
+
+1. **Correr las 2 migraciones nuevas** en el SQL Editor de Supabase (en
+   orden): `20260815090000_medio_transferencia.sql` y
+   `20260815100000_configuracion_pagos.sql`. Sin esto, `/admin/aranceles`
+   y `/alumno/cuota` van a fallar al leer la configuración de pagos.
+2. **Cargar el % de recargo real y los datos de tu cuenta** en
+   `/admin/aranceles` -- por default el recargo queda en 0% (nadie paga de
+   más hasta que lo configures) y el alias/CBU quedan vacíos (la app
+   muestra "La administración todavía no cargó los datos de transferencia"
+   mientras tanto). **Necesito que me pases el alias/CBU/titular reales**
+   si querés que los cargue yo directamente vía migración/script en vez de
+   que los cargues vos a mano desde la pantalla -- si no, no hace falta
+   nada de mi parte, ya podés cargarlos vos mismo desde
+   `/admin/aranceles` apenas corras las migraciones.
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de
