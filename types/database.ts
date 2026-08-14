@@ -297,6 +297,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      webhook_alertas_enviadas: {
+        Row: {
+          id: string;
+          mp_data_id: string;
+          tipo_error: string;
+          detalle: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          mp_data_id: string;
+          tipo_error: string;
+          detalle?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          mp_data_id?: string;
+          tipo_error?: string;
+          detalle?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       asistencias: {
         Row: {
           id: string;

@@ -1770,6 +1770,160 @@ navegador) **y** un chequeo explícito en `signUpAlumno`
 puede invocar directo, sin pasar por el formulario ni por su validación
 HTML.
 
+## Paso 15: backups, alerta de webhook, landing pública, exportar CSV y recuperación de admin
+
+### 1. Backups en el plan Free de Supabase (solo investigación, sin cambios de código)
+
+**El plan Free de Supabase no tiene backups automáticos de ningún tipo.**
+Confirmado contra la documentación oficial de Supabase (no de memoria):
+
+- Los backups diarios automáticos empiezan en el plan **Pro** ($25/mes):
+  7 días de retención. Team: 14 días. Enterprise: 30 días.
+- Point-in-time recovery (PITR) es un add-on aparte, disponible desde Pro,
+  arranca en ~$100/mes para 7 días de granularidad fina (y si lo activás,
+  reemplaza a los backups diarios -- no se usan los dos a la vez).
+- En Free, la recomendación oficial de Supabase es hacer `supabase db dump`
+  (Supabase CLI) manualmente vos y guardar ese dump en otro lado -- no hay
+  ninguna opción de backup gestionado, ni para descargar desde el dashboard.
+
+**Recomendación:** con el negocio real ya funcionando y cobrando por Mercado
+Pago, depender de "nunca se rompe nada" en el plan Free es un riesgo real
+(no hay forma de recuperar la base si se borra o corrompe algo por
+accidente). Dos caminos, no mutuamente excluyentes:
+
+1. **Corto plazo, gratis:** un backup manual periódico con `supabase db
+   dump` (o `pg_dump` directo a la connection string de Postgres, que
+   Supabase expone en Project Settings incluso en Free), guardado fuera de
+   Supabase (ej. un bucket aparte, Google Drive). Puedo armar un script
+   (`scripts/`, mismo espíritu que `reset-test-data.mjs`) para que sea
+   "correr un comando" en vez de acordarse de los flags -- no lo hice
+   todavía porque no estaba pedido en este punto, lo armo si lo querés.
+2. **Mediano plazo:** upgrade a Pro cuando el volumen de alumnos/pagos
+   justifique no depender de un backup manual (7 días de backups diarios
+   automáticos, gestionados, sin que dependa de que alguien se acuerde de
+   correr el script). $25/mes es barato comparado con el costo de perder el
+   historial de pagos de un negocio real.
+
+Mi sugerencia concreta: arrancar con el script de backup manual (bajo
+costo, lo puedo armar ya) y evaluar el upgrade a Pro en paralelo -- no son
+excluyentes, y el script sigue siendo útil como backup *fuera* de Supabase
+incluso en Pro (backups en dos lugares distintos, no solo uno).
+
+Fuentes: [Database Backups -- Supabase Docs](https://supabase.com/docs/guides/platform/backups),
+[Point in Time Recovery -- Supabase Docs](https://supabase.com/docs/guides/platform/manage-your-usage/point-in-time-recovery).
+
+### 2. Alerta por email si falla el webhook de Mercado Pago
+
+`app/api/mercadopago/webhook/route.ts` tiene 3 caminos de error ya
+existentes (firma inválida, no se pudo consultar el pago en la API de MP,
+no se pudo actualizar `pagos`) -- **el flujo feliz (pago válido, firma OK,
+update exitoso) no se tocó, ni una línea** (`git diff` del archivo:
+50 líneas, todas agregadas, cero borradas). Cada uno de esos 3 caminos
+ahora también dispara `alertarFalloWebhookUnaVez()`, que manda un email a
+`castellanimartina3@gmail.com` (configurable con la env var opcional
+`ALERT_EMAIL`, ver `.env.local.example`) con el payment id, el tipo de
+error y la hora.
+
+**"Un email por fallo real, no por cada intento":** Mercado Pago reintenta
+la misma notificación (mismo `data.id`) varias veces si le devolvemos un
+error. Para no mandar un email por cada reintento, se agregó una tabla
+nueva (`webhook_alertas_enviadas`, migración
+`20260814100000_webhook_alertas.sql`) con `mp_data_id` como columna
+`unique`: el primer INSERT para un `data.id` gana y dispara el email; los
+reintentos posteriores para el MISMO `data.id` chocan contra la unique
+constraint (error 23505 de Postgres) y no vuelven a mandar nada. Nunca hace
+falta borrar filas viejas a mano para "reactivar" la alerta -- si ese mismo
+pago vuelve a fallar por otro motivo en el futuro, es un `data.id` de un
+pago distinto, así que ya funciona solo.
+
+**Validado contra Postgres local, no solo por lectura de código:** apliqué
+la migración nueva encima de todas las anteriores en una base de prueba,
+inserté una fila con un `mp_data_id` y confirmé que un segundo INSERT con
+el mismo id falla con `duplicate key value violates unique constraint`
+(exactamente el mecanismo de dedupe). También probé la RLS: un perfil
+`admin` puede leer la tabla, un perfil `alumno` no (0 filas) -- mismo
+criterio que `pagos_auditoria`.
+
+Nunca puede tirar abajo la respuesta real del webhook a Mercado Pago: todo
+el envío de la alerta (INSERT + email) está en un `try/catch` que solo
+loguea si algo falla (ej. falta `RESEND_API_KEY`), nunca relanza el error.
+
+**⚠️ Acción pendiente de tu parte:** correr la migración
+`20260814100000_webhook_alertas.sql` en el SQL Editor de Supabase (o como
+corras migraciones normalmente) para que la tabla exista en la base real.
+Sin eso, la alerta igual falla en silencio (queda solo logueada) -- el
+webhook en sí sigue funcionando exactamente igual que antes.
+
+### 3. Landing pública en `/`
+
+Antes de este cambio, `/` ya NO redirigía directo a `/login` sin contexto
+(eso lo confirmé leyendo el código, no era el comportamiento real) -- ya
+mostraba el isotipo, el nombre y los 2 botones cuando no había sesión. Lo
+que le faltaba era justo lo que pediste: qué es MUV y las 3 sedes. Se
+agregó un párrafo corto de qué ofrece la plataforma y una lista de las 3
+sedes (MUV Fitness, MUV Pilates, MUV Postural) con una descripción de una
+línea cada una. Los nombres de sede están hardcodeados acá a propósito (no
+se consultan de la tabla `sedes`): esa tabla solo es legible por usuarios
+autenticados (RLS), y abrir una policy pública nueva solo para 3 nombres
+fijos que casi nunca cambian no valía la pena. Sin overflow horizontal
+verificado con Playwright en 390px y 1280px.
+
+### 4. Exportar CSV (admin)
+
+Dos botones nuevos, "Exportar CSV" en `/admin/alumnos` (listado de alumnos
+con contacto + estado de cuota) y "Exportar pagos (CSV)" en `/admin` junto
+a la card de "Facturación de este mes" (no existía ninguna pantalla
+dedicada a pagos donde ponerlo, así que se puso donde ya vive el resumen
+financiero, en vez de crear una página nueva solo para un botón).
+
+- **Alumnos:** una fila por (alumno, sede) -- un alumno anotado en más de
+  una sede aparece una vez por cada una, con el estado de cuota de esa sede
+  puntual (mismo criterio de "completar sedes sin fila con sin_pagos" que
+  ya usa `obtenerAlumno` para el detalle de un alumno individual, ahora
+  generalizado a todos los alumnos de una).
+- **Pagos:** historial completo (todos los estados, no solo aprobado) con
+  fecha, alumno, email, sede, monto, medio y estado.
+
+Ambas son rutas `GET` (no Server Actions), mismo patrón que ya existía para
+el PDF de asistencias del profesor (`requireRole("admin")`, un
+`<LinkButton>` normal en vez de JS de cliente para manejar la descarga). El
+CSV se arma a mano (`lib/csv.ts`, sin librería nueva): separador coma,
+CRLF, valores con coma/comilla/salto de línea entre comillas dobles
+(comillas escapadas duplicándolas), y un BOM UTF-8 al principio para que
+Excel abra bien los acentos -- sin el BOM, Excel en Windows suele mostrar
+los nombres con acentos como "JosÃ©" en vez de "José". Probé el escapado
+con casos límite (texto con coma, con comillas, con salto de línea,
+valores null) con un script Node aparte, sin depender de Supabase.
+
+### 5. Recuperación de acceso para admin + más de una cuenta admin
+
+**Ya funciona igual para admin que para alumno/profesor, sin que hiciera
+falta cambiar nada.** Confirmé leyendo el código, no asumiendo: el flujo de
+"olvidé mi contraseña" (`requestPasswordReset`/`updatePassword` en
+`lib/auth/actions.ts`, páginas `/forgot-password` y `/reset-password`)
+trabaja directo contra Supabase Auth (`auth.users`) con el email como único
+dato -- **no consulta ni depende para nada del `role` en `profiles`**. Es
+el mismo Supabase Auth el que decide si ese email existe y manda el link de
+recuperación, sea cual sea el rol de esa cuenta. Tampoco están detrás de
+`PROTECTED_PREFIXES` en el middleware, así que son accesibles sin sesión
+para cualquiera, admin incluida. No hizo falta ningún cambio de código acá.
+
+**¿Conviene una segunda cuenta admin de respaldo?** Sí, con una salvedad.
+A favor: si perdés el acceso a tu email de recuperación (no solo la
+contraseña de la app, sino el email en sí), hoy no hay ningún otro camino
+"desde la app" para recuperar el rol admin -- necesitarías entrar
+directamente a la base desde el dashboard de Supabase (algo que vos sí
+podés hacer porque sos la dueña del proyecto, pero que "el flujo normal de
+olvidé mi contraseña" no cubre). Una segunda cuenta admin (con otro email)
+te da un camino de respaldo que no depende de un solo casillero de correo.
+La salvedad: cada cuenta admin es una superficie de riesgo más (más
+credenciales que proteger, más gente -- si la comparte alguien más -- con
+acceso a datos de pago y de alumnos). Para un centro chico con una sola
+administradora, mi sugerencia es una segunda cuenta admin con TU otro
+email personal (no de un tercero) como respaldo puro, no una cuenta de uso
+diario. **No creé ninguna cuenta nueva** -- como pediste, queda para que lo
+pidas explícitamente si querés seguir ese camino.
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de

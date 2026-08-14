@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { UserIcon, UsersIcon, CalendarIcon, TagIcon, MegaphoneIcon, ChevronRightIcon } from "@/components/ui/icons";
+import { LinkButton } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,12 @@ export default async function AdminHomePage() {
         </Card>
 
         <Card className="flex flex-col gap-2">
-          <p className="text-xs font-medium text-neutral-500">Facturación de este mes</p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs font-medium text-neutral-500">Facturación de este mes</p>
+            <LinkButton href="/api/admin/exportar/pagos" variant="secondary" size="sm" className="shrink-0">
+              Exportar pagos (CSV)
+            </LinkButton>
+          </div>
           <p className="text-2xl font-bold text-neutral-900">{formatearMonto(m.facturacionMes.total)}</p>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500">
             <span>

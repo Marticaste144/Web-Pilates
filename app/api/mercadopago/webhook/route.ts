@@ -4,7 +4,42 @@ import { Payment } from "mercadopago";
 import { WebhookSignatureValidator, InvalidWebhookSignatureError } from "mercadopago";
 import { getMercadoPagoConfig } from "@/lib/mercadopago/client";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notificarFalloWebhookMercadoPago } from "@/lib/email/notificaciones";
 import type { EstadoPago } from "@/types/database";
+
+// Alerta por email a la admin cuando el webhook falla -- una sola vez por
+// data.id (dedupe con la unique constraint de webhook_alertas_enviadas,
+// migración 20260814100000). Mercado Pago reintenta la misma notificación
+// varias veces si le devolvemos un error, así que sin este dedupe cada
+// reintento mandaría un email nuevo. Nunca debe tirar abajo la respuesta
+// del webhook: cualquier problema acá (incluida la falta de
+// SUPABASE_SERVICE_ROLE_KEY o RESEND_API_KEY) queda solo logueado.
+async function alertarFalloWebhookUnaVez(params: {
+  dataId: string;
+  tipoError: string;
+  detalle: string;
+}): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("webhook_alertas_enviadas")
+      .insert({ mp_data_id: params.dataId, tipo_error: params.tipoError, detalle: params.detalle });
+
+    if (error) {
+      // 23505 = ya existía una fila para este data.id -- ya se avisó antes,
+      // esto es un reintento de la misma notificación fallida, no un fallo
+      // nuevo. No es un error real, no hace falta loguearlo como tal.
+      if (error.code !== "23505") {
+        console.error("[webhook-alerta] no se pudo registrar el dedupe de alerta", error);
+      }
+      return;
+    }
+
+    await notificarFalloWebhookMercadoPago(params);
+  } catch (err) {
+    console.error("[webhook-alerta] no se pudo enviar la alerta de fallo del webhook", err);
+  }
+}
 
 // Solo para diagnóstico en el log de abajo -- replica (no reemplaza) el
 // parseo/armado que hace WebhookSignatureValidator internamente, para poder
@@ -148,6 +183,11 @@ export async function POST(request: NextRequest) {
         firmaCalculadaAca,
         firmasCoinciden: firmaCalculadaAca && firmaRecibida ? firmaCalculadaAca === firmaRecibida : undefined,
       });
+      await alertarFalloWebhookUnaVez({
+        dataId,
+        tipoError: "firma_invalida",
+        detalle: `reason=${reason}`,
+      });
       return NextResponse.json({ error: "firma inválida" }, { status: 401 });
     }
   } else {
@@ -164,6 +204,11 @@ export async function POST(request: NextRequest) {
     payment = await paymentClient.get({ id: dataId });
   } catch (err) {
     console.error("No se pudo consultar el pago en Mercado Pago", err);
+    await alertarFalloWebhookUnaVez({
+      dataId,
+      tipoError: "error_consultando_pago",
+      detalle: err instanceof Error ? err.message : String(err),
+    });
     return NextResponse.json({ error: "No se pudo consultar el pago" }, { status: 502 });
   }
 
@@ -184,6 +229,11 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     console.error("No se pudo actualizar el pago desde el webhook", error);
+    await alertarFalloWebhookUnaVez({
+      dataId,
+      tipoError: "error_actualizando_pago",
+      detalle: `pagoId=${pagoId} -- ${error.message}`,
+    });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
