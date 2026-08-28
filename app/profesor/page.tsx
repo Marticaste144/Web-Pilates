@@ -5,7 +5,7 @@ import { obtenerResumenDiaProfesor } from "@/lib/profesor/dashboard-data";
 import { hoyISO, formatearFechaLarga } from "@/lib/fecha";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { OccupancyRing } from "@/components/profesor/occupancy-ring";
+import { OccupancyRing } from "@/components/ui/occupancy-ring";
 import { StatCard } from "@/components/profesor/stat-card";
 import { CalendarIcon, UsersIcon, PieChartIcon, CheckIcon, ChevronRightIcon } from "@/components/ui/icons";
 

@@ -1,4 +1,20 @@
-export function OccupancyRing({ value, max, size = 96 }: { value: number; max: number; size?: number }) {
+// Compartido entre el Inicio del profesor (ocupación de "próxima clase",
+// value/max = alumnas/cupo) y el Inicio del admin (ocupación promedio de
+// todas las clases activas, un porcentaje) -- centerValue/centerLabel
+// dejan que cada uno muestre lo suyo sin duplicar el dibujo del anillo.
+export function OccupancyRing({
+  value,
+  max,
+  size = 96,
+  centerValue,
+  centerLabel,
+}: {
+  value: number;
+  max: number;
+  size?: number;
+  centerValue?: string;
+  centerLabel?: string;
+}) {
   const pct = max > 0 ? Math.min(1, value / max) : 0;
   const stroke = 8;
   const radius = (size - stroke) / 2;
@@ -28,10 +44,8 @@ export function OccupancyRing({ value, max, size = 96 }: { value: number; max: n
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-lg font-bold text-neutral-900">
-          {value}/{max}
-        </span>
-        <span className="text-[11px] text-neutral-500">alumnos</span>
+        <span className="text-lg font-bold text-neutral-900">{centerValue ?? `${value}/${max}`}</span>
+        {centerLabel !== "" && <span className="text-[11px] text-neutral-500">{centerLabel ?? "alumnos"}</span>}
       </div>
     </div>
   );
