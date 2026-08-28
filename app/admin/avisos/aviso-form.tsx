@@ -11,6 +11,16 @@ import { FormAlert } from "@/components/ui/form-alert";
 export function AvisoForm({ sedes }: { sedes: SedeItem[] }) {
   const [state, formAction, pending] = useActionState(crearAviso, initialFormState);
   const [todasLasSedes, setTodasLasSedes] = useState(true);
+  // Default = bloquea (comportamiento histórico, el único que existía hasta
+  // ahora): que un aviso NO bloquee es el caso nuevo, y hay que elegirlo a
+  // propósito. Si el default fuera "no bloquea", un admin apurada que
+  // publica "no hay clases el 1° de mayo" sin fijarse en este checkbox
+  // dejaría la sede sin bloquear -- un alumno se anotaría/vendría a una
+  // clase que en realidad no existe ese día, y nadie se entera hasta que
+  // ya es tarde. Al revés (default bloquea, un aviso informativo queda
+  // bloqueando sin querer), el error se nota enseguida: alguien no puede
+  // anotarse y avisa. Falla más segura -> ese es el default.
+  const [bloquea, setBloquea] = useState(true);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -58,9 +68,26 @@ export function AvisoForm({ sedes }: { sedes: SedeItem[] }) {
         </div>
       )}
 
+      <label className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+        <input
+          type="checkbox"
+          name="bloquea"
+          checked={bloquea}
+          onChange={(e) => setBloquea(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-400"
+        />
+        <span>
+          <span className="block text-sm font-medium text-neutral-700">¿Este aviso bloquea las clases?</span>
+          <span className="mt-0.5 block text-xs text-neutral-500">
+            {bloquea
+              ? "Sí: mientras esté vigente, nadie (salvo la admin) va a poder anotarse, darse de baja ni tomar asistencia en la(s) sede(s) afectada(s). Usalo para algo como \"no hay clases por feriado\"."
+              : "No: es solo un mensaje informativo (ej. \"traigan agua, va a hacer calor\") -- no bloquea nada, las clases siguen su curso normal."}
+          </span>
+        </span>
+      </label>
+
       <p className="text-xs text-neutral-400">
-        Mientras esté activo (entre las fechas elegidas), bloquea inscripciones, bajas y asistencia en
-        la(s) sede(s) afectada(s), y manda un email a todos los alumnos y profesores/as de esa(s) sede(s).
+        En los dos casos se manda un email a todos los alumnos y profesores/as de la(s) sede(s) afectada(s).
       </p>
 
       <FormAlert state={state} />

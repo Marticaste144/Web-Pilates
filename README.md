@@ -1292,6 +1292,856 @@ no se puede recuperar después. Guardá esos datos aparte si los necesitás
 para algo (por ejemplo, todavía no reconciliaste ese pago a mano en
 `pagos.estado`) antes de confirmar.
 
+## Paso 9: navegación de clases del alumno por sede + día (antes: lista única mezclada)
+
+`/alumno/clases` mostraba de una todos los horarios de las 3 sedes
+mezclados -- no escala a medida que se cargan más clases, y a la mayoría
+de los alumnos solo le interesa una sede. Ahora es un flujo de 2 pantallas,
+sin tocar la lógica de inscripción/baja/lista de espera (`inscripcion-
+control.tsx`, `lib/alumno/inscripciones-actions.ts`) ni las reglas de cupo
+-- esto era puramente de navegación/presentación:
+
+- **`/alumno/clases`** -- 3 cards, una por sede, con la cantidad de
+  horarios activos de cada una (o "Todavía sin horarios"). Mismo patrón
+  visual que las cards de `/admin` (icono en caja de color + título +
+  chevron).
+- **`/alumno/clases/[sedeId]`** -- título con el nombre de la sede, un
+  selector de día horizontal (pills con scroll horizontal en mobile,
+  `flex-wrap` en desktop -- mismo truco `-mx-4`/`px-4` que ya usa
+  `/admin/clases/[id]` para sangrar hasta el borde del contenedor
+  `p-4` de `RoleShell`), y debajo los horarios de ese día con el mismo
+  `Card`+`InscripcionControl` de siempre.
+- El selector es por **día de la semana** (Lunes..Domingo), no por fecha
+  de calendario -- los horarios son recurrentes semana a semana, no hay
+  "el lunes 18" ni nada parecido, coherente con cómo ya se guardan
+  (`clases.dia_semana`, sin fecha). Abre por default en el día de hoy.
+- `lib/alumno/clases-data.ts` gana un `listarSedes()` nuevo (lee `sedes`
+  directo, cualquier autenticado puede por RLS) -- hace falta para poder
+  mostrar las 3 cards aunque alguna todavía no tenga clases cargadas,
+  cosa que `listarClasesParaAlumno()` sola no permite (una sede sin
+  clases no aparece ahí). `listarClasesParaAlumno()` en sí no cambió: las
+  dos pantallas nuevas la llaman tal cual y filtran/agrupan en memoria.
+- Único cambio fuera de la vista: `inscripciones-actions.ts` ahora también
+  hace `revalidatePath("/alumno/clases/[sedeId]", "page")` (la forma
+  documentada de invalidar una ruta dinámica por su patrón, sin necesitar
+  el id real) además del `revalidatePath("/alumno/clases")` que ya
+  existía -- si no, después de anotarse/darse de baja la pantalla de
+  detalle de sede podía quedar con el estado viejo hasta navegar afuera y
+  volver.
+
+**Validé:** `tsc`/`eslint`/`build` limpios, y las dos pantallas armadas en
+una ruta de preview temporal (borrada antes de este commit) y capturadas
+con Playwright en 390px y 1280px -- confirmé que no hay scroll horizontal
+a nivel de página en ninguno de los dos anchos (el selector de día sí
+scrollea horizontalmente *dentro suyo* en mobile, a propósito, como un
+carrusel de días). No pude probar el flujo real de inscripción/baja
+end-to-end porque este entorno no tiene credenciales de Supabase -- esa
+lógica en sí no se tocó, así que debería seguir funcionando igual que
+antes.
+
+## Paso 10: eliminar avisos publicados
+
+No había forma de dar de baja un aviso ya publicado -- necesario para
+cuando la situación que lo motivó cambia (ej.: "no hay clases el viernes
+por paro", pero el paro se levanta antes de esa fecha).
+
+- El listado de avisos en `/admin/avisos` ya existía (título, sede(s),
+  rango de fechas); se le agregó un badge "Bloqueando hoy" a los que están
+  vigentes en este momento (compara la fecha de hoy contra
+  `fecha_inicio`/`fecha_fin`, mismo criterio que usa `fn_sede_bloqueada` en
+  la base) -- ayuda a encontrar rápido cuál borrar cuando hay varios.
+- `eliminarAviso` (`lib/admin/avisos-actions.ts`) + `EliminarAvisoButton`
+  (mismo patrón de `ConfirmButton` que ya se usaba para eliminar un
+  profesor).
+- **El desbloqueo es automático, sin ningún paso manual extra:**
+  `fn_sede_bloqueada(sede_id, fecha)` (paso 3) es una consulta en vivo
+  contra `avisos`/`avisos_sedes`, no un flag cacheado en otro lado --
+  apenas se borra la fila, esa función deja de encontrarla y las próximas
+  inscripciones/bajas/asistencia de la sede dejan de estar bloqueadas.
+  `avisos_sedes.aviso_id` tiene `on delete cascade`, así que tampoco queda
+  nada huérfano ahí.
+
+**Sobre mandar un email de "se reabren las clases" al eliminar (se pidió
+recomendación, no se asumió nada):** decidí que **no** conviene
+automatizarlo, y no lo implementé. Un aviso se borra por motivos muy
+distintos entre sí -- la situación se revirtió, pero también: se cargó
+con una fecha mal, es un duplicado, era una prueba -- y el código no tiene
+forma de saber cuál de esos es. Mandar "se reabren las clases" en todos
+los casos por igual generaría emails confusos o directamente falsos en
+los que no aplica. La app ya tiene el mecanismo justo para el caso real
+que sí amerita avisar (la situación se revirtió y hay algo genuino para
+contar): publicar un aviso nuevo y corto con la novedad ("Se levantó el
+paro, las clases del viernes están confirmadas") -- reusa el envío de
+emails que ya existe, y le deja a la admin escribir el mensaje exacto en
+vez de que el sistema le adivine la redacción.
+
+**Validé:** `tsc`/`eslint`/`build` limpios, y la pantalla armada en una
+ruta de preview temporal (borrada antes de este commit) capturada con
+Playwright en 390px y 1280px. No pude probar el borrado real contra
+Supabase (sin credenciales en este entorno) ni confirmar en la práctica
+que una inscripción/baja/asistencia se desbloquea después de borrar --
+la lógica de bloqueo (`fn_sede_bloqueada`) no se tocó, así que debería
+funcionar igual que siempre, pero vale la pena que lo confirmes vos con
+un aviso de prueba: publicalo para una sede, confirmá que bloquea, borralo,
+y confirmá que un alumno de esa sede puede volver a anotarse.
+
+## Paso 11: avisos que bloquean vs. avisos informativos
+
+Hasta ahora todo aviso bloqueaba inscripción/baja/asistencia de la(s)
+sede(s) en su rango de fechas -- no había forma de publicar algo puramente
+informativo ("che, el viernes va a hacer calor, traigan agua") sin que de
+paso le impidiera a la gente anotarse o darse de baja.
+
+- **Migración** `20260813150000_avisos_bloquea_opcional.sql`: agrega
+  `avisos.bloquea boolean not null default true`, y redefine
+  `fn_sede_bloqueada` (paso 3) para que solo cuente avisos con
+  `bloquea = true`. El `default true` cubre el requisito de no cambiarle
+  el comportamiento a los avisos ya publicados antes de este cambio, sin
+  que haga falta ningún backfill a mano -- ALTER TABLE ADD COLUMN con
+  default no-null completa sola las filas existentes.
+- **Validé la migración contra Postgres local** (no solo leyéndola): la
+  apliqué completa desde cero, confirmé que un aviso nuevo sin especificar
+  `bloquea` queda en `true`, y probé `fn_sede_bloqueada` -- y el trigger
+  real `trg_validar_aviso_inscripcion` haciendo un `insert` real en
+  `inscripciones` -- con `bloquea=true` (rechaza el insert, mismo mensaje
+  de siempre) y `bloquea=false` (el insert pasa) sobre el mismo aviso.
+- **`/admin/avisos`**: nuevo checkbox "¿Este aviso bloquea las clases?" en
+  el formulario, con el texto de ayuda cambiando según el estado para que
+  quede clara la diferencia antes de publicar. **Default: bloquea (`true`)
+  -- decisión mía, distinta de lo que la consigna sugería como punto de
+  partida (default "no bloquea").** Razón: hasta este cambio, el 100% de
+  los avisos alguna vez publicados bloqueaban -- es el comportamiento que
+  la admin ya espera por costumbre. Si el default fuera "no bloquea" y en
+  algún momento se publica un aviso tipo "no hay clases por feriado" sin
+  fijarse en el checkbox nuevo, la sede queda sin bloquear: alguien se
+  anota o se presenta a una clase que en realidad no existe ese día, y
+  nadie se entera hasta que ya pasó. Al revés (default bloquea, y algún
+  aviso informativo queda bloqueando sin querer), el error se nota
+  enseguida -- alguien no puede anotarse, avisa, se corrige. Ante dos
+  defaults igual de "olvidables", se eligió el que falla de forma visible
+  en vez del que falla en silencio.
+- El listado ahora distingue tres estados con badge: **"Bloqueando hoy"**
+  (bloquea y está vigente ahora), **"Bloquea clases"** (bloquea pero no
+  está vigente todavía/ya pasó), **"Informativo"** (no bloquea nunca,
+  vigente o no).
+- El envío de emails (`notificarAviso`) no se tocó ni depende de
+  `bloquea` en absoluto -- se manda exactamente igual en los dos casos,
+  como pedía la consigna.
+
+## Paso 12: pago manual, comprobantes, dashboards y PDF de asistencias
+
+Cinco features nuevas, encaradas en el orden que menos riesgo tenía primero:
+las dos de pagos (que no necesitaban ninguna migración -- las columnas ya
+estaban desde el paso 5d, pensadas para esto), después los dos dashboards
+(solo lectura, agregan datos que ya existían), y al final el PDF de
+asistencias (la única con una librería nueva). En ningún punto se tocó
+`lib/alumno/pago-actions.ts` ni `app/api/mercadopago/webhook/route.ts` --
+confirmado con `git diff` antes de cerrar el paso: el flujo de Mercado Pago
+sigue exactamente como estaba.
+
+### Marcar pago como efectivo (admin)
+
+`marcarPagoEfectivo` (`lib/admin/pagos-actions.ts`) inserta una fila nueva en
+`pagos` con `estado='aprobado'`, `medio='efectivo'`, y `marcado_por`/
+`marcado_en` (columnas que ya existían, pensadas para esto desde el paso
+5d). Mismo criterio que `iniciarPagoMercadoPago`: cada pago es una fila
+propia, nunca se pisa una existente -- `fn_calcular_vencimiento_pago` calcula
+`vencimiento` solo, sea cual sea el medio. Botón en `/admin/alumnos/[id]`,
+uno por sede con cuota no al día.
+
+`v_estado_cuota_alumno_sede` ahora también expone `medio`
+(`20260813160000_vista_cuota_medio.sql`) para poder mostrar en la ficha del
+alumno con qué medio se pagó la cuota vigente. Nota de Postgres: `create or
+replace view` no permite insertar una columna en el medio de la lista, solo
+agregar al final -- el primer intento de esta migración falló en Postgres
+local por eso, quedó documentado en el propio archivo.
+
+`ConfirmButton` (`components/ui/confirm-button.tsx`) gana un prop `tone`
+(`"destructive"` default, sin cambiar ningún uso existente) para poder
+confirmar acciones que no son destructivas -- un botón rojo para "marcar
+pagado" habría dado la señal visual equivocada.
+
+**Validé la migración de la vista + el insert real contra Postgres local**
+(no solo leyéndola): aplicué todas las migraciones desde cero, inserté un
+pago en efectivo tal cual lo hace la Server Action, y confirmé que la vista
+lo muestra con `medio='efectivo'`, `vencimiento` calculado, y que el filtro
+de seguridad de la vista (admin ve todo, el propio alumno ve el suyo, un
+tercero no ve nada) sigue intacto.
+
+### Comprobante de pago (alumno sube, admin ve)
+
+`comprobante_url` también existía desde el paso 5d (`-- path en Supabase
+Storage`, literalmente el comentario de la columna). Lo que faltaba era el
+bucket:
+
+- **Bucket privado `comprobantes`** (`20260813170000_storage_comprobantes.sql`),
+  10 MiB máx, solo imágenes/PDF. RLS en `storage.objects` con la convención
+  de path `<alumno_id>/<pago_id>.<ext>`: el alumno solo puede insertar/ver
+  en su propia carpeta, la admin ve todo. **Validado con un stub local del
+  esquema `storage`** (Supabase no es Postgres plano, así que armé
+  `storage.buckets`/`storage.objects`/`storage.foldername()` mínimos para
+  poder probar la RLS de verdad): confirmé que un alumno puede subir a su
+  carpeta, no puede subir a la de otro (rechazado), y que solo él mismo y
+  la admin pueden verlo (un tercero, 0 filas).
+- `subirComprobantePago` (`lib/alumno/comprobante-actions.ts`): sube el
+  archivo ANTES de crear la fila en `pagos` (si la subida falla, no queda
+  un `pendiente` húerfano -- el alumno no tiene permiso para borrar sus
+  propios pagos, RLS a propósito desde el paso 3, así que un rollback
+  manual no sería posible). Crea el pago con `estado='pendiente'`,
+  `medio='efectivo'` -- no lo aprueba solo, queda para que la admin lo
+  revise.
+- `aprobarComprobante` (`lib/admin/pagos-actions.ts`): a diferencia de
+  `marcarPagoEfectivo`, ACTUALIZA la fila existente (no crea una nueva) --
+  por eso sí dispara `fn_registrar_auditoria_pago` (es un UPDATE), dejando
+  rastro en `pagos_auditoria` además de `marcado_por`/`marcado_en`. El
+  `where estado='pendiente'` evita reprocesar un pago ya resuelto por otra
+  vía.
+- **Ver el comprobante**: `/admin/comprobantes/[pagoId]` (Route Handler)
+  genera una URL firmada de Storage EN EL MOMENTO del click y redirige --
+  nunca una URL vieja/vencida embebida en el HTML. Usa el cliente de
+  sesión (no service_role), así que la RLS de arriba es la que manda de
+  verdad, no un bypass.
+
+Deliberadamente NO se automatizó ningún vínculo entre "comprobante subido" y
+"marcarPagoEfectivo" -- son dos caminos independientes (uno actualiza en el
+momento del alta, el otro inserta fresco) para no tener que adivinar de qué
+pago-pendiente-sin-comprobante viene cada marcado manual.
+
+### Dashboard con métricas (admin) y panorama del profesor
+
+`lib/admin/dashboard-data.ts` / `lib/profesor/dashboard-data.ts`: todo
+calculado con fetch + reduce en JS (mismo criterio que el resto de
+`lib/admin/*`/`lib/profesor/*`, nunca RPC ni agregación en SQL -- no hace
+falta para el volumen de un centro chico). `StatCard`
+(`components/ui/stat-card.tsx`) es el único componente nuevo, reusado en
+las dos pantallas.
+
+- **Admin** (`/admin`): alumnos activos (total + por sede), facturación del
+  mes separada por medio, ocupación promedio, clases activas, profesores
+  activos, lista de espera, cuotas vencidas (resaltada si hay alguna). Se
+  actualizó el subtítulo de la página, que decía "llega en una próxima
+  etapa" -- ya no aplicaba.
+- **Profesor** (`/profesor`): próxima clase (día/hora/sede -- función pura
+  `calcularProximaClase` en `lib/profesor/dashboard-data.ts`, **probada con
+  6 casos sueltos antes de integrarla**: hoy más tarde vs. hoy ya pasada,
+  wrap-around de domingo a lunes, una sola clase, sin clases), clases a
+  cargo, alumnos únicos, ocupación promedio.
+
+### PDF de asistencias semanales (profesor)
+
+Único punto que necesitó una librería nueva: `@react-pdf/renderer` (genera
+el PDF en Node, sin headless browser -- no viable en serverless). Botón
+"Descargar PDF" en `/profesor/clases`, con selector de fecha (cualquier
+fecha de la semana que se quiera, no hace falta que sea justo el lunes).
+
+- `lib/profesor/asistencias-pdf-data.ts`: para cada clase del profesor,
+  calcula la fecha calendario exacta de su ocurrencia esa semana (recurrente
+  por `dia_semana`, mismo criterio que el selector de día del alumno,
+  paso 9) y REUSA `obtenerClaseDetalle` (ya probado, el mismo que usa
+  `/profesor/clases/[id]`) para el roster -- misma regla de visibilidad de
+  siempre (un alumno sin cuota aprobada no aparece, ni en la pantalla ni
+  acá). **El cálculo de fechas se probó con 6 casos sueltos** (cruce de
+  mes, domingo de la misma semana vs. la próxima, etc.) antes de integrarlo.
+- `lib/profesor/asistencias-pdf.tsx`: el documento en sí (`Document`/`Page`
+  de react-pdf), un bloque por clase con `wrap={false}` para que la lista
+  de alumnos de una clase nunca quede partida entre dos páginas.
+- `app/api/profesor/asistencias-pdf/route.tsx`: `GET` protegido con
+  `requireRole("profesor")`, devuelve el PDF con
+  `Content-Disposition: attachment`.
+
+**Validé la generación del PDF de punta a punta, no solo el código:** armé
+una ruta de prueba temporal que llama a `renderToBuffer` con datos falsos
+(sin depender de Supabase), generé el PDF real, lo abrí con `pdfinfo`
+(confirma que es un PDF válido) y lo convertí a imagen con `pdftoppm` para
+mirarlo -- primero con un caso chico, después con un caso grande (24 clases,
+8 alumnos cada una, la carga real de Sabina en MUV Pilates) para confirmar
+que pagina bien: 5 páginas, ningún bloque de clase partido a la mitad,
+tildes/ñ renderizando bien, sin recortes.
+
+**Validé también visualmente con Playwright** (mobile y desktop, sin
+overflow horizontal) el formulario de comprobante, la ficha de alumno con
+comprobantes, los dos dashboards, y la pantalla de "Mis clases" con el
+botón de descarga -- en este último encontré y corregí un bug real (el
+texto "Descargar PDF" se cortaba en dos líneas en desktop por faltar
+`whitespace-nowrap`; de paso lo pasé a usar `LinkButton`, que no estaba
+usando).
+
+**Lo que no pude probar:** el flujo real end-to-end contra Supabase (subir
+un comprobante de verdad, marcar un pago, generar el PDF con datos reales)
+-- este entorno no tiene credenciales. Todo lo que SÍ se pudo probar sin
+Supabase (migraciones contra Postgres local, RLS de Storage con un stub del
+esquema, funciones puras de fechas, generación real del PDF) se probó de
+verdad, no se dio por sentado.
+
+## Paso 13: ajustes y bugs de la ronda de pruebas
+
+### ⚠️ Acción pendiente de tu parte: correr las migraciones que faltan
+
+Si todavía no lo hiciste, correlas en orden en el SQL Editor de Supabase (o
+como corras migraciones normalmente):
+`20260813150000_avisos_bloquea_opcional.sql`,
+`20260813160000_vista_cuota_medio.sql`,
+`20260813170000_storage_comprobantes.sql`,
+`20260814090000_solapamiento_clases.sql`. Ver el bug 3 más abajo -- es la
+causa más probable de ese bug.
+
+### Bug 3: "Marcar pagado (efectivo)" no persiste -- causa encontrada
+
+**Diagnóstico, con una prueba real (no solo lectura de código):** el pago en
+efectivo se inserta bien -- ese INSERT nunca dependió de la columna nueva.
+El problema está en la LECTURA que arma la pantalla: `obtenerAlumno`
+(`lib/admin/alumnos-data.ts`) le pide a `v_estado_cuota_alumno_sede` la
+columna `medio`, agregada por la migración `20260813160000_vista_cuota_medio.sql`
+del paso 12. **Si esa migración todavía no corrió contra tu base real, esa
+columna no existe ahí** -- la consulta falla, y el código (antes de este
+fix) descartaba el error silenciosamente (`const { data } = await ...`, sin
+mirar `error`). Con `cuotasRaw` vacío por el error, TODAS las cuotas de esa
+pantalla cae al fallback "sin_pagos", sin importar si en realidad están
+pagas -- exactamente el síntoma reportado.
+
+Reproduje esto en Postgres local a propósito: apliqué las migraciones
+salteando la del `medio`, inserté un pago en efectivo real, y corrí la
+consulta exacta que hace `obtenerAlumno` -- da
+`ERROR: column "medio" does not exist`, confirmando el mecanismo.
+
+**Fix aplicado:** `obtenerAlumno` ahora chequea el `error` de las 4
+consultas del `Promise.all` y lo loguea con `console.error` (mensaje
+explícito para esta en particular: "¿falta aplicar una migración?"). Esto
+no reemplaza correr la migración -- si no la corriste, el bug sigue
+pasando, pero ahora en vez de fallar en silencio te va a quedar un error
+bien visible en los logs de Vercel la próxima vez, en vez de un misterio.
+**Si después de correr la migración pendiente el bug persiste**, ese log
+te va a decir exactamente por qué.
+
+### Bug 1: clases duplicadas en el mismo horario/sede
+
+`fn_validar_solapamiento_clase` (`20260814090000_solapamiento_clases.sql`),
+mismo criterio que `fn_validar_solapamiento_horario` del paso 3 (que evita
+que UN ALUMNO se anote a dos clases que se pisan) -- invariante a nivel de
+base, no solo validación de formulario. Bloquea cualquier clase nueva o
+editada que se superponga en horario con otra clase ACTIVA de la misma sede
+y mismo día, sea el mismo profesor u otro. Una clase desactivada libera el
+horario (no compite contra sí misma al reactivarla en otro lado).
+
+**Probé 8 escenarios reales contra Postgres local**, no solo la lógica en
+teoría: mismo horario exacto (rechaza), mismo horario con otro profesor
+(rechaza igual), superposición parcial (rechaza), horarios consecutivos sin
+pisarse (pasa), mismo horario otro día (pasa), mismo horario otra sede
+(pasa), reusar un horario después de desactivar la clase vieja (pasa), y
+editar una clase existente sin tocar el horario -- para confirmar que no
+choca contra sí misma (pasa).
+
+### Bug 2: el buscador de `/admin/alumnos` no encontraba con texto corto
+
+Causa: `listarAlumnos` armaba el filtro con `.or()` de postgrest-js, el
+"escape hatch" crudo del cliente -- confirmado leyendo su código fuente
+(`node_modules/@supabase/postgrest-js`): ese método no transforma ni
+sanitiza nada, solo envuelve el string tal cual en la URL ("you need to
+make sure they are properly sanitized", dice su propio comentario). Buscar
+"LU" no encontraba a "Lucía" pero "LUC" sí -- un síntoma consistente con un
+problema de esa capa cruda, no de la lógica de negocio en sí.
+
+En vez de perseguir el detalle exacto de escaping de PostgREST, se sacó la
+incertidumbre de raíz: el filtro ahora se hace en JS (`.includes()` sobre
+nombre/apellido/email, ya en minúsculas), mismo criterio que el resto de
+`lib/admin/*` (fetch + reduce, nunca queries armadas a mano). Para el
+volumen de alumnos de un centro chico esto es más que suficiente, y queda
+100% determinístico -- lo probé con 6 casos sueltos (incluido el caso real:
+"LU" matchea a Lucía por nombre y de paso a los 3 alumnos de prueba por
+email, porque "alumno" contiene "lu" -- comportamiento correcto, no un
+bug, ya que el placeholder dice "por nombre, apellido o email").
+
+De paso, se agregó la opción de orden pedida: "Ordenar por: Apellido /
+Nombre" arriba del listado (antes solo ordenaba por apellido, sin
+alternativa).
+
+### Textos sacados
+
+- `/alumno/cuota`: se sacó el subtítulo "Estado por sede, con pago online
+  vía Mercado Pago."
+- `/profesor` (home): se sacó el subtítulo sobre cuándo aparece un alumno
+  en el roster. **No hizo falta moverlo a ningún lado**: esa misma
+  explicación ya existe, mejor ubicada, como `Alert` contextual en
+  `/profesor/clases/[id]` (`{clase.alumnosNoVisibles > 0 && <Alert>...`) --
+  aparece solo cuando de verdad hay alumnos ocultos en esa clase puntual,
+  en vez de una advertencia genérica en la home que la mayoría de las
+  veces no aplica a nada.
+
+### Home del alumno, con contenido de verdad
+
+`/alumno` tenía solo 3 cards de navegación. Se agregó (arriba de esas
+mismas cards, que se mantienen):
+
+- **Próxima clase** (día/hora/sede) -- misma lógica de "próxima ocurrencia
+  semanal" que ya se había armado y probado para el panorama del profesor
+  (paso 12), ahora extraída a `lib/proxima-ocurrencia.ts` (función pura,
+  genérica, ya no vive solo en `lib/profesor/`) para no duplicar el cálculo
+  entre las dos homes.
+- **Resumen de cuota**: una badge por sede (Al día / Por vencer / Vencida /
+  Sin pagos) con link a "Ver detalle" -- reusa `listarEstadoCuotaAlumno`
+  que ya existía para `/alumno/cuota`, no se agregó ninguna consulta nueva.
+- Clases anotado/a y en lista de espera, como stat cards chicas.
+
+### Formato de fechas día/mes/año
+
+- **Todo lo armado en código** (labels, fechas en listados, emails) ya
+  usaba `toLocaleDateString("es-AR")`/`toLocaleString("es-AR", ...)` --
+  confirmé con Node que ese locale devuelve día/mes/año
+  (`new Date(...).toLocaleDateString("es-AR")` → `"5/8/2026"`, no
+  `"8/5/2026"`), así que no hacía falta tocar nada ahí.
+- **Los `<input type="date">` nativos** (`aviso-form.tsx`, `fecha-picker.tsx`
+  en `/profesor/clases/[id]`, el selector de semana del PDF de asistencias)
+  son la excepción real: **confirmé empíricamente, no solo de memoria**,
+  que ni el `lang="es"` del `<html>` ni el locale del propio navegador
+  cambian cómo el navegador MUESTRA el campo mientras se edita -- probé
+  con Playwright, mismo input, tres configuraciones de locale del
+  navegador distintas, mismo resultado (`08/05/2026`, formato mes/día) en
+  las tres. Es una limitación real del control nativo del navegador/SO, no
+  algo que este código pueda forzar sin reemplazar el input nativo por un
+  selector de fecha custom hecho a medida -- una opción real, pero
+  bastante más trabajo que "un ajuste", así que no lo armé sin que lo
+  pidas explícitamente. Importante: esto es solo un tema de qué formato
+  ve la persona mientras edita -- el VALOR que se guarda siempre es
+  `YYYY-MM-DD` (estándar HTML), así que no hay ningún bug de datos acá,
+  ninguna fecha se guarda ni se interpreta mal.
+
+## Paso 14: favicon con el logo real + Términos y Condiciones / Política de Privacidad
+
+### Favicon: la causa real no era el SVG reconstruido
+
+El isotipo (`app/icon.png`, `app/apple-icon.png`, `public/icons/icon-*.png`)
+ya se había corregido en un paso anterior para usar el PNG real subido por
+la usuaria en vez de la reconstrucción en SVG -- **eso confirmé que seguía
+bien, sin cambios** (regeneré los cuatro archivos igual desde
+`public/laura-pagola-isotipo@2000px.png` para sacarme la duda del todo, y el
+resultado fue byte a byte el mismo que ya estaba: `git diff` no mostró
+ningún cambio en esos cuatro archivos).
+
+El archivo que sí estaba mal, y que ese paso anterior nunca tocó (no
+aparece en su diff), es **`app/favicon.ico`**: seguía siendo el ícono
+genérico de plantilla de Next.js (un círculo negro con un triángulo
+blanco), sin ninguna relación con el logo de MUV -- confirmado extrayendo
+las imágenes del `.ico` con PIL antes de tocar nada. Ese es el ícono que
+usa la pestaña del navegador por default, así que aunque `icon.png` ya
+estuviera bien, la pestaña seguía mostrando el genérico.
+
+**Fix:** regeneré `favicon.ico` desde el mismo PNG fuente, como un `.ico`
+multi-resolución moderno (frames PNG embebidos de 16/32/48px, vía `sharp` +
+`png-to-ico`, instalado con `npm install --no-save` para no tocar
+`package.json`/`package-lock.json`). Verifiqué con PIL que ahora extrae el
+logo real (azul/turquesa), y con `curl` contra un build de producción que
+las tres etiquetas `<link rel="icon"/apple-touch-icon">` del `<head>`
+apuntan y sirven bien (200) los archivos correctos. `public/manifest.json`
+ya apuntaba correctamente a `icons/icon-192.png`/`icon-512.png` con
+`purpose: "any"` -- no hizo falta tocarlo. Es un cambio 100% de assets
+estáticos, sin dependencia de base de datos ni migraciones: aplica solo con
+el próximo deploy.
+
+### Términos y Condiciones + Política de Privacidad
+
+**Página pública nueva: `/legal`** (`app/legal/page.tsx`). No está bajo
+ningún layout autenticado y `/legal` no figura en `PROTECTED_PREFIXES`
+(`lib/supabase/middleware.ts`), así que no hizo falta ningún cambio de
+routing para que sea accesible sin login -- confirmé además que el build la
+genera como `○` (estática, sin dependencia de auth). Contiene el texto
+completo de Términos y Condiciones y Política de Privacidad que me pasaste,
+con navegación por anclas (`#terminos`, `#privacidad`) y el mismo sistema
+de diseño que el resto de la app.
+
+**Enlaces agregados en tres lugares:**
+- Footer de `AuthShell` (`components/auth/auth-shell.tsx`) -- visible en
+  login, signup, "olvidé mi contraseña" y "restablecer contraseña".
+- Footer de `RoleShell` (`components/role-shell.tsx`) -- visible en todas
+  las pantallas ya logueado, para los 3 roles (admin/profesor/alumno). No
+  existe ninguna pantalla de "configuración de cuenta" en la app (la
+  busqué explícitamente, no existe), así que en vez de crear una pantalla
+  nueva solo para alojar este link -- que hubiera sido agregar alcance no
+  pedido -- lo puse en el shell compartido, donde queda accesible desde
+  cualquier pantalla logueada de cualquier rol.
+- Checkbox del formulario de signup, con link directo a cada sección
+  (`/legal#terminos`, `/legal#privacidad`).
+
+**Checkbox obligatorio en el signup**, con validación en dos capas (mismo
+patrón que se usa en todo el resto de la app para Server Actions):
+`required` en el `<input type="checkbox">` (bloquea el submit del lado del
+navegador) **y** un chequeo explícito en `signUpAlumno`
+(`lib/auth/actions.ts`) que rechaza la creación de la cuenta si
+`acepta_terminos` no viene marcado -- necesario porque una Server Action se
+puede invocar directo, sin pasar por el formulario ni por su validación
+HTML.
+
+## Paso 15: backups, alerta de webhook, landing pública, exportar CSV y recuperación de admin
+
+### 1. Backups en el plan Free de Supabase (solo investigación, sin cambios de código)
+
+**El plan Free de Supabase no tiene backups automáticos de ningún tipo.**
+Confirmado contra la documentación oficial de Supabase (no de memoria):
+
+- Los backups diarios automáticos empiezan en el plan **Pro** ($25/mes):
+  7 días de retención. Team: 14 días. Enterprise: 30 días.
+- Point-in-time recovery (PITR) es un add-on aparte, disponible desde Pro,
+  arranca en ~$100/mes para 7 días de granularidad fina (y si lo activás,
+  reemplaza a los backups diarios -- no se usan los dos a la vez).
+- En Free, la recomendación oficial de Supabase es hacer `supabase db dump`
+  (Supabase CLI) manualmente vos y guardar ese dump en otro lado -- no hay
+  ninguna opción de backup gestionado, ni para descargar desde el dashboard.
+
+**Recomendación:** con el negocio real ya funcionando y cobrando por Mercado
+Pago, depender de "nunca se rompe nada" en el plan Free es un riesgo real
+(no hay forma de recuperar la base si se borra o corrompe algo por
+accidente). Dos caminos, no mutuamente excluyentes:
+
+1. **Corto plazo, gratis:** un backup manual periódico con `supabase db
+   dump` (o `pg_dump` directo a la connection string de Postgres, que
+   Supabase expone en Project Settings incluso en Free), guardado fuera de
+   Supabase (ej. un bucket aparte, Google Drive). Puedo armar un script
+   (`scripts/`, mismo espíritu que `reset-test-data.mjs`) para que sea
+   "correr un comando" en vez de acordarse de los flags -- no lo hice
+   todavía porque no estaba pedido en este punto, lo armo si lo querés.
+2. **Mediano plazo:** upgrade a Pro cuando el volumen de alumnos/pagos
+   justifique no depender de un backup manual (7 días de backups diarios
+   automáticos, gestionados, sin que dependa de que alguien se acuerde de
+   correr el script). $25/mes es barato comparado con el costo de perder el
+   historial de pagos de un negocio real.
+
+Mi sugerencia concreta: arrancar con el script de backup manual (bajo
+costo, lo puedo armar ya) y evaluar el upgrade a Pro en paralelo -- no son
+excluyentes, y el script sigue siendo útil como backup *fuera* de Supabase
+incluso en Pro (backups en dos lugares distintos, no solo uno).
+
+Fuentes: [Database Backups -- Supabase Docs](https://supabase.com/docs/guides/platform/backups),
+[Point in Time Recovery -- Supabase Docs](https://supabase.com/docs/guides/platform/manage-your-usage/point-in-time-recovery).
+
+### 2. Alerta por email si falla el webhook de Mercado Pago
+
+`app/api/mercadopago/webhook/route.ts` tiene 3 caminos de error ya
+existentes (firma inválida, no se pudo consultar el pago en la API de MP,
+no se pudo actualizar `pagos`) -- **el flujo feliz (pago válido, firma OK,
+update exitoso) no se tocó, ni una línea** (`git diff` del archivo:
+50 líneas, todas agregadas, cero borradas). Cada uno de esos 3 caminos
+ahora también dispara `alertarFalloWebhookUnaVez()`, que manda un email a
+`castellanimartina3@gmail.com` (configurable con la env var opcional
+`ALERT_EMAIL`, ver `.env.local.example`) con el payment id, el tipo de
+error y la hora.
+
+**"Un email por fallo real, no por cada intento":** Mercado Pago reintenta
+la misma notificación (mismo `data.id`) varias veces si le devolvemos un
+error. Para no mandar un email por cada reintento, se agregó una tabla
+nueva (`webhook_alertas_enviadas`, migración
+`20260814100000_webhook_alertas.sql`) con `mp_data_id` como columna
+`unique`: el primer INSERT para un `data.id` gana y dispara el email; los
+reintentos posteriores para el MISMO `data.id` chocan contra la unique
+constraint (error 23505 de Postgres) y no vuelven a mandar nada. Nunca hace
+falta borrar filas viejas a mano para "reactivar" la alerta -- si ese mismo
+pago vuelve a fallar por otro motivo en el futuro, es un `data.id` de un
+pago distinto, así que ya funciona solo.
+
+**Validado contra Postgres local, no solo por lectura de código:** apliqué
+la migración nueva encima de todas las anteriores en una base de prueba,
+inserté una fila con un `mp_data_id` y confirmé que un segundo INSERT con
+el mismo id falla con `duplicate key value violates unique constraint`
+(exactamente el mecanismo de dedupe). También probé la RLS: un perfil
+`admin` puede leer la tabla, un perfil `alumno` no (0 filas) -- mismo
+criterio que `pagos_auditoria`.
+
+Nunca puede tirar abajo la respuesta real del webhook a Mercado Pago: todo
+el envío de la alerta (INSERT + email) está en un `try/catch` que solo
+loguea si algo falla (ej. falta `RESEND_API_KEY`), nunca relanza el error.
+
+**⚠️ Acción pendiente de tu parte:** correr la migración
+`20260814100000_webhook_alertas.sql` en el SQL Editor de Supabase (o como
+corras migraciones normalmente) para que la tabla exista en la base real.
+Sin eso, la alerta igual falla en silencio (queda solo logueada) -- el
+webhook en sí sigue funcionando exactamente igual que antes.
+
+### 3. Landing pública en `/`
+
+Antes de este cambio, `/` ya NO redirigía directo a `/login` sin contexto
+(eso lo confirmé leyendo el código, no era el comportamiento real) -- ya
+mostraba el isotipo, el nombre y los 2 botones cuando no había sesión. Lo
+que le faltaba era justo lo que pediste: qué es MUV y las 3 sedes. Se
+agregó un párrafo corto de qué ofrece la plataforma y una lista de las 3
+sedes (MUV Fitness, MUV Pilates, MUV Postural) con una descripción de una
+línea cada una. Los nombres de sede están hardcodeados acá a propósito (no
+se consultan de la tabla `sedes`): esa tabla solo es legible por usuarios
+autenticados (RLS), y abrir una policy pública nueva solo para 3 nombres
+fijos que casi nunca cambian no valía la pena. Sin overflow horizontal
+verificado con Playwright en 390px y 1280px.
+
+### 4. Exportar CSV (admin)
+
+Dos botones nuevos, "Exportar CSV" en `/admin/alumnos` (listado de alumnos
+con contacto + estado de cuota) y "Exportar pagos (CSV)" en `/admin` junto
+a la card de "Facturación de este mes" (no existía ninguna pantalla
+dedicada a pagos donde ponerlo, así que se puso donde ya vive el resumen
+financiero, en vez de crear una página nueva solo para un botón).
+
+- **Alumnos:** una fila por (alumno, sede) -- un alumno anotado en más de
+  una sede aparece una vez por cada una, con el estado de cuota de esa sede
+  puntual (mismo criterio de "completar sedes sin fila con sin_pagos" que
+  ya usa `obtenerAlumno` para el detalle de un alumno individual, ahora
+  generalizado a todos los alumnos de una).
+- **Pagos:** historial completo (todos los estados, no solo aprobado) con
+  fecha, alumno, email, sede, monto, medio y estado.
+
+Ambas son rutas `GET` (no Server Actions), mismo patrón que ya existía para
+el PDF de asistencias del profesor (`requireRole("admin")`, un
+`<LinkButton>` normal en vez de JS de cliente para manejar la descarga). El
+CSV se arma a mano (`lib/csv.ts`, sin librería nueva): separador coma,
+CRLF, valores con coma/comilla/salto de línea entre comillas dobles
+(comillas escapadas duplicándolas), y un BOM UTF-8 al principio para que
+Excel abra bien los acentos -- sin el BOM, Excel en Windows suele mostrar
+los nombres con acentos como "JosÃ©" en vez de "José". Probé el escapado
+con casos límite (texto con coma, con comillas, con salto de línea,
+valores null) con un script Node aparte, sin depender de Supabase.
+
+### 5. Recuperación de acceso para admin + más de una cuenta admin
+
+**Ya funciona igual para admin que para alumno/profesor, sin que hiciera
+falta cambiar nada.** Confirmé leyendo el código, no asumiendo: el flujo de
+"olvidé mi contraseña" (`requestPasswordReset`/`updatePassword` en
+`lib/auth/actions.ts`, páginas `/forgot-password` y `/reset-password`)
+trabaja directo contra Supabase Auth (`auth.users`) con el email como único
+dato -- **no consulta ni depende para nada del `role` en `profiles`**. Es
+el mismo Supabase Auth el que decide si ese email existe y manda el link de
+recuperación, sea cual sea el rol de esa cuenta. Tampoco están detrás de
+`PROTECTED_PREFIXES` en el middleware, así que son accesibles sin sesión
+para cualquiera, admin incluida. No hizo falta ningún cambio de código acá.
+
+**¿Conviene una segunda cuenta admin de respaldo?** Sí, con una salvedad.
+A favor: si perdés el acceso a tu email de recuperación (no solo la
+contraseña de la app, sino el email en sí), hoy no hay ningún otro camino
+"desde la app" para recuperar el rol admin -- necesitarías entrar
+directamente a la base desde el dashboard de Supabase (algo que vos sí
+podés hacer porque sos la dueña del proyecto, pero que "el flujo normal de
+olvidé mi contraseña" no cubre). Una segunda cuenta admin (con otro email)
+te da un camino de respaldo que no depende de un solo casillero de correo.
+La salvedad: cada cuenta admin es una superficie de riesgo más (más
+credenciales que proteger, más gente -- si la comparte alguien más -- con
+acceso a datos de pago y de alumnos). Para un centro chico con una sola
+administradora, mi sugerencia es una segunda cuenta admin con TU otro
+email personal (no de un tercero) como respaldo puro, no una cuenta de uso
+diario. **No creé ninguna cuenta nueva** -- como pediste, queda para que lo
+pidas explícitamente si querés seguir ese camino.
+
+## Paso 16: textos, bug de asistencias vs. PDF por huso horario, y landing sin espacio muerto
+
+### Textos sacados
+
+- `/admin/aranceles`: se sacó el subtítulo "Un cambio no pisa el histórico:
+  queda una fila nueva vigente desde hoy."
+- `/admin` (home): se sacó el subtítulo "Panorama rápido del centro --
+  ingresos, ocupación y alumnado.", debajo del saludo.
+
+### Bug: asistencia marcada "Presente" pero el PDF semanal la muestra "Sin tomar" -- causa real
+
+**Causa encontrada y confirmada por reproducción, no por hipótesis:**
+`hoyISO()` (usada como default de fecha en `/profesor/clases/[id]` y en el
+PDF de asistencias) calculaba "hoy" con
+`new Date().toISOString().slice(0, 10)` -- eso da la fecha en **UTC**, que
+se adelanta un día respecto al calendario real en Argentina (UTC-3) durante
+la noche: desde las 21:00 hora Argentina en adelante, ya es "mañana" en
+UTC.
+
+Si un profesor toma asistencia de una clase que termina a esa hora (ej.
+20:00-21:00) sin elegir la fecha a mano, la asistencia se guarda con la
+fecha de MAÑANA en vez de la fecha real de la clase. El PDF semanal no
+tiene este problema para calcular QUÉ fecha buscar -- calcula la ocurrencia
+exacta de cada clase a partir de su día de la semana (lunes de la semana +
+offset), no de "hoy" -- así que busca la fecha CORRECTA, no encuentra la
+fila (guardada bajo la fecha equivocada) y muestra "Sin tomar" pese a que
+sí se había marcado.
+
+**Reproducido con un script Node** usando las funciones reales del código
+(no una versión simplificada): simulé marcar presente a las 21:05 hora
+Argentina de un jueves -- la versión vieja de `hoyISO()` guardaba la
+asistencia con la fecha del VIERNES; el PDF, calculando la ocurrencia del
+jueves de esa semana, buscaba la fecha del jueves y no la encontraba.
+Confirmé el mecanismo exacto antes de tocar código.
+
+**Fix:** `lib/fecha.ts` (nuevo) exporta un `hoyISO()` que usa
+`Intl.DateTimeFormat` con `timeZone: "America/Argentina/Buenos_Aires"`
+explícito -- no depende de la zona horaria configurada en el servidor (los
+runtimes de Vercel suelen correr en UTC) ni de la del navegador, así que
+funciona igual en servidor y cliente. Reemplaza al `hoyISO()` local en los
+3 lugares donde esto causaba el bug: `/profesor/clases/[id]/page.tsx`
+(fecha default al tomar asistencia), `/api/profesor/asistencias-pdf/route.tsx`
+(fecha de referencia default del PDF) y
+`descargar-asistencias-pdf.tsx` (fecha default del selector, corre en el
+navegador). **Volví a correr la misma reproducción con el fix aplicado:
+ahora la asistencia se guarda con la fecha correcta del jueves, y el PDF la
+encuentra.** Probé además los casos límite (23:59 y 00:01 hora Argentina)
+para confirmar que no hay ningún otro corrimiento de un día en ningún
+punto del día.
+
+**Nota para más adelante, no tocada en este paso:** el mismo patrón
+(`new Date().toISOString().slice(0, 10)` para "hoy") existe en otros
+lugares del código (avisos, exportar CSV, aranceles, comprobantes, el cron
+de cuotas, `lib/alumno/pago-actions.ts`) -- ninguno de esos causa HOY un
+bug reportado, y no los toqué para mantener el cambio acotado a lo pedido
+(y porque `lib/alumno/pago-actions.ts` en particular es el flujo de pagos,
+que la regla de siempre pide no tocar sin que se pida explícitamente). Si
+en algún momento aparece un síntoma parecido en otra pantalla (algo que
+"pisa" al día siguiente cerca de la noche), la causa más probable es la
+misma, y el fix es reusar `hoyISO()` de `lib/fecha.ts` ahí también.
+
+### Landing: espacio vacío/scroll de más
+
+Causa: `<main>` en `/` usa `flex-1` para ocupar toda la altura disponible
+del viewport, pero el contenido no estaba centrado verticalmente -- quedaba
+pegado arriba, dejando un bloque de fondo vacío abajo en cualquier pantalla
+más alta que el contenido (se veía clarísimo en la captura de escritorio
+del paso anterior). Fix de una clase: se agregó `justify-center` al mismo
+`<main>`. Verificado con Playwright, no solo a ojo:
+`document.documentElement.scrollHeight === clientHeight` en mobile (390px)
+y desktop (1280px) antes y después -- ahora el contenido queda centrado
+verticalmente sin generar scroll extra en ningún caso, y si el contenido
+llegara a ser más alto que la pantalla (ej. una fuente muy grande), la
+página sigue scrolleando normal sin quedar cortada.
+
+## Paso 17: recargo de Mercado Pago, transferencias con alias/CBU y comprobantes
+
+Confirmado con un pago real: Mercado Pago se queda con una comisión
+(~4-5%, varía según tarjeta/cuotas) que hasta ahora perdía el negocio en
+cada cobro. Este paso agrega un recargo configurable que compensa esa
+comisión, y separa "transferencia" de "efectivo" como medios de pago
+distintos, con su propio flujo de verificación.
+
+### 1. Recargo configurable -- por qué es GLOBAL, no por sede
+
+`/admin/aranceles` ahora tiene, arriba de las cards de arancel por sede, un
+formulario de "Recargo de Mercado Pago y transferencias" con el % de
+recargo y los datos de la cuenta (alias/CBU/titular). Es un valor **global**
+(una sola fila en `configuracion_pagos`, no una columna por sede) a
+propósito: la comisión de Mercado Pago no depende de en qué sede se paga
+la cuota -- depende de qué tarjeta/cuotas elige quien paga en el checkout
+de MP, algo que MP calcula de su lado y que esta app no controla. La
+cuenta bancaria de destino de una transferencia tampoco es "por sede" salvo
+que MUV tuviera una cuenta distinta por local, que hoy no es el caso. Si
+alguna vez cambia esa premisa (cuentas separadas por sede), la tabla está
+pensada para poder pasar a una fila por sede sin mucho trabajo.
+
+### 2. La fórmula -- por qué no alcanza con sumar el %
+
+Sumar X% directo **no compensa** una comisión que Mercado Pago descuenta
+DESPUÉS de cobrar: si cobramos `base*(1+pct)`, MP se queda con `pct%` de
+ese número más grande, y a MUV le llega MENOS del neto esperado. Para que
+a MUV le llegue exactamente `base` luego de que MP se quede con su
+comisión, hay que **dividir**, no multiplicar:
+
+```
+cobrado * (1 - pct/100) = base   =>   cobrado = base / (1 - pct/100)
+```
+
+Ejemplo con base=$41.000 y pct=5%: sumar 5% da $43.050 -- MP se queda con
+el 5% de ESE número ($2.152,50), a MUV le llegan $40.897,50 (**faltan
+$102,50**). Con la fórmula de dividir: cobrado = 41000 / 0.95 = $43.157,89,
+redondeado a $43.158 -- MP se queda con el 5% de $43.158 ($2.157,90), a MUV
+le llegan $43.158 - $2.157,90 = **$41.000,10** (prácticamente exacto; los
+~10 centavos son solo por redondear el cobro final al peso entero, igual
+que el resto de los precios de la app). Implementada en
+`lib/recargo-mercadopago.ts`.
+
+### 3. Dónde vive el recargo en la base -- por qué NO se mete en "monto"
+
+`pagos.monto` sigue significando exactamente lo mismo que significaba
+antes de este paso: **el valor neto de la cuota**, lo que le corresponde a
+MUV. El recargo se guarda aparte, en una columna nueva
+(`pagos.recargo_mercadopago`, NULL para efectivo/transferencia). Esto es
+deliberado: si el recargo se hubiera sumado directo a `monto`, el
+dashboard, el CSV de pagos, y `v_estado_cuota_alumno_sede` habrían
+empezado a sobreestimar la facturación real (contando plata que en
+realidad se queda Mercado Pago) -- **sin tocar una sola línea de esos
+lugares**, siguen sumando lo correcto. Probé esto de punta a punta contra
+Postgres local: inserté un pago de $41.000 con $2.386 de recargo
+(monto=41000, recargo_mercadopago=2386), lo aprobé, y confirmé que
+`v_estado_cuota_alumno_sede.monto` sigue devolviendo 41000 (no 43386) y
+que el vencimiento se calculó bien (trigger sin cambios).
+
+`lib/alumno/pago-actions.ts` (el único lugar donde hacía falta tocar el
+flujo de pago real) ahora calcula el recargo antes de armar la preferencia
+de Checkout Pro, y usa `monto + recargo` como `unit_price` -- pero sigue
+guardando `monto` sin tocar. **El webhook de Mercado Pago no se tocó ni una
+línea** (`git diff` del archivo: vacío) -- no lo necesitaba, porque nunca
+le importó cuánto se cobró, solo actualiza `estado`/`mercadopago_payment_id`
+re-consultando el pago a la API de MP.
+
+### 4. Transferencia como medio de pago propio, con verificación obligatoria
+
+Antes, subir un comprobante siempre guardaba `medio='efectivo'`, sin
+importar si el alumno pagó en mano o transfirió. Se agregó `'transferencia'`
+al enum `medio_pago` (migración aparte, `20260815090000_medio_transferencia.sql`
+-- Postgres no deja usar un valor de enum recién agregado en la misma
+transacción en la que se agrega, así que va en su propio archivo) y
+`subirComprobantePago` ahora guarda `medio='transferencia'`. `efectivo`
+queda reservado para cuando la admin marca un pago en mano sin comprobante
+(`marcarPagoEfectivo`, sin cambios).
+
+En `/alumno/cuota`, cada sede que puede pagar ahora muestra dos opciones
+lado a lado: **"Pagar con Mercado Pago: $X (incluye recargo)"** y
+**"Transferir por alias/CBU: $Y (sin recargo)"** con los datos de la
+cuenta visibles ahí mismo, y el formulario de subir comprobante
+inmediatamente debajo con la aclaración de que es obligatorio para que la
+cuota se verifique. El precio mostrado (`precioActual` en
+`lib/alumno/cuota-data.ts`) es el arancel VIGENTE HOY para la frecuencia
+real del alumno en esa sede -- no el monto de su último pago aprobado, que
+podría haber quedado viejo si el arancel subió después.
+
+**No hace falta "elegir transferencia" y quedarse sin subir nada**: la fila
+en `pagos` con `estado='pendiente'` recién se crea cuando el archivo
+realmente se sube (mismo mecanismo de siempre, `subirComprobantePago` sube
+el archivo y crea la fila en el mismo paso) -- no hay forma de generar un
+estado "elegido pero sin comprobante" a mitad de camino. Lo que sí faltaba,
+y se agregó, es el recordatorio: si ya hay una transferencia con
+comprobante subido esperando revisión, la card de esa sede muestra un
+`Alert` visible ("Ya subiste un comprobante... está pendiente de que la
+administración lo revise") en vez de dejarlo sin ningún indicio.
+
+### 5. Del lado de la admin: encontrar y revisar comprobantes
+
+Ya existía la revisión por alumno (`/admin/alumnos/[id]`), pero no había
+forma de ver TODOS los comprobantes pendientes de una sin entrar alumno
+por alumno. Se agregó:
+
+- **`/admin/comprobantes`** (página nueva): lista todos los comprobantes
+  pendientes, de cualquier alumno, ordenados por más viejo primero, con
+  botones de Aprobar/Rechazar ahí mismo (mismas Server Actions que ya
+  existían por alumno).
+- **Stat card "Comprobantes pendientes"** en `/admin` (home), con badge de
+  advertencia si hay alguno, que linkea directo a esa lista.
+- **Botón "Rechazar"** (`rechazarComprobante`, nuevo en
+  `lib/admin/pagos-actions.ts`) -- antes solo existía "Aprobar"; si un
+  comprobante no corresponde (monto equivocado, no llegó la plata), ahora
+  se puede rechazar, y el alumno puede subir uno nuevo. Queda auditado
+  igual que cualquier cambio de estado (`pagos_auditoria`, vía el trigger
+  que ya existía).
+- Se agregó también un tercer bucket "Transferencia" a "Facturación de este
+  mes" en el dashboard (antes se mezclaba con "Efectivo" porque hasta este
+  paso compartían el mismo `medio`).
+
+Probé todo el flujo admin contra Postgres local: insertar un pago
+`medio='transferencia', estado='pendiente'` con comprobante, confirmar que
+aparece en la consulta de "pendientes", rechazarlo como admin autenticado
+(RLS), confirmar que desaparece de "pendientes" y que quedó registrado en
+`pagos_auditoria` con `estado_anterior='pendiente'`,
+`estado_nuevo='rechazado'`.
+
+### ⚠️ Acciones pendientes de tu parte
+
+1. **Correr las 2 migraciones nuevas** en el SQL Editor de Supabase (en
+   orden): `20260815090000_medio_transferencia.sql` y
+   `20260815100000_configuracion_pagos.sql`. Sin esto, `/admin/aranceles`
+   y `/alumno/cuota` van a fallar al leer la configuración de pagos.
+2. **Cargar el % de recargo real y los datos de tu cuenta** en
+   `/admin/aranceles` -- por default el recargo queda en 0% (nadie paga de
+   más hasta que lo configures) y el alias/CBU quedan vacíos (la app
+   muestra "La administración todavía no cargó los datos de transferencia"
+   mientras tanto). **Necesito que me pases el alias/CBU/titular reales**
+   si querés que los cargue yo directamente vía migración/script en vez de
+   que los cargues vos a mano desde la pantalla -- si no, no hace falta
+   nada de mi parte, ya podés cargarlos vos mismo desde
+   `/admin/aranceles` apenas corras las migraciones.
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de

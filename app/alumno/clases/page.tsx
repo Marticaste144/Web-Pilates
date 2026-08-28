@@ -1,68 +1,60 @@
-import { listarClasesParaAlumno } from "@/lib/alumno/clases-data";
-import { DIAS_SEMANA } from "@/lib/dias-semana";
-import { InscripcionControl } from "./inscripcion-control";
+import Link from "next/link";
+import { listarClasesParaAlumno, listarSedes } from "@/lib/alumno/clases-data";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { CalendarIcon, ChevronRightIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
 
+// Antes esta pantalla listaba TODOS los horarios de las 3 sedes mezclados en
+// una sola pantalla -- no escala a medida que se cargan más clases, y a la
+// mayoría de los alumnos solo le interesa una sede. Ahora es un selector de
+// sede (3 cards); el listado de horarios de cada sede vive en
+// /alumno/clases/[sedeId], con un selector de día aparte. La lógica de
+// inscripción/baja no cambió -- esto es puramente de navegación.
 export default async function AlumnoClasesPage() {
-  const clases = await listarClasesParaAlumno();
-  const diaLabel = (dia: number) => DIAS_SEMANA.find((d) => d.value === dia)?.label ?? dia;
+  const [sedes, clases] = await Promise.all([listarSedes(), listarClasesParaAlumno()]);
 
-  const porSede = new Map<string, typeof clases>();
+  const cantidadPorSede = new Map<string, number>();
   for (const c of clases) {
-    porSede.set(c.sedeNombre, [...(porSede.get(c.sedeNombre) ?? []), c]);
+    cantidadPorSede.set(c.sedeId, (cantidadPorSede.get(c.sedeId) ?? 0) + 1);
   }
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Clases"
-        subtitle="Elegí en qué clases anotarte. Si una clase está llena, quedás en lista de espera."
+        subtitle="Elegí una sede para ver los horarios disponibles y anotarte."
       />
 
-      {clases.length === 0 && (
-        <EmptyState
-          title="Todavía no hay clases cargadas"
-          description="Cuando la administración cargue clases, las vas a ver acá."
-        />
-      )}
-
-      {[...porSede.entries()].map(([sedeNombre, clasesDeSede]) => (
-        <div key={sedeNombre} className="flex flex-col gap-3">
-          <h2 className="font-semibold text-neutral-900">{sedeNombre}</h2>
-          <div className="flex flex-col gap-2.5">
-            {clasesDeSede.map((c) => {
-              const lleno = c.inscriptosActivos >= c.cupo;
-              return (
-                <Card key={c.id} className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="font-medium text-neutral-900">
-                      {diaLabel(c.diaSemana)} {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
+      {sedes.length === 0 ? (
+        <EmptyState title="Todavía no hay sedes cargadas" />
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {sedes.map((sede) => {
+            const cantidad = cantidadPorSede.get(sede.id) ?? 0;
+            return (
+              <Link key={sede.id} href={`/alumno/clases/${sede.id}`} className="group">
+                <Card className="flex h-full items-center gap-3 transition-colors group-hover:border-primary-400">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
+                    <CalendarIcon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="font-semibold text-neutral-900">{sede.nombre}</h2>
+                    <p className="mt-0.5 text-sm text-neutral-500">
+                      {cantidad === 0
+                        ? "Todavía sin horarios"
+                        : `${cantidad} horario${cantidad === 1 ? "" : "s"} disponible${cantidad === 1 ? "" : "s"}`}
                     </p>
-                    <div className="mt-1 flex items-center gap-2 text-sm text-neutral-500">
-                      <span>Prof. {c.profesorNombre}</span>
-                      <Badge variant={lleno ? "warning" : "neutral"}>
-                        {c.inscriptosActivos}/{c.cupo} lugares
-                      </Badge>
-                    </div>
                   </div>
-                  <div className="shrink-0">
-                    <InscripcionControl
-                      claseId={c.id}
-                      miInscripcionId={c.miInscripcionId}
-                      miEstado={c.miEstado}
-                    />
-                  </div>
+                  <ChevronRightIcon className="h-4 w-4 shrink-0 text-neutral-300 group-hover:text-primary-500" />
                 </Card>
-              );
-            })}
-          </div>
+              </Link>
+            );
+          })}
         </div>
-      ))}
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { signUpAlumno } from "@/lib/auth/actions";
 import { initialAuthState } from "@/lib/auth/auth-state";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -80,6 +81,25 @@ export function SignupForm() {
             >
               {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
             </button>
+          </span>
+        </label>
+
+        <label className="flex items-start gap-2.5 text-sm text-neutral-600">
+          <input
+            type="checkbox"
+            name="acepta_terminos"
+            required
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 text-primary-600 focus:ring-primary-400"
+          />
+          <span>
+            Acepto los{" "}
+            <Link href="/legal#terminos" target="_blank" className="font-medium text-primary-600 hover:underline">
+              Términos y Condiciones
+            </Link>{" "}
+            y la{" "}
+            <Link href="/legal#privacidad" target="_blank" className="font-medium text-primary-600 hover:underline">
+              Política de Privacidad
+            </Link>
           </span>
         </label>
 

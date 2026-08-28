@@ -44,6 +44,7 @@ export async function inscribirseAClase(claseId: string): Promise<InscripcionRes
 
     if (!error) {
       revalidatePath("/alumno/clases");
+      revalidatePath("/alumno/clases/[sedeId]", "page");
       revalidatePath("/alumno/inscripciones");
       revalidatePath("/alumno");
       return { ok: true, message: "Te anotaste a la clase." };
@@ -71,6 +72,7 @@ export async function inscribirseAClase(claseId: string): Promise<InscripcionRes
   }
 
   revalidatePath("/alumno/clases");
+  revalidatePath("/alumno/clases/[sedeId]", "page");
   revalidatePath("/alumno/inscripciones");
   revalidatePath("/alumno");
   return { ok: true, message: "La clase está llena: quedaste en lista de espera." };
@@ -140,6 +142,7 @@ export async function darseDeBaja(inscripcionId: string): Promise<InscripcionRes
   }
 
   revalidatePath("/alumno/clases");
+  revalidatePath("/alumno/clases/[sedeId]", "page");
   revalidatePath("/alumno/inscripciones");
   revalidatePath("/alumno");
   return { ok: true, message: "Te diste de baja de la clase." };

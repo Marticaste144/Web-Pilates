@@ -5,10 +5,14 @@ import { Button } from "./button";
 
 type ActionResult = { ok: boolean; message: string };
 
-// Botón para acciones destructivas/difíciles de revertir (darse de baja,
-// etc.): antes de ejecutar la Server Action, muestra un diálogo de
-// confirmación propio (no window.confirm, para que se vea consistente con
-// el resto de la UI) con Cancelar/Confirmar.
+// Botón para acciones que conviene confirmar antes de disparar: antes de
+// ejecutar la Server Action, muestra un diálogo de confirmación propio (no
+// window.confirm, para que se vea consistente con el resto de la UI) con
+// Cancelar/Confirmar. `tone` controla el color -- "destructive" (default,
+// mismo comportamiento de siempre) para bajas/eliminar; "primary" para
+// confirmaciones de una acción positiva pero que igual conviene chequear
+// antes de disparar (ej. marcar un pago en efectivo), donde un botón rojo
+// daría la señal visual equivocada.
 export function ConfirmButton({
   action,
   triggerLabel,
@@ -17,6 +21,7 @@ export function ConfirmButton({
   confirmDescription,
   confirmLabel = "Confirmar",
   variant = "link",
+  tone = "destructive",
   className = "",
   onResult,
 }: {
@@ -27,9 +32,11 @@ export function ConfirmButton({
   confirmDescription: string;
   confirmLabel?: string;
   variant?: "link" | "button";
+  tone?: "destructive" | "primary";
   className?: string;
   onResult?: (result: ActionResult) => void;
 }) {
+  const linkColor = tone === "destructive" ? "text-error-600" : "text-primary-600";
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -50,13 +57,13 @@ export function ConfirmButton({
           type="button"
           disabled={pending}
           onClick={() => setOpen(true)}
-          className={`text-xs font-medium text-error-600 hover:underline disabled:opacity-50 ${className}`}
+          className={`text-xs font-medium hover:underline disabled:opacity-50 ${linkColor} ${className}`}
         >
           {pending ? pendingLabel : triggerLabel}
         </button>
       ) : (
         <Button
-          variant="destructive"
+          variant={tone === "destructive" ? "destructive" : "primary"}
           size="sm"
           loading={pending}
           onClick={() => setOpen(true)}
@@ -85,7 +92,7 @@ export function ConfirmButton({
               <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
                 Cancelar
               </Button>
-              <Button variant="destructive" size="sm" onClick={confirmar}>
+              <Button variant={tone === "destructive" ? "destructive" : "primary"} size="sm" onClick={confirmar}>
                 {confirmLabel}
               </Button>
             </div>

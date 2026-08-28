@@ -37,9 +37,18 @@ export async function signUpAlumno(
   const nombre = String(formData.get("nombre") ?? "").trim();
   const apellido = String(formData.get("apellido") ?? "").trim();
   const telefono = String(formData.get("telefono") ?? "").trim();
+  const aceptaTerminos = formData.get("acepta_terminos") === "on";
 
   if (!email || !password || !nombre || !apellido) {
     return { status: "error", message: "Completá todos los campos obligatorios." };
+  }
+
+  // El checkbox ya es "required" en el form (bloquea el submit en el
+  // navegador), pero eso es solo del lado del cliente -- se vuelve a
+  // chequear acá porque una Server Action se puede invocar directo, sin
+  // pasar por el formulario.
+  if (!aceptaTerminos) {
+    return { status: "error", message: "Tenés que aceptar los Términos y Condiciones y la Política de Privacidad para crear la cuenta." };
   }
 
   const supabase = await createClient();

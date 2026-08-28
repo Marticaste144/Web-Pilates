@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listarMisClases } from "@/lib/profesor/clases-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
+import { DescargarAsistenciasPdf } from "./descargar-asistencias-pdf";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,8 @@ export default async function MisClasesPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Mis clases" subtitle="Entrá a una clase para ver alumnos y tomar asistencia." />
+
+      {clases.length > 0 && <DescargarAsistenciasPdf />}
 
       {clases.length === 0 && (
         <EmptyState

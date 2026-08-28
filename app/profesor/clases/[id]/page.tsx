@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { obtenerClaseDetalle } from "@/lib/profesor/clases-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
+import { hoyISO } from "@/lib/fecha";
 import { FechaPicker } from "./fecha-picker";
 import { AlumnoRow } from "./alumno-row";
 import { Badge } from "@/components/ui/badge";

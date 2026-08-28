@@ -1,7 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getCurrentProfile } from "@/lib/auth/session";
-import { listarMisClases, type MiClaseItem } from "@/lib/profesor/clases-data";
+import { listarMisClases } from "@/lib/profesor/clases-data";
+import { calcularProximaOcurrencia } from "@/lib/proxima-ocurrencia";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -15,39 +16,22 @@ function diaLabel(dia: number) {
   return DIAS_SEMANA.find((d) => d.value === dia)?.label ?? String(dia);
 }
 
-// Día (1=lunes..7=domingo) y hora "HH:MM:SS" actuales en horario argentino
-// -- mismo criterio de zona horaria que fechaUltimaOcurrencia (lib/dias-semana)
-// para que el "hoy" de este dashboard coincida con el "hoy" que resuelve el
-// resto de la app.
-function ahoraEnArgentina() {
-  const ahora = new Date();
-  const hoyIso = ahora.toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
-  const fechaHoy = new Date(`${hoyIso}T12:00:00Z`);
-  const diaSemana = fechaHoy.getUTCDay() === 0 ? 7 : fechaHoy.getUTCDay();
-  const hora = ahora.toLocaleTimeString("en-GB", { timeZone: "America/Argentina/Buenos_Aires", hour12: false });
-  return { diaSemana, hora };
-}
-
-// Distancia en días hasta la próxima ocurrencia de esta clase (0 = hoy).
-// Si es hoy pero ya terminó, la próxima ocurrencia real es en 7 días.
-function distanciaClase(clase: MiClaseItem, diaHoy: number, horaActual: string) {
-  const dist = (clase.diaSemana - diaHoy + 7) % 7;
-  return dist === 0 && clase.horaFin <= horaActual ? 7 : dist;
+// Mismo criterio de "día de hoy" (1=lunes..7=domingo, getDay() local) que usa
+// calcularProximaOcurrencia (lib/proxima-ocurrencia.ts) -- así "próxima
+// clase" y "clases de hoy" coinciden sobre qué día es hoy.
+function diaSemanaActual(ahora: Date = new Date()) {
+  return ahora.getDay() === 0 ? 7 : ahora.getDay();
 }
 
 export default async function ProfesorHomePage() {
   const [profile, clases] = await Promise.all([getCurrentProfile(), listarMisClases()]);
-  const { diaSemana: diaHoy, hora: horaActual } = ahoraEnArgentina();
+  const diaHoy = diaSemanaActual();
 
   const clasesHoy = clases
     .filter((c) => c.diaSemana === diaHoy)
     .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
 
-  const proximaClase = [...clases].sort((a, b) => {
-    const da = distanciaClase(a, diaHoy, horaActual);
-    const db = distanciaClase(b, diaHoy, horaActual);
-    return da !== db ? da - db : a.horaInicio.localeCompare(b.horaInicio);
-  })[0];
+  const proximaClase = calcularProximaOcurrencia(clases);
 
   const alumnosHoy = clasesHoy.reduce((sum, c) => sum + c.inscriptosActivos, 0);
   const clasesParaPromedio = clasesHoy.length > 0 ? clasesHoy : clases;
