@@ -30,23 +30,30 @@ export default async function AlumnoHomePage() {
   const [profile, m] = await Promise.all([getCurrentProfile(), obtenerMetricasAlumno()]);
 
   return (
-    <div className="flex flex-col gap-6 py-6">
-      <Card className="relative overflow-hidden">
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold text-neutral-900 sm:text-3xl">¡Hola, {profile?.nombre ?? ""}! 👋</h1>
-            <p className="mt-1 max-w-md text-sm text-neutral-500">
+    <div className="flex flex-col gap-3.5 py-3.5 sm:gap-4 sm:py-4">
+      <Card padded={false} className="relative overflow-hidden">
+        <div className="flex items-stretch justify-between gap-4">
+          <div className="min-w-0 flex-1 self-center py-4 pl-4 sm:py-5 sm:pl-5">
+            <h1 className="text-xl font-bold text-neutral-900 sm:text-2xl">¡Hola, {profile?.nombre ?? ""}! 👋</h1>
+            <p className="mt-1 max-w-sm text-sm text-neutral-500">
               Te avisamos por email cuando haya novedades de tu sede, tu cuota esté por vencer, o se libere un lugar
               en una lista de espera.
             </p>
           </div>
-          <div className="relative hidden h-28 w-28 shrink-0 sm:block lg:h-36 lg:w-36">
-            <Image src="/img3.png" alt="" aria-hidden fill sizes="150px" className="object-contain" />
+          <div className="relative hidden w-32 shrink-0 sm:block sm:w-44 md:w-52 lg:w-60">
+            <Image
+              src="/img3.png"
+              alt=""
+              aria-hidden
+              fill
+              sizes="(min-width: 1024px) 240px, (min-width: 640px) 176px, 0px"
+              className="object-cover"
+            />
           </div>
         </div>
       </Card>
 
-      <Card className="flex flex-col gap-3">
+      <Card padded={false} className="flex flex-col gap-2 p-3.5 sm:p-4">
         <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
           <CalendarIcon className="h-4 w-4" />
           Próxima clase
@@ -71,7 +78,7 @@ export default async function AlumnoHomePage() {
       </Card>
 
       {m.cuotas.length > 0 && (
-        <Card className="flex flex-col gap-3">
+        <Card padded={false} className="flex flex-col gap-2 p-3.5 sm:p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
               <WalletIcon className="h-4 w-4" />
@@ -99,10 +106,10 @@ export default async function AlumnoHomePage() {
         </Card>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="flex flex-col gap-2">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary-50 text-secondary-600">
-            <CalendarIcon className="h-5 w-5" />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card padded={false} className="flex flex-col gap-1.5 p-3.5 sm:p-4">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary-50 text-secondary-600">
+            <CalendarIcon className="h-4.5 w-4.5" />
           </span>
           <p className="text-sm text-neutral-500">Clases anotado/a</p>
           <p className="-mt-1 text-2xl font-bold text-neutral-900">{m.clasesActivasTotal}</p>
@@ -111,9 +118,9 @@ export default async function AlumnoHomePage() {
           </Link>
         </Card>
 
-        <Card className="flex flex-col gap-2">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary-50 text-secondary-600">
-            <ClockIcon className="h-5 w-5" />
+        <Card padded={false} className="flex flex-col gap-1.5 p-3.5 sm:p-4">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary-50 text-secondary-600">
+            <ClockIcon className="h-4.5 w-4.5" />
           </span>
           <p className="text-sm text-neutral-500">En lista de espera</p>
           <p className="-mt-1 text-2xl font-bold text-neutral-900">{m.listaEsperaTotal}</p>
@@ -122,9 +129,9 @@ export default async function AlumnoHomePage() {
           </Link>
         </Card>
 
-        <Card className="flex flex-col gap-2">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary-50 text-secondary-600">
-            <MapPinIcon className="h-5 w-5" />
+        <Card padded={false} className="flex flex-col gap-1.5 p-3.5 sm:p-4">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary-50 text-secondary-600">
+            <MapPinIcon className="h-4.5 w-4.5" />
           </span>
           <p className="text-sm text-neutral-500">Sedes</p>
           <p className="-mt-1 text-2xl font-bold text-neutral-900">{m.sedesTotal}</p>
@@ -134,12 +141,15 @@ export default async function AlumnoHomePage() {
         </Card>
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold text-neutral-700">Accesos rápidos</h2>
         <div className="grid gap-3 sm:grid-cols-3">
           {SECCIONES.map((s) => (
             <Link key={s.href} href={s.href} className="group">
-              <Card className="flex h-full items-center gap-3 transition-colors group-hover:border-primary-400">
+              <Card
+                padded={false}
+                className="flex h-full items-center gap-3 p-3.5 transition-colors group-hover:border-primary-400 sm:p-4"
+              >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
                   <s.icon className="h-5 w-5" />
                 </div>
