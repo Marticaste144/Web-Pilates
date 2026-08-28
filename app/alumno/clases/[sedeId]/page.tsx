@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { listarClasesParaAlumno, listarSedes } from "@/lib/alumno/clases-data";
 import { InscripcionControl } from "../inscripcion-control";
+import { iconoPorSede } from "@/components/alumno/sede-icon";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,17 +47,24 @@ export default async function ClasesDeSedePage({
     .filter((c) => c.diaSemana === diaSeleccionado)
     .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
 
+  const Icon = iconoPorSede(sede.nombre);
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 py-6">
       <div>
         <Link
           href="/alumno/clases"
           className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:underline"
         >
           <ChevronRightIcon className="h-3.5 w-3.5 rotate-180" />
-          Volver a sedes
+          Volver a clases
         </Link>
-        <h1 className="mt-2 text-xl font-bold text-neutral-900 sm:text-2xl">{sede.nombre}</h1>
+        <div className="mt-2 flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary-50 text-secondary-600">
+            <Icon className="h-5 w-5" />
+          </span>
+          <h1 className="text-xl font-bold uppercase tracking-wide text-neutral-900 sm:text-2xl">{sede.nombre}</h1>
+        </div>
       </div>
 
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
@@ -89,9 +97,9 @@ export default async function ClasesDeSedePage({
           {clasesDelDia.map((c) => {
             const lleno = c.inscriptosActivos >= c.cupo;
             return (
-              <Card key={c.id} className="flex items-center justify-between gap-4">
+              <Card key={c.id} className="flex flex-wrap items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="font-medium text-neutral-900">
+                  <p className="text-lg font-bold text-neutral-900">
                     {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
                   </p>
                   <div className="mt-1 flex items-center gap-2 text-sm text-neutral-500">

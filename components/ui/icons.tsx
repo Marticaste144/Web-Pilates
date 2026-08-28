@@ -126,6 +126,49 @@ export function PieChartIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function MapPinIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 21s7-6.1 7-11.5a7 7 0 1 0-14 0C5 14.9 12 21 12 21Z" />
+      <circle cx="12" cy="9.5" r="2.3" />
+    </svg>
+  );
+}
+
+// Sede MUV FITNESS.
+export function DumbbellIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="2.5" y="9" width="3.4" height="6" rx="1.2" />
+      <rect x="18.1" y="9" width="3.4" height="6" rx="1.2" />
+      <path d="M5.9 12h1.6M16.5 12h1.6" />
+      <path d="M8.5 10v4M15.5 10v4" />
+    </svg>
+  );
+}
+
+// Sede MUV PILATES -- rollo de mat visto de costado.
+export function PilatesMatIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <ellipse cx="6" cy="12" rx="3" ry="6.2" />
+      <path d="M9 6.3c4.7.5 8 1.7 8 5.7s-3.3 5.2-8 5.7" />
+    </svg>
+  );
+}
+
+// Sede MUV POSTURAL -- figura estirándose.
+export function PosturalIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="14.5" cy="5" r="1.9" />
+      <path d="M13.2 8.2 9 10.5l1.2 4.2-3.4 3" />
+      <path d="M13.2 8.2 17 9.5l1.8-3" />
+      <path d="M10.2 14.7l5 1 2.2 3.8" />
+    </svg>
+  );
+}
+
 export function ClockIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>

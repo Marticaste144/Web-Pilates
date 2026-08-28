@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { listarClasesParaAlumno, listarSedes } from "@/lib/alumno/clases-data";
+import { iconoPorSede } from "@/components/alumno/sede-icon";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { CalendarIcon, ChevronRightIcon } from "@/components/ui/icons";
+import { ChevronRightIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -22,33 +23,34 @@ export default async function AlumnoClasesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Clases"
-        subtitle="Elegí una sede para ver los horarios disponibles y anotarte."
-      />
+    <div className="flex flex-col gap-6 py-6">
+      <PageHeader title="Clases" subtitle="Elegí una sede para ver los horarios disponibles y anotarte." />
 
       {sedes.length === 0 ? (
         <EmptyState title="Todavía no hay sedes cargadas" />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {sedes.map((sede) => {
             const cantidad = cantidadPorSede.get(sede.id) ?? 0;
+            const Icon = iconoPorSede(sede.nombre);
             return (
               <Link key={sede.id} href={`/alumno/clases/${sede.id}`} className="group">
-                <Card className="flex h-full items-center gap-3 transition-colors group-hover:border-primary-400">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
-                    <CalendarIcon className="h-5 w-5" />
+                <Card className="flex h-full flex-col items-start gap-4 transition-colors group-hover:border-primary-400">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-secondary-50 text-secondary-600">
+                    <Icon className="h-7 w-7" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h2 className="font-semibold text-neutral-900">{sede.nombre}</h2>
+                    <h2 className="font-semibold uppercase tracking-wide text-neutral-900">{sede.nombre}</h2>
                     <p className="mt-0.5 text-sm text-neutral-500">
                       {cantidad === 0
                         ? "Todavía sin horarios"
                         : `${cantidad} horario${cantidad === 1 ? "" : "s"} disponible${cantidad === 1 ? "" : "s"}`}
                     </p>
                   </div>
-                  <ChevronRightIcon className="h-4 w-4 shrink-0 text-neutral-300 group-hover:text-primary-500" />
+                  <span className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 group-hover:underline">
+                    Ver horarios
+                    <ChevronRightIcon className="h-4 w-4" />
+                  </span>
                 </Card>
               </Link>
             );
