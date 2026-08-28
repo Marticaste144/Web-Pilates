@@ -233,3 +233,60 @@ export function EyeOffIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+// Beneficio "a cargo de Prof. en Educación Física (UNLP)" en la landing.
+export function GraduationCapIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M2.5 9.5 12 5l9.5 4.5-9.5 4.5-9.5-4.5Z" />
+      <path d="M6.5 11.6v4.1c0 1.4 2.5 2.8 5.5 2.8s5.5-1.4 5.5-2.8v-4.1" />
+      <path d="M21.5 9.5v5.5" />
+    </svg>
+  );
+}
+
+// Beneficio "Ambiente cálido y cercano" en la landing.
+export function HeartIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 20s-7.5-4.8-9.8-9.6C.7 6.9 2.6 4 5.7 4c1.9 0 3.4 1 4.8 2.6L12 8.2l1.5-1.6C14.9 5 16.4 4 18.3 4c3.1 0 5 2.9 3.5 6.4C19.5 15.2 12 20 12 20Z" />
+    </svg>
+  );
+}
+
+// Beneficio "Resultados que se sienten" en la landing.
+export function TrendingUpIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 17 9.5 10.5 14 15l7-8" />
+      <path d="M16.5 7h4.5v4.5" />
+    </svg>
+  );
+}
+
+export function InstagramIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function FacebookIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M14.5 21v-7.5H17l.5-3.3h-3V8.1c0-1 .3-1.7 1.7-1.7H17.6V3.4c-.3 0-1.3-.1-2.4-.1-2.4 0-4.1 1.5-4.1 4.2v2.7H8.5v3.3h2.6V21" />
+    </svg>
+  );
+}
+
+export function WhatsAppIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 20.5l1.3-4A8.5 8.5 0 1 1 8.6 19.3L4 20.5Z" />
+      <path d="M8.5 8.3c.2-.5.4-.5.7-.5h.5c.2 0 .4 0 .6.4.2.5.7 1.6.7 1.8.1.1.1.3 0 .4-.1.2-.2.3-.3.4-.1.2-.3.3-.4.5-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.5 1.5.2.1.4.1.5-.1.2-.2.7-.8.9-1.1.2-.2.4-.2.6-.1l1.7.8c.2.1.4.2.4.4.1.4.1.9-.1 1.4-.2.5-1.1 1-1.6 1-.5.1-1 .1-3.2-.7-2.6-1-4.3-3.7-4.5-3.9-.1-.2-1-1.4-1-2.6 0-1.2.7-1.9.9-2.1Z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
