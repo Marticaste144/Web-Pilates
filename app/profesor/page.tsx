@@ -1,14 +1,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getCurrentProfile } from "@/lib/auth/session";
-import { listarMisClases } from "@/lib/profesor/clases-data";
-import { calcularProximaOcurrencia } from "@/lib/proxima-ocurrencia";
+import { obtenerResumenDiaProfesor } from "@/lib/profesor/dashboard-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
+import { hoyISO, formatearFechaLarga } from "@/lib/fecha";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { OccupancyRing } from "@/components/profesor/occupancy-ring";
 import { StatCard } from "@/components/profesor/stat-card";
-import { CalendarIcon, UsersIcon, PieChartIcon, ChevronRightIcon } from "@/components/ui/icons";
+import { CalendarIcon, UsersIcon, PieChartIcon, CheckIcon, ChevronRightIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -16,42 +16,21 @@ function diaLabel(dia: number) {
   return DIAS_SEMANA.find((d) => d.value === dia)?.label ?? String(dia);
 }
 
-// Mismo criterio de "día de hoy" (1=lunes..7=domingo, getDay() local) que usa
-// calcularProximaOcurrencia (lib/proxima-ocurrencia.ts) -- así "próxima
-// clase" y "clases de hoy" coinciden sobre qué día es hoy.
-function diaSemanaActual(ahora: Date = new Date()) {
-  return ahora.getDay() === 0 ? 7 : ahora.getDay();
-}
-
 export default async function ProfesorHomePage() {
-  const [profile, clases] = await Promise.all([getCurrentProfile(), listarMisClases()]);
-  const diaHoy = diaSemanaActual();
+  const [profile, resumen] = await Promise.all([getCurrentProfile(), obtenerResumenDiaProfesor()]);
+  const { clasesHoy, proximaClase, alumnasTotal, ocupacionPromedio, asistenciasHoy } = resumen;
 
-  const clasesHoy = clases
-    .filter((c) => c.diaSemana === diaHoy)
-    .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
-
-  const proximaClase = calcularProximaOcurrencia(clases);
-
-  const alumnosHoy = clasesHoy.reduce((sum, c) => sum + c.inscriptosActivos, 0);
-  const clasesParaPromedio = clasesHoy.length > 0 ? clasesHoy : clases;
-  const ocupacionPromedio =
-    clasesParaPromedio.length > 0
-      ? Math.round(
-          (clasesParaPromedio.reduce((sum, c) => sum + (c.cupo > 0 ? c.inscriptosActivos / c.cupo : 0), 0) /
-            clasesParaPromedio.length) *
-            100,
-        )
-      : null;
+  const hayClases = clasesHoy.length > 0 || proximaClase !== null;
+  const fechaHoyLarga = formatearFechaLarga(hoyISO());
 
   return (
     <div className="flex flex-col gap-6 py-6">
       <div>
         <h1 className="text-2xl font-bold text-neutral-900 sm:text-3xl">¡Hola, {profile?.nombre ?? ""}! 👋</h1>
-        <p className="mt-1 text-sm text-neutral-500">Este es tu resumen de hoy</p>
+        <p className="mt-1 text-sm text-neutral-500">Este es tu resumen de hoy, {fechaHoyLarga}.</p>
       </div>
 
-      {clases.length === 0 ? (
+      {!hayClases ? (
         <EmptyState
           title="Todavía no tenés clases asignadas"
           description="Cuando la administración te asigne una clase, la vas a ver acá."
@@ -59,8 +38,8 @@ export default async function ProfesorHomePage() {
       ) : (
         <>
           {proximaClase && (
-            <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-primary-50 to-secondary-50 shadow-sm">
-              <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-7">
+            <div className="relative overflow-hidden rounded-card bg-white shadow-sm">
+              <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-7">
                 <div className="min-w-0 sm:flex-1">
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Próxima clase</p>
                   <h2 className="mt-2 text-2xl font-bold text-neutral-900 sm:text-3xl">
@@ -70,28 +49,28 @@ export default async function ProfesorHomePage() {
                   <p className="mt-1 text-lg font-semibold text-secondary-600">{proximaClase.sedeNombre}</p>
                   <p className="mt-2 flex items-center gap-1.5 text-sm text-neutral-500">
                     <UsersIcon className="h-4 w-4" />
-                    {proximaClase.inscriptosActivos} de {proximaClase.cupo} alumnos
+                    {proximaClase.inscriptosActivos} de {proximaClase.cupo} alumnas
                   </p>
                 </div>
 
-                <div className="relative hidden shrink-0 lg:block lg:h-36 lg:w-28 xl:h-40 xl:w-32">
+                <div className="relative mx-auto h-36 w-full max-w-[200px] shrink-0 sm:mx-0 sm:h-40 sm:w-40 lg:h-48 lg:w-48">
                   <Image
-                    src="/imgpilates.png"
+                    src="/img2.png"
                     alt=""
                     aria-hidden
                     fill
-                    sizes="160px"
-                    className="object-cover object-right contrast-125 saturate-150 mix-blend-multiply"
+                    sizes="(min-width: 1024px) 192px, (min-width: 640px) 160px, 200px"
+                    className="object-contain"
                   />
                 </div>
 
-                <div className="flex shrink-0 items-center gap-5 sm:gap-6">
+                <div className="flex shrink-0 items-center justify-center gap-5 sm:flex-col sm:items-end sm:justify-center lg:flex-row lg:items-center">
                   <OccupancyRing value={proximaClase.inscriptosActivos} max={proximaClase.cupo} />
                   <Link
                     href={`/profesor/clases/${proximaClase.id}`}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
                   >
-                    Ver clase
+                    Tomar asistencia
                     <ChevronRightIcon className="h-4 w-4" />
                   </Link>
                 </div>
@@ -99,59 +78,91 @@ export default async function ProfesorHomePage() {
             </div>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <StatCard icon={CalendarIcon} label="Clases hoy" value={String(clasesHoy.length)} />
-            <StatCard icon={UsersIcon} label="Alumnos hoy" value={String(alumnosHoy)} />
-            <StatCard
-              icon={PieChartIcon}
-              label="Ocupación promedio"
-              value={ocupacionPromedio !== null ? `${ocupacionPromedio}%` : "—"}
-            />
+            <StatCard icon={UsersIcon} label="Alumnas totales" value={String(alumnasTotal)} />
+            <StatCard icon={PieChartIcon} label="Ocupación promedio" value={`${ocupacionPromedio}%`} />
+            <StatCard icon={CheckIcon} label="Asistencias hoy" value={String(asistenciasHoy)} />
           </div>
 
-          <Card>
-            <h2 className="font-semibold text-neutral-900">Tus clases de hoy</h2>
+          <Card padded={false}>
+            <h2 className="p-5 pb-0 font-semibold text-neutral-900 sm:p-6 sm:pb-0">Mis clases de hoy</h2>
 
             {clasesHoy.length === 0 ? (
-              <p className="mt-3 text-sm text-neutral-500">No tenés clases hoy.</p>
+              <p className="p-5 pt-3 text-sm text-neutral-500 sm:p-6 sm:pt-3">No tenés clases hoy.</p>
             ) : (
-              <div className="mt-4 flex flex-col divide-y divide-neutral-100">
-                {clasesHoy.map((c) => {
-                  const pct = c.cupo > 0 ? Math.round((c.inscriptosActivos / c.cupo) * 100) : 0;
-                  return (
-                    <Link
-                      key={c.id}
-                      href={`/profesor/clases/${c.id}`}
-                      className="group flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-semibold text-neutral-900">
-                          {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
-                        </p>
-                        <p className="mt-0.5 text-sm text-neutral-500">{c.sedeNombre}</p>
-                      </div>
+              <>
+                {/* Desktop/tablet: filas tipo tabla, sin scroll horizontal --
+                    columnas fijas, nunca se angostan por debajo de lo legible. */}
+                <div className="hidden sm:block">
+                  <div className="grid grid-cols-[1fr_1fr_auto_1fr_auto] gap-4 px-6 pt-5 pb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
+                    <span>Horario</span>
+                    <span>Sede</span>
+                    <span>Alumnas</span>
+                    <span>Ocupación</span>
+                    <span className="text-right">Acción</span>
+                  </div>
+                  <div className="flex flex-col divide-y divide-neutral-100 border-t border-neutral-100">
+                    {clasesHoy.map((c) => {
+                      const pct = c.cupo > 0 ? Math.round((c.inscriptosActivos / c.cupo) * 100) : 0;
+                      return (
+                        <Link
+                          key={c.id}
+                          href={`/profesor/clases/${c.id}`}
+                          className="group grid grid-cols-[1fr_1fr_auto_1fr_auto] items-center gap-4 px-6 py-4 transition-colors hover:bg-neutral-50"
+                        >
+                          <span className="font-semibold text-neutral-900">
+                            {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
+                          </span>
+                          <span className="min-w-0 truncate text-neutral-600">{c.sedeNombre}</span>
+                          <span className="whitespace-nowrap text-neutral-600">
+                            {c.inscriptosActivos}/{c.cupo}
+                          </span>
+                          <span className="h-1.5 w-24 overflow-hidden rounded-full bg-neutral-100">
+                            <span className="block h-full rounded-full bg-secondary-500" style={{ width: `${pct}%` }} />
+                          </span>
+                          <span className="flex items-center justify-end gap-1.5 whitespace-nowrap text-sm font-medium text-primary-700">
+                            <span className="rounded-lg bg-primary-50 px-3 py-1.5 transition-colors group-hover:bg-primary-100">
+                              Tomar asistencia
+                            </span>
+                            <ChevronRightIcon className="h-4 w-4 text-neutral-300 group-hover:text-primary-500" />
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                      <div className="flex items-center gap-4 sm:w-80 sm:shrink-0">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs text-neutral-500">
-                            {c.inscriptosActivos}/{c.cupo} alumnos
-                          </p>
-                          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
-                            <div
-                              className="h-full rounded-full bg-secondary-500"
-                              style={{ width: `${pct}%` }}
-                            />
+                {/* Mobile: una card por clase -- toda la info visible sin
+                    achicar texto ni forzar scroll horizontal. */}
+                <div className="flex flex-col divide-y divide-neutral-100 border-t border-neutral-100 sm:hidden">
+                  {clasesHoy.map((c) => {
+                    const pct = c.cupo > 0 ? Math.round((c.inscriptosActivos / c.cupo) * 100) : 0;
+                    return (
+                      <Link key={c.id} href={`/profesor/clases/${c.id}`} className="flex flex-col gap-3 p-5">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-neutral-900">
+                              {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
+                            </p>
+                            <p className="mt-0.5 text-sm text-neutral-500">{c.sedeNombre}</p>
                           </div>
+                          <span className="shrink-0 text-sm text-neutral-500">
+                            {c.inscriptosActivos}/{c.cupo}
+                          </span>
                         </div>
-                        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 transition-colors group-hover:bg-primary-100">
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
+                          <div className="h-full rounded-full bg-secondary-500" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary-50 py-3 text-sm font-semibold text-primary-700">
                           Tomar asistencia
+                          <ChevronRightIcon className="h-4 w-4" />
                         </span>
-                        <ChevronRightIcon className="hidden h-4 w-4 shrink-0 text-neutral-300 group-hover:text-primary-500 sm:block" />
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </Card>
         </>

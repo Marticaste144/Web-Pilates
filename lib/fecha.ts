@@ -21,3 +21,25 @@ const ZONA_HORARIA_ESTUDIO = "America/Argentina/Buenos_Aires";
 export function hoyISO(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA_HORARIA_ESTUDIO }).format(new Date());
 }
+
+const DIAS_LARGO = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const MESES_LARGO = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+// "lunes 26 de mayo" a partir de una fecha YYYY-MM-DD -- mismo truco que
+// fechaUltimaOcurrencia (mediodía UTC) para leer día/mes sin depender del
+// huso horario del runtime.
+export function formatearFechaLarga(fechaISO: string): string {
+  const fecha = new Date(`${fechaISO}T12:00:00Z`);
+  return `${DIAS_LARGO[fecha.getUTCDay()]} ${fecha.getUTCDate()} de ${MESES_LARGO[fecha.getUTCMonth()]}`;
+}
+
+// "26 de mayo", sin día de la semana -- para mostrar junto a un día que ya
+// se muestra aparte (ej. el de la clase, resuelto desde dia_semana en vez
+// de desde esta fecha).
+export function formatearDiaMes(fechaISO: string): string {
+  const fecha = new Date(`${fechaISO}T12:00:00Z`);
+  return `${fecha.getUTCDate()} de ${MESES_LARGO[fecha.getUTCMonth()]}`;
+}

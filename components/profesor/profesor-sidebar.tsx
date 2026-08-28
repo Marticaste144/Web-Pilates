@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType, SVGProps } from "react";
 import { Isotipo } from "@/components/ui/isotipo";
-import { HomeIcon, CalendarIcon } from "@/components/ui/icons";
+import { HomeIcon, UsersIcon } from "@/components/ui/icons";
 
 type NavLink = {
   href: string;
@@ -12,9 +12,12 @@ type NavLink = {
   icon: ComponentType<SVGProps<SVGSVGElement>>;
 };
 
+// Solo Inicio y Alumnas -- a la asistencia se entra desde una clase (card de
+// "Próxima clase" o fila de "Mis clases de hoy" en Inicio), no hace falta un
+// ítem de nav propio para eso.
 const LINKS: NavLink[] = [
   { href: "/profesor", label: "Inicio", icon: HomeIcon },
-  { href: "/profesor/clases", label: "Mis clases", icon: CalendarIcon },
+  { href: "/profesor/alumnas", label: "Alumnas", icon: UsersIcon },
 ];
 
 function isActive(pathname: string, href: string) {
