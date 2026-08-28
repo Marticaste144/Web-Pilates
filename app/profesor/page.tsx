@@ -2,7 +2,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { obtenerResumenDiaProfesor } from "@/lib/profesor/dashboard-data";
-import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { hoyISO, formatearFechaLarga } from "@/lib/fecha";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -11,10 +10,6 @@ import { StatCard } from "@/components/profesor/stat-card";
 import { CalendarIcon, UsersIcon, PieChartIcon, CheckIcon, ChevronRightIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
-
-function diaLabel(dia: number) {
-  return DIAS_SEMANA.find((d) => d.value === dia)?.label ?? String(dia);
-}
 
 export default async function ProfesorHomePage() {
   const [profile, resumen] = await Promise.all([getCurrentProfile(), obtenerResumenDiaProfesor()]);
@@ -38,37 +33,44 @@ export default async function ProfesorHomePage() {
       ) : (
         <>
           {proximaClase && (
-            <div className="relative overflow-hidden rounded-card bg-white shadow-sm">
-              <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-7">
-                <div className="min-w-0 sm:flex-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Próxima clase</p>
+            // La imagen es el fondo de TODA la card (no un recuadro adentro
+            // de la card) -- /public/img2.png ya trae el celeste, la onda y
+            // la chica de Pilates armados, así que va como capa absoluta
+            // detrás del contenido (relative z-10), con object-cover para
+            // que nunca se deforme. La proporción de la card se ancla cerca
+            // del aspect ratio real del archivo (~16:9) para que el
+            // recorte de object-cover sea siempre horizontal (le come el
+            // celeste vacío de la izquierda si hace falta), nunca vertical
+            // (así la figura entra completa de la cabeza a los pies).
+            <div className="relative overflow-hidden rounded-card shadow-sm">
+              <Image
+                src="/img2.png"
+                alt=""
+                aria-hidden
+                fill
+                priority
+                sizes="(min-width: 1024px) 1100px, 100vw"
+                className="object-cover object-[62%_center]"
+              />
+
+              <div className="relative z-10 flex min-h-[300px] flex-col justify-between gap-6 p-5 sm:aspect-video sm:min-h-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-8 lg:p-10">
+                <div className="max-w-[200px] sm:max-w-[220px] lg:max-w-xs">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Próxima clase</p>
                   <h2 className="mt-2 text-2xl font-bold text-neutral-900 sm:text-3xl">
-                    {diaLabel(proximaClase.diaSemana)} {proximaClase.horaInicio.slice(0, 5)} -{" "}
-                    {proximaClase.horaFin.slice(0, 5)}
+                    {proximaClase.horaInicio.slice(0, 5)} - {proximaClase.horaFin.slice(0, 5)}
                   </h2>
-                  <p className="mt-1 text-lg font-semibold text-secondary-600">{proximaClase.sedeNombre}</p>
-                  <p className="mt-2 flex items-center gap-1.5 text-sm text-neutral-500">
+                  <p className="mt-1 text-lg font-semibold text-secondary-700">{proximaClase.sedeNombre}</p>
+                  <p className="mt-2 flex items-center gap-1.5 text-sm text-neutral-700">
                     <UsersIcon className="h-4 w-4" />
                     {proximaClase.inscriptosActivos} de {proximaClase.cupo} alumnas
                   </p>
                 </div>
 
-                <div className="relative mx-auto h-36 w-full max-w-[200px] shrink-0 sm:mx-0 sm:h-40 sm:w-40 lg:h-48 lg:w-48">
-                  <Image
-                    src="/img2.png"
-                    alt=""
-                    aria-hidden
-                    fill
-                    sizes="(min-width: 1024px) 192px, (min-width: 640px) 160px, 200px"
-                    className="object-contain"
-                  />
-                </div>
-
-                <div className="flex shrink-0 items-center justify-center gap-5 sm:flex-col sm:items-end sm:justify-center lg:flex-row lg:items-center">
+                <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:justify-between sm:gap-6 sm:self-stretch sm:py-1">
                   <OccupancyRing value={proximaClase.inscriptosActivos} max={proximaClase.cupo} />
                   <Link
                     href={`/profesor/clases/${proximaClase.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
                   >
                     Tomar asistencia
                     <ChevronRightIcon className="h-4 w-4" />
