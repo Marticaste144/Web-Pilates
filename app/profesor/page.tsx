@@ -59,20 +59,9 @@ export default async function ProfesorHomePage() {
       ) : (
         <>
           {proximaClase && (
-            <div className="relative overflow-hidden rounded-card border border-neutral-200 bg-primary-50 shadow-sm">
-              <div className="pointer-events-none absolute inset-0">
-                <Image
-                  src="/imgpilates.png"
-                  alt=""
-                  aria-hidden
-                  fill
-                  sizes="(min-width: 640px) 600px, 100vw"
-                  className="object-cover object-right opacity-10"
-                />
-              </div>
-
-              <div className="relative flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
-                <div className="min-w-0">
+            <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-primary-50 to-secondary-50 shadow-sm">
+              <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-7">
+                <div className="min-w-0 sm:flex-1">
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Próxima clase</p>
                   <h2 className="mt-2 text-2xl font-bold text-neutral-900 sm:text-3xl">
                     {diaLabel(proximaClase.diaSemana)} {proximaClase.horaInicio.slice(0, 5)} -{" "}
@@ -85,7 +74,18 @@ export default async function ProfesorHomePage() {
                   </p>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-5 sm:gap-8">
+                <div className="relative hidden shrink-0 lg:block lg:h-36 lg:w-28 xl:h-40 xl:w-32">
+                  <Image
+                    src="/imgpilates.png"
+                    alt=""
+                    aria-hidden
+                    fill
+                    sizes="160px"
+                    className="object-cover object-right contrast-125 saturate-150 mix-blend-multiply"
+                  />
+                </div>
+
+                <div className="flex shrink-0 items-center gap-5 sm:gap-6">
                   <OccupancyRing value={proximaClase.inscriptosActivos} max={proximaClase.cupo} />
                   <Link
                     href={`/profesor/clases/${proximaClase.id}`}
@@ -131,7 +131,7 @@ export default async function ProfesorHomePage() {
                         <p className="mt-0.5 text-sm text-neutral-500">{c.sedeNombre}</p>
                       </div>
 
-                      <div className="flex items-center gap-4 sm:w-72 sm:shrink-0">
+                      <div className="flex items-center gap-4 sm:w-80 sm:shrink-0">
                         <div className="min-w-0 flex-1">
                           <p className="text-xs text-neutral-500">
                             {c.inscriptosActivos}/{c.cupo} alumnos

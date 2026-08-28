@@ -11,9 +11,9 @@ export function StatCard({
   value: string;
 }) {
   return (
-    <Card className="flex items-center gap-3.5">
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary-50 text-secondary-600">
-        <Icon className="h-5 w-5" />
+    <Card className="flex items-center gap-4">
+      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-secondary-50 text-secondary-600">
+        <Icon className="h-7 w-7" />
       </span>
       <div className="min-w-0">
         <p className="text-sm text-neutral-500">{label}</p>
