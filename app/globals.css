@@ -78,6 +78,21 @@
   --color-info-700: var(--color-primary-700);
 
   --radius-card: 1rem;
+
+  /* Zoom inicial muy sutil de la foto del hero de la landing pública
+     (app/page.tsx) -- "motion-safe:animate-hero-zoom" ya queda desactivado
+     solo con el variant de Tailwind cuando el usuario prefiere menos
+     movimiento, sin necesitar código aparte. */
+  --animate-hero-zoom: hero-zoom 10s ease-out forwards;
+}
+
+@keyframes hero-zoom {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: scale(1);
+  }
 }
 
 body {

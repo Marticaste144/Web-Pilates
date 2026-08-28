@@ -3,6 +3,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getCurrentProfile, homePathForRole } from "@/lib/auth/session";
 import { Isotipo } from "@/components/ui/isotipo";
+import { Reveal } from "@/components/landing/reveal";
 import {
   DumbbellIcon,
   PilatesMatIcon,
@@ -73,9 +74,9 @@ export default async function Home() {
   return (
     <main className="flex flex-1 flex-col">
       {/* ==================== HEADER ==================== */}
-      <header className="sticky top-0 z-30 border-b border-neutral-100 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
-          <a href="#inicio" className="flex shrink-0 items-center gap-2.5">
+      <header className="sticky top-0 z-30 border-b border-neutral-100 bg-white/95 shadow-[0_1px_16px_-6px_rgba(17,24,39,0.1)] backdrop-blur-md transition-shadow">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+          <a href="#inicio" className="flex shrink-0 items-center gap-2 transition-transform duration-300 hover:scale-[1.02]">
             <Isotipo className="h-9 w-9" />
             <span className="leading-tight">
               <span className="block text-lg font-extrabold tracking-tight text-neutral-900">MUV</span>
@@ -86,13 +87,22 @@ export default async function Home() {
           </a>
 
           <nav className="hidden items-center gap-7 text-sm font-medium text-neutral-600 sm:flex">
-            <a href="#inicio" className="border-b-2 border-secondary-500 pb-1 text-neutral-900">
+            <a
+              href="#inicio"
+              className="relative pb-1 text-neutral-900 after:absolute after:-bottom-0.5 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-secondary-500"
+            >
               Inicio
             </a>
-            <a href="#servicios" className="pb-1 transition-colors hover:text-neutral-900">
+            <a
+              href="#servicios"
+              className="relative pb-1 transition-colors duration-300 after:absolute after:-bottom-0.5 after:left-0 after:h-0.5 after:w-0 after:rounded-full after:bg-secondary-500 after:transition-all after:duration-300 hover:text-neutral-900 hover:after:w-full"
+            >
               Clases
             </a>
-            <a href="#contacto" className="pb-1 transition-colors hover:text-neutral-900">
+            <a
+              href="#contacto"
+              className="relative pb-1 transition-colors duration-300 after:absolute after:-bottom-0.5 after:left-0 after:h-0.5 after:w-0 after:rounded-full after:bg-secondary-500 after:transition-all after:duration-300 hover:text-neutral-900 hover:after:w-full"
+            >
               Contacto
             </a>
           </nav>
@@ -100,13 +110,13 @@ export default async function Home() {
           <div className="flex shrink-0 items-center gap-4">
             <Link
               href="/login"
-              className="hidden text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900 sm:inline"
+              className="hidden text-sm font-medium text-neutral-600 transition-colors duration-300 hover:text-neutral-900 sm:inline"
             >
               Iniciar sesión
             </Link>
             <Link
               href="/signup"
-              className="inline-flex items-center rounded-full bg-secondary-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-secondary-600"
+              className="inline-flex items-center rounded-full bg-secondary-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-secondary-600 hover:shadow-md active:translate-y-0"
             >
               Quiero empezar
             </Link>
@@ -116,7 +126,15 @@ export default async function Home() {
 
       {/* ==================== HERO ==================== */}
       <section id="inicio" className="relative isolate overflow-hidden bg-neutral-900">
-        <Image src="/img4.png" alt="" aria-hidden fill priority sizes="100vw" className="object-cover" />
+        <Image
+          src="/img4.png"
+          alt=""
+          aria-hidden
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover motion-safe:animate-hero-zoom"
+        />
         {/* Degradé oscuro de izquierda a derecha: a la izquierda el texto blanco
             queda legible sobre negro sólido; a la derecha se desvanece para
             dejar ver la foto. En mobile se refuerza con un segundo velo de
@@ -126,7 +144,7 @@ export default async function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-neutral-900/40 via-transparent to-neutral-900/50 sm:hidden" />
 
         <div className="relative z-10 mx-auto flex max-w-6xl flex-col gap-8 px-5 py-16 sm:px-8 sm:py-24 lg:py-28">
-          <div className="max-w-lg">
+          <Reveal className="max-w-lg" stagger={130}>
             <h1 className="text-4xl font-extrabold leading-tight text-white sm:text-5xl">
               Move tu cuerpo, transformá tu día, sentí <span className="text-secondary-400">MUV</span>.
             </h1>
@@ -137,18 +155,18 @@ export default async function Home() {
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href="/signup"
-                className="inline-flex items-center rounded-full bg-secondary-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-secondary-600"
+                className="inline-flex items-center rounded-full bg-secondary-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-secondary-600 hover:shadow-lg active:translate-y-0"
               >
                 Quiero empezar
               </Link>
               <a
                 href="#servicios"
-                className="inline-flex items-center rounded-full border border-white/70 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                className="inline-flex items-center rounded-full border border-white/70 px-6 py-3 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:border-white hover:bg-white/10 active:translate-y-0"
               >
                 Conocé más
               </a>
             </div>
-          </div>
+          </Reveal>
         </div>
 
         <a
@@ -175,7 +193,10 @@ export default async function Home() {
 
       {/* ==================== ESTADÍSTICAS ==================== */}
       <section id="stats" className="bg-gradient-to-r from-primary-700 to-secondary-600 py-10">
-        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-5 text-center sm:px-8 lg:grid-cols-4">
+        <Reveal
+          className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-5 text-center sm:px-8 lg:grid-cols-4"
+          stagger={100}
+        >
           {[
             { valor: "+500", label: "alumnos que confían en MUV" },
             { valor: "12", label: "profesores especializados" },
@@ -187,69 +208,82 @@ export default async function Home() {
               <p className="mt-1 text-sm text-white/85">{stat.label}</p>
             </div>
           ))}
-        </div>
+        </Reveal>
       </section>
 
       {/* ==================== SERVICIOS ==================== */}
       <section id="servicios" className="bg-white py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5 sm:px-8">
-          <h2 className="text-center text-2xl font-extrabold text-neutral-900 sm:text-3xl">
-            Elegí cómo querés <span className="text-secondary-500">sentirte</span>
-          </h2>
+          <Reveal className="text-center">
+            <h2 className="text-2xl font-extrabold text-neutral-900 sm:text-3xl">
+              Elegí cómo querés <span className="text-secondary-500">sentirte</span>
+            </h2>
+          </Reveal>
 
-          <div className="mt-10 grid gap-6 sm:grid-cols-3">
+          <Reveal className="mt-10 grid gap-6 sm:grid-cols-3" stagger={120}>
             {SERVICIOS.map((s) => (
-              <div key={s.nombre} className="rounded-2xl bg-neutral-50 p-8 text-center">
-                <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-50 text-primary-600">
+              <div
+                key={s.nombre}
+                className="group h-full rounded-2xl bg-neutral-50 p-8 text-center transition-all duration-300 hover:-translate-y-1.5 hover:bg-white hover:shadow-xl hover:shadow-primary-900/5"
+              >
+                <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-50 text-primary-600 transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-110">
                   <s.icon className="h-8 w-8" />
                 </span>
                 <h3 className="mt-5 font-bold text-neutral-900">{s.nombre}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-neutral-500">{s.desc}</p>
               </div>
             ))}
-          </div>
+          </Reveal>
 
-          <div className="mt-14 grid grid-cols-2 gap-x-4 gap-y-8 text-center sm:grid-cols-5">
+          <Reveal
+            className="mt-14 grid grid-cols-2 gap-x-4 gap-y-8 text-center sm:grid-cols-5"
+            stagger={70}
+          >
             {BENEFICIOS.map((b) => (
-              <div key={b.label} className="flex flex-col items-center gap-3">
-                <span className="flex h-12 w-12 items-center justify-center rounded-full border border-primary-200 text-primary-600">
+              <div key={b.label} className="group flex flex-col items-center gap-3">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full border border-primary-200 text-primary-600 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-secondary-400 group-hover:text-secondary-600 group-hover:shadow-md">
                   <b.icon className="h-5 w-5" />
                 </span>
                 <p className="text-sm font-medium text-neutral-700">{b.label}</p>
               </div>
             ))}
-          </div>
+          </Reveal>
         </div>
       </section>
 
       {/* ==================== FOOTER ==================== */}
       <footer id="contacto" className="bg-gradient-to-r from-primary-900 to-secondary-900 py-10">
-        <div className="mx-auto flex max-w-6xl flex-col gap-8 px-5 sm:px-8 lg:flex-row lg:items-start lg:justify-between">
+        <Reveal
+          className="mx-auto flex max-w-6xl flex-col gap-8 px-5 sm:px-8 lg:flex-row lg:items-start lg:justify-between"
+          stagger={100}
+        >
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wide text-white/60">Nuestras sedes</h3>
-            <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:gap-10">
+            <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:gap-10">
               {SEDES.map((sede) => (
-                <div key={sede.nombre} className="flex items-start gap-2">
-                  <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0 text-secondary-400" />
+                <div key={sede.nombre} className="group flex items-start gap-2">
+                  <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0 text-secondary-400 transition-transform duration-300 group-hover:-translate-y-0.5" />
                   <div>
                     <p className="text-sm font-semibold text-white">{sede.nombre}</p>
-                    <p className="text-sm text-white/70">{sede.direccion}</p>
+                    <p className="text-sm text-white/70 transition-colors duration-300 group-hover:text-white">
+                      {sede.direccion}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="flex gap-10">
+          <div className="flex gap-12 sm:gap-16">
             <div>
               <h3 className="text-sm font-semibold uppercase tracking-wide text-white/60">Seguinos</h3>
-              <div className="mt-3 flex gap-3">
+              <div className="mt-4 flex items-center gap-3">
                 <a
                   href={INSTAGRAM_URL}
                   target="_blank"
                   rel="noreferrer noopener"
                   aria-label="Instagram de MUV"
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:bg-white/20 hover:shadow-md"
                 >
                   <InstagramIcon className="h-4 w-4" />
                 </a>
@@ -258,7 +292,7 @@ export default async function Home() {
                   target="_blank"
                   rel="noreferrer noopener"
                   aria-label="Facebook de MUV"
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:bg-white/20 hover:shadow-md"
                 >
                   <FacebookIcon className="h-4 w-4" />
                 </a>
@@ -267,18 +301,20 @@ export default async function Home() {
 
             <div>
               <h3 className="text-sm font-semibold uppercase tracking-wide text-white/60">Escribinos</h3>
-              <a
-                href={WHATSAPP_URL}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="mt-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
-                aria-label="WhatsApp de MUV"
-              >
-                <WhatsAppIcon className="h-4 w-4" />
-              </a>
+              <div className="mt-4 flex items-center gap-3">
+                <a
+                  href={WHATSAPP_URL}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  aria-label="WhatsApp de MUV"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:bg-white/20 hover:shadow-md"
+                >
+                  <WhatsAppIcon className="h-4 w-4" />
+                </a>
+              </div>
             </div>
           </div>
-        </div>
+        </Reveal>
       </footer>
     </main>
   );

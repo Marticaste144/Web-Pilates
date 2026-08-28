@@ -264,12 +264,18 @@ export function TrendingUpIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+// Trío de íconos de redes de la landing pública (app/page.tsx). Comparten
+// el mismo círculo contenedor (stroke, sin relleno) para que las tres se
+// vean como un mismo set -- el glyph de adentro de cada uno va centrado
+// y acotado a una caja de ~9x9 dentro del círculo, para que ninguno se
+// sienta más grande/chico que los otros aunque las formas originales
+// (cámara, "f", teléfono) no sean naturalmente del mismo tamaño.
 export function InstagramIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
-      <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="6.4" />
+      <circle cx="12" cy="12" r="2.6" />
+      <circle cx="15.1" cy="8.9" r="0.75" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -277,7 +283,8 @@ export function InstagramIcon(props: SVGProps<SVGSVGElement>) {
 export function FacebookIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
-      <path d="M14.5 21v-7.5H17l.5-3.3h-3V8.1c0-1 .3-1.7 1.7-1.7H17.6V3.4c-.3 0-1.3-.1-2.4-.1-2.4 0-4.1 1.5-4.1 4.2v2.7H8.5v3.3h2.6V21" />
+      <circle cx="12" cy="12" r="6.4" />
+      <path d="M13.8 16.4v-4.1h1.4l.2-1.8h-1.6v-1.1c0-.5.2-.8.8-.8h.9V7.1c-.2 0-.8-.1-1.5-.1-1.5 0-2.5.9-2.5 2.5v1h-1.4v1.8h1.4v4.1" />
     </svg>
   );
 }
@@ -285,8 +292,12 @@ export function FacebookIcon(props: SVGProps<SVGSVGElement>) {
 export function WhatsAppIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
-      <path d="M4 20.5l1.3-4A8.5 8.5 0 1 1 8.6 19.3L4 20.5Z" />
-      <path d="M8.5 8.3c.2-.5.4-.5.7-.5h.5c.2 0 .4 0 .6.4.2.5.7 1.6.7 1.8.1.1.1.3 0 .4-.1.2-.2.3-.3.4-.1.2-.3.3-.4.5-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.5 1.5.2.1.4.1.5-.1.2-.2.7-.8.9-1.1.2-.2.4-.2.6-.1l1.7.8c.2.1.4.2.4.4.1.4.1.9-.1 1.4-.2.5-1.1 1-1.6 1-.5.1-1 .1-3.2-.7-2.6-1-4.3-3.7-4.5-3.9-.1-.2-1-1.4-1-2.6 0-1.2.7-1.9.9-2.1Z" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="6.4" />
+      <path
+        d="M9 9.5c.2-.4.4-.4.6-.4h.4c.2 0 .3 0 .4.3.2.4.5 1.1.5 1.2.1.1.1.2 0 .3-.1.2-.1.2-.2.3-.1.2-.2.2-.3.4-.1.1-.2.2-.1.4.2.3.6.8 1.1 1.3.6.5 1.1.8 1.3.9.2.1.3.1.4-.1.1-.1.4-.5.6-.7.1-.2.3-.2.4-.1l1.1.5c.2.1.3.1.3.3.1.2.1.6-.1.9-.2.3-.7.6-1.1.6-.4 0-.9.1-2.1-.5-1.7-.7-2.8-2.4-2.9-2.6-.1-.1-.7-1-.7-1.8 0-.9.5-1.3.6-1.5Z"
+        fill="currentColor"
+        stroke="none"
+      />
     </svg>
   );
 }
