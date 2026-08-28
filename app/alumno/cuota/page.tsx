@@ -26,7 +26,7 @@ export default async function CuotaPage({
   const banner = pago ? BANNER[pago] : null;
 
   return (
-    <div className="flex flex-col gap-6 py-6">
+    <div className="flex flex-col gap-4 py-4 sm:gap-5 sm:py-5">
       <PageHeader title="Mi cuota" />
 
       {banner && <Alert variant={banner.variant}>{banner.texto}</Alert>}

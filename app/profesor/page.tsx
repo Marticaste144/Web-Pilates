@@ -19,10 +19,10 @@ export default async function ProfesorHomePage() {
   const fechaHoyLarga = formatearFechaLarga(hoyISO());
 
   return (
-    <div className="flex flex-col gap-6 py-6">
+    <div className="flex flex-col gap-2.5 py-2.5 sm:gap-3.5 sm:py-3.5">
       <div>
         <h1 className="text-2xl font-bold text-neutral-900 sm:text-3xl">¡Hola, {profile?.nombre ?? ""}! 👋</h1>
-        <p className="mt-1 text-sm text-neutral-500">Este es tu resumen de hoy, {fechaHoyLarga}.</p>
+        <p className="mt-0.5 text-sm text-neutral-500">Este es tu resumen de hoy, {fechaHoyLarga}.</p>
       </div>
 
       {!hayClases ? (
@@ -71,7 +71,7 @@ export default async function ProfesorHomePage() {
                 className="pointer-events-none absolute right-0 top-0 hidden h-full w-auto sm:block"
               />
 
-              <div className="relative z-10 flex h-[240px] flex-col justify-between gap-4 p-5 sm:h-64 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-7 lg:h-72 lg:p-8">
+              <div className="relative z-10 flex min-h-[240px] flex-col justify-between gap-4 p-5 sm:h-48 sm:min-h-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-6 lg:h-52 lg:p-6">
                 <div className="max-w-[200px] sm:max-w-[220px] lg:max-w-xs">
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Próxima clase</p>
                   <h2 className="mt-2 text-2xl font-bold text-neutral-900 sm:text-3xl">
@@ -82,23 +82,23 @@ export default async function ProfesorHomePage() {
                     <UsersIcon className="h-4 w-4" />
                     {proximaClase.inscriptosActivos} de {proximaClase.cupo} alumnas
                   </p>
-                </div>
-
-                <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:justify-between sm:gap-6 sm:self-stretch sm:py-1">
-                  <OccupancyRing value={proximaClase.inscriptosActivos} max={proximaClase.cupo} />
                   <Link
                     href={`/profesor/clases/${proximaClase.id}`}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
+                    className="mt-4 inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
                   >
                     Tomar asistencia
                     <ChevronRightIcon className="h-4 w-4" />
                   </Link>
                 </div>
+
+                <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:justify-between sm:gap-6 sm:self-stretch sm:py-1">
+                  <OccupancyRing value={proximaClase.inscriptosActivos} max={proximaClase.cupo} />
+                </div>
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard icon={CalendarIcon} label="Clases hoy" value={String(clasesHoy.length)} />
             <StatCard icon={UsersIcon} label="Alumnas totales" value={String(alumnasTotal)} />
             <StatCard icon={PieChartIcon} label="Ocupación promedio" value={`${ocupacionPromedio}%`} />
@@ -106,16 +106,16 @@ export default async function ProfesorHomePage() {
           </div>
 
           <Card padded={false}>
-            <h2 className="p-5 pb-0 font-semibold text-neutral-900 sm:p-6 sm:pb-0">Mis clases de hoy</h2>
+            <h2 className="p-3 pb-0 font-semibold text-neutral-900 sm:p-4 sm:pb-0">Mis clases de hoy</h2>
 
             {clasesHoy.length === 0 ? (
-              <p className="p-5 pt-3 text-sm text-neutral-500 sm:p-6 sm:pt-3">No tenés clases hoy.</p>
+              <p className="p-3 pt-2.5 text-sm text-neutral-500 sm:p-4 sm:pt-3">No tenés clases hoy.</p>
             ) : (
               <>
                 {/* Desktop/tablet: filas tipo tabla, sin scroll horizontal --
                     columnas fijas, nunca se angostan por debajo de lo legible. */}
                 <div className="hidden sm:block">
-                  <div className="grid grid-cols-[1fr_1fr_auto_1fr_auto] gap-4 px-6 pt-5 pb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
+                  <div className="grid grid-cols-[1fr_1fr_auto_1fr_auto] gap-4 px-4 pt-3 pb-2 text-xs font-medium uppercase tracking-wide text-neutral-400">
                     <span>Horario</span>
                     <span>Sede</span>
                     <span>Alumnas</span>
@@ -129,7 +129,7 @@ export default async function ProfesorHomePage() {
                         <Link
                           key={c.id}
                           href={`/profesor/clases/${c.id}`}
-                          className="group grid grid-cols-[1fr_1fr_auto_1fr_auto] items-center gap-4 px-6 py-4 transition-colors hover:bg-neutral-50"
+                          className="group grid grid-cols-[1fr_1fr_auto_1fr_auto] items-center gap-4 px-4 py-2 transition-colors hover:bg-neutral-50"
                         >
                           <span className="font-semibold text-neutral-900">
                             {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
@@ -159,7 +159,7 @@ export default async function ProfesorHomePage() {
                   {clasesHoy.map((c) => {
                     const pct = c.cupo > 0 ? Math.round((c.inscriptosActivos / c.cupo) * 100) : 0;
                     return (
-                      <Link key={c.id} href={`/profesor/clases/${c.id}`} className="flex flex-col gap-3 p-5">
+                      <Link key={c.id} href={`/profesor/clases/${c.id}`} className="flex flex-col gap-3 p-4">
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
                             <p className="font-semibold text-neutral-900">

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { PagarButton } from "./pagar-button";
 import { SubirComprobanteForm } from "./subir-comprobante-form";
-import { iconoPorSede } from "@/components/alumno/sede-icon";
+import { SedeIcon } from "@/components/alumno/sede-icon";
 import { calcularRecargoMercadoPago } from "@/lib/recargo-mercadopago";
 import type { CuotaSedeItem } from "@/lib/alumno/cuota-data";
 import type { ConfiguracionPagos } from "@/lib/configuracion-pagos";
@@ -46,7 +46,6 @@ export function CuotaPanel({ cuotas, configPagos }: { cuotas: CuotaSedeItem[]; c
     <div className="grid gap-4 lg:grid-cols-[minmax(0,280px)_1fr] lg:items-start">
       <div className="flex flex-col gap-2.5 lg:gap-3">
         {cuotas.map((c) => {
-          const Icon = iconoPorSede(c.sedeNombre);
           const l = ESTADO_LABEL[c.estado];
           const activo = c.sedeId === selected;
           return (
@@ -60,7 +59,7 @@ export function CuotaPanel({ cuotas, configPagos }: { cuotas: CuotaSedeItem[]; c
             >
               <div className="flex items-center gap-3">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-secondary-50 text-secondary-600">
-                  <Icon className="h-5 w-5" />
+                  <SedeIcon nombre={c.sedeNombre} className="h-5 w-5" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold uppercase tracking-wide text-neutral-900">{c.sedeNombre}</p>

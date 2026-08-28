@@ -7,7 +7,7 @@ export default async function AlumnasPage() {
   const { alumnas, sedes } = await listarMisAlumnas();
 
   return (
-    <div className="flex flex-col gap-6 py-6">
+    <div className="flex flex-col gap-4 py-4 sm:gap-5 sm:py-5">
       <div>
         <h1 className="text-2xl font-bold text-neutral-900 sm:text-3xl">Mis alumnas</h1>
         <p className="mt-1 text-sm text-neutral-500">

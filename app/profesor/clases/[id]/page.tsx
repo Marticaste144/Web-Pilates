@@ -33,7 +33,7 @@ export default async function ClaseDetallePage({
   const diaLabelCapitalizado = diaLabel.charAt(0).toUpperCase() + diaLabel.slice(1);
 
   return (
-    <div className="flex flex-col gap-6 py-6">
+    <div className="flex flex-col gap-4 py-4 sm:gap-5 sm:py-5">
       <div>
         <Link
           href="/profesor"

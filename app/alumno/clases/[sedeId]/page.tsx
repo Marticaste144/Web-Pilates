@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { listarClasesParaAlumno, listarSedes } from "@/lib/alumno/clases-data";
 import { InscripcionControl } from "../inscripcion-control";
-import { iconoPorSede } from "@/components/alumno/sede-icon";
+import { SedeIcon } from "@/components/alumno/sede-icon";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,10 +47,8 @@ export default async function ClasesDeSedePage({
     .filter((c) => c.diaSemana === diaSeleccionado)
     .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
 
-  const Icon = iconoPorSede(sede.nombre);
-
   return (
-    <div className="flex flex-col gap-6 py-6">
+    <div className="flex flex-col gap-4 py-4 sm:gap-5 sm:py-5">
       <div>
         <Link
           href="/alumno/clases"
@@ -61,7 +59,7 @@ export default async function ClasesDeSedePage({
         </Link>
         <div className="mt-2 flex items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary-50 text-secondary-600">
-            <Icon className="h-5 w-5" />
+            <SedeIcon nombre={sede.nombre} className="h-5 w-5" />
           </span>
           <h1 className="text-xl font-bold uppercase tracking-wide text-neutral-900 sm:text-2xl">{sede.nombre}</h1>
         </div>

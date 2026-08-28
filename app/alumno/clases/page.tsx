@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { listarClasesParaAlumno, listarSedes } from "@/lib/alumno/clases-data";
-import { iconoPorSede } from "@/components/alumno/sede-icon";
+import { SedeIcon } from "@/components/alumno/sede-icon";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -23,7 +23,7 @@ export default async function AlumnoClasesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 py-6">
+    <div className="flex flex-col gap-4 py-4 sm:gap-5 sm:py-5">
       <PageHeader title="Clases" subtitle="Elegí una sede para ver los horarios disponibles y anotarte." />
 
       {sedes.length === 0 ? (
@@ -32,12 +32,11 @@ export default async function AlumnoClasesPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {sedes.map((sede) => {
             const cantidad = cantidadPorSede.get(sede.id) ?? 0;
-            const Icon = iconoPorSede(sede.nombre);
             return (
               <Link key={sede.id} href={`/alumno/clases/${sede.id}`} className="group">
                 <Card className="flex h-full flex-col items-start gap-4 transition-colors group-hover:border-primary-400">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-secondary-50 text-secondary-600">
-                    <Icon className="h-7 w-7" />
+                    <SedeIcon nombre={sede.nombre} className="h-7 w-7" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <h2 className="font-semibold uppercase tracking-wide text-neutral-900">{sede.nombre}</h2>

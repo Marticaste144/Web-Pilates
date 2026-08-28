@@ -15,7 +15,7 @@ export default async function MisClasesPage() {
   const diaLabel = (dia: number) => DIAS_SEMANA.find((d) => d.value === dia)?.label ?? dia;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4 sm:gap-5">
       <PageHeader title="Mis clases" subtitle="Entrá a una clase para ver alumnos y tomar asistencia." />
 
       {clases.length > 0 && <DescargarAsistenciasPdf />}

@@ -5,15 +5,9 @@ import { obtenerMetricasAlumno } from "@/lib/alumno/dashboard-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, ListIcon, WalletIcon, ClockIcon, MapPinIcon, ChevronRightIcon } from "@/components/ui/icons";
+import { CalendarIcon, WalletIcon, ClockIcon, MapPinIcon, ChevronRightIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
-
-const SECCIONES = [
-  { href: "/alumno/clases", titulo: "Clases", desc: "Ver horarios y anotarte.", icon: CalendarIcon },
-  { href: "/alumno/inscripciones", titulo: "Mis clases", desc: "Tus clases y listas de espera.", icon: ListIcon },
-  { href: "/alumno/cuota", titulo: "Mi cuota", desc: "Estado de pago por sede.", icon: WalletIcon },
-];
 
 const CUOTA_VARIANT: Record<string, { texto: string; variant: "success" | "warning" | "error" | "neutral" }> = {
   al_dia: { texto: "Al día", variant: "success" },
@@ -139,29 +133,6 @@ export default async function AlumnoHomePage() {
             Ver sedes →
           </Link>
         </Card>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold text-neutral-700">Accesos rápidos</h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {SECCIONES.map((s) => (
-            <Link key={s.href} href={s.href} className="group">
-              <Card
-                padded={false}
-                className="flex h-full items-center gap-3 p-3.5 transition-colors group-hover:border-primary-400 sm:p-4"
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
-                  <s.icon className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-neutral-900">{s.titulo}</h3>
-                  <p className="mt-0.5 text-sm text-neutral-500">{s.desc}</p>
-                </div>
-                <ChevronRightIcon className="h-4 w-4 shrink-0 text-neutral-300 group-hover:text-primary-500" />
-              </Card>
-            </Link>
-          ))}
-        </div>
       </div>
     </div>
   );
