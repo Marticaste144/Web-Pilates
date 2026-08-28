@@ -25,7 +25,7 @@ export function ClaseForm({
   const [state, formAction, pending] = useActionState(action, initialFormState);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={formAction} className="flex flex-col gap-3">
       {clase && <input type="hidden" name="id" value={clase.id} />}
 
       <div className="flex flex-wrap gap-3">

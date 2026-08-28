@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { listarClases, listarSedes, listarProfesoresParaSelect } from "@/lib/admin/clases-data";
-import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { crearClase } from "@/lib/admin/clases-actions";
 import { ClaseForm } from "./clase-form";
-import { ToggleActivaButton } from "./toggle-activa-button";
+import { ClasesTable } from "./clases-table";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
@@ -17,14 +16,18 @@ export default async function ClasesPage() {
     listarProfesoresParaSelect(),
   ]);
 
-  const diaLabel = (dia: number) => DIAS_SEMANA.find((d) => d.value === dia)?.label ?? dia;
-
   return (
-    <div className="flex flex-col gap-6">
+    // Debajo de md la página fluye normal (como pedido, el "sin scroll" es
+    // un requisito de desktop). En md+ el alto queda acotado al viewport
+    // (topbar ~76px + el md:pb-10 del AdminShell) para que "Nueva clase" + el
+    // listado entren en una sola pantalla -- ClasesTable mide el alto real
+    // que le queda dentro de esa franja y decide cuántas filas entran (ver
+    // clases-table.tsx).
+    <div className="flex flex-col gap-3 md:h-[calc(100dvh-7.25rem)] md:gap-4 md:overflow-hidden">
       <PageHeader title="Clases" subtitle="Asigná día, horario, sede y profesor/a de cada clase." />
 
-      <Card>
-        <h2 className="mb-3 font-semibold text-neutral-900">Nueva clase</h2>
+      <Card className="!p-3 shrink-0 sm:!p-4">
+        <h2 className="mb-2 font-semibold text-neutral-900">Nueva clase</h2>
         {profesores.length === 0 ? (
           <Alert variant="info">
             Todavía no hay profesores invitados --{" "}
@@ -38,49 +41,7 @@ export default async function ClasesPage() {
         )}
       </Card>
 
-      <Card padded={false} className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-neutral-50 text-neutral-500">
-            <tr>
-              <th className="px-4 py-3 font-medium">Sede</th>
-              <th className="px-4 py-3 font-medium">Día</th>
-              <th className="px-4 py-3 font-medium">Horario</th>
-              <th className="px-4 py-3 font-medium">Profesor/a</th>
-              <th className="px-4 py-3 font-medium">Cupo</th>
-              <th className="px-4 py-3 font-medium">Estado</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {clases.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-neutral-400">
-                  Todavía no hay clases cargadas.
-                </td>
-              </tr>
-            )}
-            {clases.map((c) => (
-              <tr key={c.id} className="border-t border-neutral-100">
-                <td className="px-4 py-3 text-neutral-900">{c.sedeNombre}</td>
-                <td className="px-4 py-3 text-neutral-600">{diaLabel(c.diaSemana)}</td>
-                <td className="px-4 py-3 text-neutral-600">
-                  {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
-                </td>
-                <td className="px-4 py-3 text-neutral-600">{c.profesorNombre}</td>
-                <td className="px-4 py-3 text-neutral-600">{c.cupo}</td>
-                <td className="px-4 py-3">
-                  <ToggleActivaButton id={c.id} activa={c.activa} />
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <Link href={`/admin/clases/${c.id}`} className="font-medium text-primary-600 hover:underline">
-                    Editar
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+      <ClasesTable clases={clases} />
     </div>
   );
 }
