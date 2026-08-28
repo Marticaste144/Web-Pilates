@@ -120,8 +120,8 @@ export function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
 export function PieChartIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M12 3.5V12l7 4" />
+      <path d="M12 12V3.5A8.5 8.5 0 0 1 20.5 12H12Z" fill="currentColor" stroke="none" />
+      <path d="M20.5 12A8.5 8.5 0 1 1 12 3.5" />
     </svg>
   );
 }

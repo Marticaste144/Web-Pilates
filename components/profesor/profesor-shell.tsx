@@ -9,7 +9,7 @@ export function ProfesorShell({ profile, children }: { profile: CurrentProfile; 
       <ProfesorSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <ProfesorTopbar nombre={profile.nombre} apellido={profile.apellido} />
-        <div className="mx-auto w-full max-w-5xl flex-1 px-4 pb-24 sm:px-6 md:pb-10">{children}</div>
+        <div className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 sm:px-6 md:pb-10">{children}</div>
       </div>
     </div>
   );
