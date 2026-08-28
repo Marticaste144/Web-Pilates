@@ -7,13 +7,9 @@ import { AlumnoRow } from "./alumno-row";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ChevronRightIcon } from "@/components/ui/icons";
+import { ChevronRightIcon, DownloadIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
-
-function hoyISO() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default async function ClaseDetallePage({
   params,
@@ -24,12 +20,15 @@ export default async function ClaseDetallePage({
 }) {
   const { id } = await params;
   const { fecha: fechaParam } = await searchParams;
-  const fecha = fechaParam || hoyISO();
 
-  const clase = await obtenerClaseDetalle(id, fecha);
+  // Sin ?fecha= en la URL, obtenerClaseDetalle resuelve la fecha por
+  // defecto a la última ocurrencia real del día que dicta esta clase (no a
+  // "hoy" a secas) -- ver fechaUltimaOcurrencia en lib/dias-semana.ts.
+  const clase = await obtenerClaseDetalle(id, fechaParam);
   if (!clase) {
     notFound();
   }
+  const fecha = clase.fecha;
 
   const diaLabel = DIAS_SEMANA.find((d) => d.value === clase.diaSemana)?.label ?? clase.diaSemana;
 
@@ -54,7 +53,16 @@ export default async function ClaseDetallePage({
         </div>
       </div>
 
-      <FechaPicker fecha={fecha} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <FechaPicker fecha={fecha} />
+        <a
+          href={`/api/profesor/clases/${clase.id}/asistencia-pdf?fecha=${fecha}`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+        >
+          <DownloadIcon className="h-4 w-4" />
+          Descargar PDF
+        </a>
+      </div>
 
       {clase.alumnosNoVisibles > 0 && (
         <Alert variant="warning">
@@ -72,7 +80,11 @@ export default async function ClaseDetallePage({
 
       <div className="flex flex-col gap-3">
         {clase.alumnosVisibles.map((a) => (
-          <AlumnoRow key={a.alumnoId} alumno={a} claseId={clase.id} fecha={fecha} />
+          // key incluye fecha a propósito: al cambiar de fecha con el
+          // FechaPicker, remonta la fila entera para que no quede pegado en
+          // pantalla el mensaje de asistencia ("Marcado/a presente.", error
+          // de cuota vencida) de la fecha anterior.
+          <AlumnoRow key={`${a.alumnoId}-${fecha}`} alumno={a} claseId={clase.id} fecha={fecha} />
         ))}
       </div>
     </div>

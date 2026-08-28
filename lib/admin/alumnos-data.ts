@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { EstadoInscripcion, EstadoVisualCuota } from "@/types/database";
+import type { EstadoInscripcion, EstadoPago, EstadoVisualCuota, MedioPago } from "@/types/database";
 
 export type AlumnoListItem = {
   profileId: string;
@@ -71,6 +71,15 @@ export type AlumnoCuotaItem = {
   monto: number | null;
 };
 
+export type AlumnoPagoItem = {
+  id: string;
+  sedeNombre: string;
+  monto: number;
+  medio: MedioPago;
+  estado: EstadoPago;
+  createdAt: string;
+};
+
 export type AlumnoDetalle = {
   profileId: string;
   nombre: string;
@@ -79,6 +88,7 @@ export type AlumnoDetalle = {
   telefono: string | null;
   inscripciones: AlumnoInscripcionItem[];
   cuotas: AlumnoCuotaItem[];
+  pagos: AlumnoPagoItem[];
 };
 
 export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | null> {
@@ -93,7 +103,7 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
 
   if (!perfil) return null;
 
-  const [{ data: inscripcionesRaw }, { data: sedes }, { data: cuotasRaw }] = await Promise.all([
+  const [{ data: inscripcionesRaw }, { data: sedes }, { data: cuotasRaw }, { data: pagosRaw }] = await Promise.all([
     supabase
       .from("inscripciones")
       .select("id, clase_id, estado, posicion_espera")
@@ -104,6 +114,12 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
       .from("v_estado_cuota_alumno_sede")
       .select("sede_id, estado_visual, vencimiento, monto")
       .eq("alumno_id", profileId),
+    supabase
+      .from("pagos")
+      .select("id, sede_id, monto, medio, estado, created_at")
+      .eq("alumno_id", profileId)
+      .order("created_at", { ascending: false })
+      .limit(10),
   ]);
 
   const sedeNombrePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
@@ -163,6 +179,15 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
       })),
   ];
 
+  const pagos: AlumnoPagoItem[] = (pagosRaw ?? []).map((p) => ({
+    id: p.id,
+    sedeNombre: sedeNombrePorId.get(p.sede_id) ?? "?",
+    monto: p.monto,
+    medio: p.medio,
+    estado: p.estado,
+    createdAt: p.created_at,
+  }));
+
   return {
     profileId: perfil.id,
     nombre: perfil.nombre,
@@ -171,5 +196,6 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
     telefono: perfil.telefono,
     inscripciones,
     cuotas,
+    pagos,
   };
 }

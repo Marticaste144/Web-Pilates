@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fechaUltimaOcurrencia } from "@/lib/dias-semana";
 import type { EstadoAsistencia, EstadoVisualCuota } from "@/types/database";
 
 export type MiClaseItem = {
@@ -65,6 +66,7 @@ export type ClaseDetalle = {
   horaFin: string;
   cupo: number;
   totalInscriptos: number;
+  fecha: string;
   alumnosVisibles: AlumnoRosterItem[];
   alumnosNoVisibles: number;
 };
@@ -73,7 +75,12 @@ export type ClaseDetalle = {
 // tuvo ninguna cuota aprobada -- por RLS el profesor puede ver que existe
 // la inscripción (para el conteo de cupo) pero no puede resolver su
 // perfil/nombre hasta ese momento (regla de negocio de la sección 2).
-export async function obtenerClaseDetalle(claseId: string, fecha: string): Promise<ClaseDetalle | null> {
+//
+// `fecha` es opcional: sin ?fecha= en la URL, se resuelve acá (no en el
+// caller) a la última ocurrencia real del día que dicta la clase -- ver
+// fechaUltimaOcurrencia. El valor final queda en ClaseDetalle.fecha para que
+// page.tsx y el endpoint de PDF usen siempre la misma fecha resuelta.
+export async function obtenerClaseDetalle(claseId: string, fecha?: string): Promise<ClaseDetalle | null> {
   const supabase = await createClient();
 
   const { data: clase } = await supabase
@@ -83,6 +90,8 @@ export async function obtenerClaseDetalle(claseId: string, fecha: string): Promi
     .single();
 
   if (!clase) return null;
+
+  const fechaResuelta = fecha || fechaUltimaOcurrencia(clase.dia_semana);
 
   const { data: sede } = await supabase.from("sedes").select("nombre").eq("id", clase.sede_id).single();
 
@@ -104,6 +113,7 @@ export async function obtenerClaseDetalle(claseId: string, fecha: string): Promi
     horaFin: clase.hora_fin,
     cupo: clase.cupo,
     totalInscriptos,
+    fecha: fechaResuelta,
   };
 
   if (alumnoIds.length === 0) {
@@ -116,7 +126,7 @@ export async function obtenerClaseDetalle(claseId: string, fecha: string): Promi
       .from("v_estado_cuota_alumno_sede")
       .select("alumno_id, estado_visual")
       .eq("sede_id", clase.sede_id),
-    supabase.from("asistencias").select("alumno_id, estado").eq("clase_id", claseId).eq("fecha", fecha),
+    supabase.from("asistencias").select("alumno_id, estado").eq("clase_id", claseId).eq("fecha", fechaResuelta),
   ]);
 
   const cuotaPorAlumno = new Map((cuotas ?? []).map((c) => [c.alumno_id, c.estado_visual]));
