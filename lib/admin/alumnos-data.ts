@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { EstadoInscripcion, EstadoVisualCuota, EstadoPago, MedioPago } from "@/types/database";
+import type { EstadoInscripcion, EstadoPago, EstadoVisualCuota, MedioPago } from "@/types/database";
 
 export type AlumnoListItem = {
   profileId: string;
@@ -100,6 +100,15 @@ export type ComprobanteItem = {
   createdAt: string;
 };
 
+export type AlumnoPagoItem = {
+  id: string;
+  sedeNombre: string;
+  monto: number;
+  medio: MedioPago;
+  estado: EstadoPago;
+  createdAt: string;
+};
+
 export type AlumnoDetalle = {
   profileId: string;
   nombre: string;
@@ -108,6 +117,7 @@ export type AlumnoDetalle = {
   telefono: string | null;
   inscripciones: AlumnoInscripcionItem[];
   cuotas: AlumnoCuotaItem[];
+  pagos: AlumnoPagoItem[];
   comprobantes: ComprobanteItem[];
 };
 
@@ -127,6 +137,7 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
     { data: inscripcionesRaw, error: errorInscripciones },
     { data: sedes, error: errorSedes },
     { data: cuotasRaw, error: errorCuotas },
+    { data: pagosRaw, error: errorPagos },
     { data: comprobantesRaw, error: errorComprobantes },
   ] = await Promise.all([
     supabase
@@ -139,6 +150,14 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
       .from("v_estado_cuota_alumno_sede")
       .select("sede_id, estado_visual, vencimiento, monto, medio")
       .eq("alumno_id", profileId),
+    // Últimos pagos del alumno, cualquier medio -- "registro visual" para el
+    // panel de Pagos (alta de efectivo + aprobar pendientes/procesando).
+    supabase
+      .from("pagos")
+      .select("id, sede_id, monto, medio, estado, created_at")
+      .eq("alumno_id", profileId)
+      .order("created_at", { ascending: false })
+      .limit(10),
     // Pagos con comprobante subido por el alumno -- puede haber quedado
     // "pendiente" (esperando revisión) o ya "aprobado" (si la admin lo
     // confirmó, o si además se pagó por Mercado Pago). Se listan todos,
@@ -151,19 +170,20 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
       .order("created_at", { ascending: false }),
   ]);
 
-  // Antes estos 4 errores se descartaban en silencio (solo se desestructuraba
+  // Antes estos errores se descartaban en silencio (solo se desestructuraba
   // "data") -- un error acá (ej. falta aplicar una migración en la base real,
   // como 20260813160000_vista_cuota_medio.sql, que agrega la columna "medio"
   // que se pide más abajo) hacía que cuotasRaw quedara undefined, y TODA
   // cuota -- pagada o no, por Mercado Pago o efectivo -- se mostrara como
   // "sin_pagos": exactamente el bug reportado de "marcar pagado en efectivo
   // no persiste" (el pago sí se insertaba bien, pero esta lectura fallaba
-  // sola y silenciosamente). Ahora cualquier error de estas 4 queries queda
+  // sola y silenciosamente). Ahora cualquier error de estas 5 queries queda
   // en los logs del servidor en vez de disfrazarse de "no hay datos".
   if (errorInscripciones) console.error(`[alumnos-data] obtenerAlumno(${profileId}): error leyendo inscripciones`, errorInscripciones);
   if (errorSedes) console.error(`[alumnos-data] obtenerAlumno(${profileId}): error leyendo sedes`, errorSedes);
   if (errorCuotas) console.error(`[alumnos-data] obtenerAlumno(${profileId}): error leyendo v_estado_cuota_alumno_sede -- ¿falta aplicar una migración? (medio se agregó en 20260813160000_vista_cuota_medio.sql)`, errorCuotas);
-  if (errorComprobantes) console.error(`[alumnos-data] obtenerAlumno(${profileId}): error leyendo pagos/comprobantes`, errorComprobantes);
+  if (errorPagos) console.error(`[alumnos-data] obtenerAlumno(${profileId}): error leyendo pagos`, errorPagos);
+  if (errorComprobantes) console.error(`[alumnos-data] obtenerAlumno(${profileId}): error leyendo comprobantes`, errorComprobantes);
 
   const sedeNombrePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
 
@@ -224,6 +244,15 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
       })),
   ];
 
+  const pagos: AlumnoPagoItem[] = (pagosRaw ?? []).map((p) => ({
+    id: p.id,
+    sedeNombre: sedeNombrePorId.get(p.sede_id) ?? "?",
+    monto: p.monto,
+    medio: p.medio,
+    estado: p.estado,
+    createdAt: p.created_at,
+  }));
+
   const comprobantes: ComprobanteItem[] = (comprobantesRaw ?? []).map((p) => ({
     pagoId: p.id,
     sedeNombre: sedeNombrePorId.get(p.sede_id) ?? "?",
@@ -241,6 +270,7 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
     telefono: perfil.telefono,
     inscripciones,
     cuotas,
+    pagos,
     comprobantes,
   };
 }

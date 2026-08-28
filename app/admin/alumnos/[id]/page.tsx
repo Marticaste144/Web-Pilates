@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ChevronRightIcon } from "@/components/ui/icons";
+import { PagosPanel } from "./pagos-panel";
 import type { MedioPago } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -107,6 +108,8 @@ export default async function AlumnoDetallePage({
           </div>
         )}
       </div>
+
+      <PagosPanel alumnoId={alumno.profileId} pagos={alumno.pagos} sedesConInscripcion={alumno.cuotas} />
 
       {alumno.comprobantes.length > 0 && (
         <div className="flex flex-col gap-3">
