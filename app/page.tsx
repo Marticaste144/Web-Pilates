@@ -5,18 +5,12 @@ import { getCurrentProfile, homePathForRole } from "@/lib/auth/session";
 import { Isotipo } from "@/components/ui/isotipo";
 import { Reveal } from "@/components/landing/reveal";
 import {
-  DumbbellIcon,
-  PilatesMatIcon,
-  PosturalIcon,
   MapPinIcon,
   UserIcon,
   GraduationCapIcon,
   HeartIcon,
   CalendarIcon,
   TrendingUpIcon,
-  InstagramIcon,
-  FacebookIcon,
-  WhatsAppIcon,
   ChevronDownIcon,
 } from "@/components/ui/icons";
 
@@ -33,17 +27,17 @@ const SERVICIOS = [
   {
     nombre: "MUV FITNESS",
     desc: "Entrenamiento funcional que te da energía y te hace más fuerte.",
-    icon: DumbbellIcon,
+    iconSrc: "/fitness.png",
   },
   {
     nombre: "MUV PILATES",
     desc: "Pilates para mejorar tu movilidad, tu postura y tu bienestar.",
-    icon: PilatesMatIcon,
+    iconSrc: "/pilates.png",
   },
   {
     nombre: "MUV POSTURAL",
     desc: "Gimnasia postural para aliviar tensiones, mejorar tu postura y sentirte mejor.",
-    icon: PosturalIcon,
+    iconSrc: "/postural.png",
   },
 ];
 
@@ -226,8 +220,8 @@ export default async function Home() {
                 key={s.nombre}
                 className="group h-full rounded-2xl bg-neutral-50 p-8 text-center transition-all duration-300 hover:-translate-y-1.5 hover:bg-white hover:shadow-xl hover:shadow-primary-900/5"
               >
-                <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-50 text-primary-600 transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-110">
-                  <s.icon className="h-8 w-8" />
+                <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-50 transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-110">
+                  <Image src={s.iconSrc} alt="" aria-hidden width={64} height={64} className="h-8 w-8 object-contain" />
                 </span>
                 <h3 className="mt-5 font-bold text-neutral-900">{s.nombre}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-neutral-500">{s.desc}</p>
@@ -283,18 +277,32 @@ export default async function Home() {
                   target="_blank"
                   rel="noreferrer noopener"
                   aria-label="Instagram de MUV"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:bg-white/20 hover:shadow-md"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:bg-white/20 hover:shadow-md"
                 >
-                  <InstagramIcon className="h-4 w-4" />
+                  <Image
+                    src="/instagram.png"
+                    alt=""
+                    aria-hidden
+                    width={40}
+                    height={40}
+                    className="h-4 w-4 object-contain brightness-0 invert"
+                  />
                 </a>
                 <a
                   href={FACEBOOK_URL}
                   target="_blank"
                   rel="noreferrer noopener"
                   aria-label="Facebook de MUV"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:bg-white/20 hover:shadow-md"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:bg-white/20 hover:shadow-md"
                 >
-                  <FacebookIcon className="h-4 w-4" />
+                  <Image
+                    src="/facebook.png"
+                    alt=""
+                    aria-hidden
+                    width={40}
+                    height={40}
+                    className="h-4 w-4 object-contain brightness-0 invert"
+                  />
                 </a>
               </div>
             </div>
@@ -307,9 +315,20 @@ export default async function Home() {
                   target="_blank"
                   rel="noreferrer noopener"
                   aria-label="WhatsApp de MUV"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:bg-white/20 hover:shadow-md"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:bg-white/20 hover:shadow-md"
                 >
-                  <WhatsAppIcon className="h-4 w-4" />
+                  {/* whatsapp.png trae ~7% de margen transparente propio (a
+                      diferencia de instagram/facebook, que llegan al borde) --
+                      se compensa con un scale leve para que las tres se vean
+                      del mismo tamaño dentro del círculo. */}
+                  <Image
+                    src="/whatsapp.png"
+                    alt=""
+                    aria-hidden
+                    width={40}
+                    height={40}
+                    className="h-4 w-4 scale-[1.07] object-contain brightness-0 invert"
+                  />
                 </a>
               </div>
             </div>
