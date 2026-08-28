@@ -33,27 +33,45 @@ export default async function ProfesorHomePage() {
       ) : (
         <>
           {proximaClase && (
-            // La imagen es el fondo de TODA la card (no un recuadro adentro
-            // de la card) -- /public/img2.png ya trae el celeste, la onda y
-            // la chica de Pilates armados, así que va como capa absoluta
-            // detrás del contenido (relative z-10), con object-cover para
-            // que nunca se deforme. La proporción de la card se ancla cerca
-            // del aspect ratio real del archivo (~16:9) para que el
-            // recorte de object-cover sea siempre horizontal (le come el
-            // celeste vacío de la izquierda si hace falta), nunca vertical
-            // (así la figura entra completa de la cabeza a los pies).
-            <div className="relative overflow-hidden rounded-card shadow-sm">
+            // Card compacta tipo banner (no un hero de página completa): la
+            // altura la fija la card (h-[…], nunca aspect-ratio contra el
+            // ancho), y la imagen se adapta a esa altura -- no al revés.
+            //
+            // Mobile: /public/img2.png como fondo a pantalla completa de la
+            // card (fill + object-cover) -- técnica ya probada, se deja tal
+            // cual.
+            //
+            // sm+: técnica distinta a propósito. Acá la card es mucho más
+            // ancha que alta, así que object-cover recortaría más de la
+            // mitad de la chica verticalmente. En cambio, la imagen mantiene
+            // su intrinsic width/height (sin fill) y se le fuerza
+            // h-full/w-auto: nunca se deforma ni se recorta la figura en sí,
+            // solo se la ancla arriba a la derecha y el sobrante de ancho
+            // (el celeste vacío de la izquierda de la imagen original) queda
+            // recortado por el overflow-hidden de la card -- el bg-primary-50
+            // de la card es del mismo celeste pálido que el fondo de la
+            // imagen, así no se nota dónde termina una y empieza la otra.
+            <div className="relative overflow-hidden rounded-card bg-primary-50 shadow-sm">
               <Image
                 src="/img2.png"
                 alt=""
                 aria-hidden
                 fill
                 priority
-                sizes="(min-width: 1024px) 1100px, 100vw"
-                className="object-cover object-[62%_center]"
+                sizes="100vw"
+                className="object-cover object-[62%_center] sm:hidden"
+              />
+              <Image
+                src="/img2.png"
+                alt=""
+                aria-hidden
+                width={1691}
+                height={930}
+                priority
+                className="pointer-events-none absolute right-0 top-0 hidden h-full w-auto sm:block"
               />
 
-              <div className="relative z-10 flex min-h-[300px] flex-col justify-between gap-6 p-5 sm:aspect-video sm:min-h-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-8 lg:p-10">
+              <div className="relative z-10 flex h-[240px] flex-col justify-between gap-4 p-5 sm:h-64 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-7 lg:h-72 lg:p-8">
                 <div className="max-w-[200px] sm:max-w-[220px] lg:max-w-xs">
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Próxima clase</p>
                   <h2 className="mt-2 text-2xl font-bold text-neutral-900 sm:text-3xl">
