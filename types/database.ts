@@ -494,6 +494,60 @@ export type Database = {
         };
         Relationships: [];
       };
+      fichas_evaluacion: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          dolores_molestias: string | null;
+          actualizado_por: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          dolores_molestias?: string | null;
+          actualizado_por?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          dolores_molestias?: string | null;
+          actualizado_por?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      ficha_evaluacion_notas: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          autor_id: string | null;
+          contenido: string;
+          fecha: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          autor_id?: string | null;
+          contenido: string;
+          fecha?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          autor_id?: string | null;
+          contenido?: string;
+          fecha?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       galeria_items: {
         Row: {
           id: string;

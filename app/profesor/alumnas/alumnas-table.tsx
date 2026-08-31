@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Input, Select } from "@/components/ui/field";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { SearchIcon } from "@/components/ui/icons";
+import { SearchIcon, ChevronRightIcon } from "@/components/ui/icons";
 import type { AlumnaListItem } from "@/lib/profesor/alumnas-data";
 
 export function AlumnasTable({ alumnas, sedes }: { alumnas: AlumnaListItem[]; sedes: string[] }) {
@@ -68,22 +69,28 @@ export function AlumnasTable({ alumnas, sedes }: { alumnas: AlumnaListItem[]; se
           {/* Desktop/tablet: columnas fijas en grid -- nunca fuerza scroll
               horizontal como haría una <table> angosta con muchas columnas. */}
           <div className="hidden sm:block">
-            <div className="grid grid-cols-[1.2fr_1fr_1.4fr_1fr] gap-4 px-6 pt-5 pb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
+            <div className="grid grid-cols-[1.2fr_1fr_1.4fr_1fr_auto] gap-4 px-6 pt-5 pb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
               <span>Nombre</span>
               <span>Teléfono</span>
               <span>Email</span>
               <span>Sede</span>
+              <span />
             </div>
             <div className="flex flex-col divide-y divide-neutral-100 border-t border-neutral-100">
               {filtradas.map((a) => (
-                <div key={a.alumnoId} className="grid grid-cols-[1.2fr_1fr_1.4fr_1fr] items-center gap-4 px-6 py-3.5">
+                <Link
+                  key={a.alumnoId}
+                  href={`/profesor/alumnas/${a.alumnoId}`}
+                  className="group grid grid-cols-[1.2fr_1fr_1.4fr_1fr_auto] items-center gap-4 px-6 py-3.5 transition-colors hover:bg-neutral-50"
+                >
                   <span className="min-w-0 truncate font-medium text-neutral-900">
                     {a.nombre} {a.apellido}
                   </span>
                   <span className="min-w-0 truncate text-neutral-600">{a.telefono ?? "-"}</span>
                   <span className="min-w-0 truncate text-neutral-600">{a.email}</span>
                   <span className="min-w-0 truncate text-neutral-600">{a.sedes.join(", ")}</span>
-                </div>
+                  <ChevronRightIcon className="h-4 w-4 shrink-0 text-neutral-300 group-hover:text-primary-500" />
+                </Link>
               ))}
             </div>
           </div>
@@ -91,14 +98,14 @@ export function AlumnasTable({ alumnas, sedes }: { alumnas: AlumnaListItem[]; se
           {/* Mobile: una card por alumna, todo el dato visible sin achicar. */}
           <div className="flex flex-col divide-y divide-neutral-100 sm:hidden">
             {filtradas.map((a) => (
-              <div key={a.alumnoId} className="flex flex-col gap-1 p-5">
+              <Link key={a.alumnoId} href={`/profesor/alumnas/${a.alumnoId}`} className="flex flex-col gap-1 p-5">
                 <p className="font-semibold text-neutral-900">
                   {a.nombre} {a.apellido}
                 </p>
                 <p className="text-sm text-secondary-600">{a.sedes.join(", ")}</p>
                 <p className="mt-1 text-sm text-neutral-600">{a.telefono ?? "Sin teléfono"}</p>
                 <p className="text-sm text-neutral-600">{a.email}</p>
-              </div>
+              </Link>
             ))}
           </div>
         </Card>

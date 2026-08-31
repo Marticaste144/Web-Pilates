@@ -1,10 +1,13 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { obtenerAlumno } from "@/lib/admin/alumnos-data";
+import { obtenerFicha, listarNotasEvolucion } from "@/lib/fichas-evaluacion-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { MarcarEfectivoButton } from "./marcar-efectivo-button";
 import { AprobarComprobanteButton } from "./aprobar-comprobante-button";
 import { RechazarComprobanteButton } from "./rechazar-comprobante-button";
+import { FichaForm } from "@/components/fichas-evaluacion/ficha-form";
+import { NotasEvolucion } from "@/components/fichas-evaluacion/notas-evolucion";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -52,7 +55,11 @@ export default async function AlumnoDetallePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const alumno = await obtenerAlumno(id);
+  const [alumno, ficha, notas] = await Promise.all([
+    obtenerAlumno(id),
+    obtenerFicha(id),
+    listarNotasEvolucion(id),
+  ]);
 
   if (!alumno) {
     notFound();
@@ -150,6 +157,16 @@ export default async function AlumnoDetallePage({
           </div>
         </div>
       )}
+
+      <Card>
+        <h2 className="mb-3 font-semibold text-neutral-900">Ficha de evaluación</h2>
+        <FichaForm ficha={ficha} />
+      </Card>
+
+      <Card>
+        <h2 className="mb-3 font-semibold text-neutral-900">Evolución / notas de seguimiento</h2>
+        <NotasEvolucion alumnoId={alumno.profileId} notas={notas} />
+      </Card>
 
       <div className="flex flex-col gap-3">
         <h2 className="font-semibold text-neutral-900">Clases</h2>
