@@ -465,6 +465,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      rutinas_profesor: {
+        Row: {
+          profesor_id: string;
+          contenido: string | null;
+          archivo_url: string | null;
+          archivo_nombre: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          profesor_id: string;
+          contenido?: string | null;
+          archivo_url?: string | null;
+          archivo_nombre?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          profesor_id?: string;
+          contenido?: string | null;
+          archivo_url?: string | null;
+          archivo_nombre?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       feedback_clases: {
         Row: {
           id: string;
