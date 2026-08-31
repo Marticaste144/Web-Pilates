@@ -62,7 +62,7 @@ export default async function AdminHomePage() {
               size="sm"
               className="shrink-0 whitespace-nowrap"
             >
-              Exportar pagos (CSV)
+              Exportar pagos (Excel)
             </LinkButton>
           </div>
           <p className="text-3xl font-bold text-neutral-900">{formatearMonto(m.facturacionMes.total)}</p>

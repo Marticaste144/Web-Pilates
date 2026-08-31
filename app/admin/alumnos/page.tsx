@@ -35,7 +35,7 @@ export default async function AlumnosPage({
         </form>
 
         <LinkButton href="/api/admin/exportar/alumnos" variant="secondary" size="sm">
-          Exportar CSV
+          Exportar Excel
         </LinkButton>
       </div>
 
