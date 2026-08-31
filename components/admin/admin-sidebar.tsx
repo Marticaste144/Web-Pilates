@@ -4,7 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType, SVGProps } from "react";
 import { Isotipo } from "@/components/ui/isotipo";
-import { HomeIcon, UsersIcon, UserIcon, CalendarIcon, TagIcon, MegaphoneIcon, ImageIcon } from "@/components/ui/icons";
+import {
+  HomeIcon,
+  UsersIcon,
+  UserIcon,
+  CalendarIcon,
+  TagIcon,
+  MegaphoneIcon,
+  ImageIcon,
+  ClockIcon,
+} from "@/components/ui/icons";
 
 type NavLink = {
   href: string;
@@ -20,6 +29,7 @@ const LINKS: NavLink[] = [
   { href: "/admin/aranceles", label: "Aranceles", icon: TagIcon },
   { href: "/admin/avisos", label: "Avisos", icon: MegaphoneIcon },
   { href: "/admin/galeria", label: "Galería", icon: ImageIcon },
+  { href: "/admin/suplencias", label: "Suplencias", icon: ClockIcon },
 ];
 
 function isActive(pathname: string, href: string) {

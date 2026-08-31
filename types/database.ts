@@ -542,6 +542,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      suplencias: {
+        Row: {
+          id: string;
+          profesor_original: string;
+          profesor_suplente: string;
+          fecha_inicio: string;
+          fecha_fin: string | null;
+          activa: boolean;
+          creado_por: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          profesor_original: string;
+          profesor_suplente: string;
+          fecha_inicio?: string;
+          fecha_fin?: string | null;
+          activa?: boolean;
+          creado_por?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          profesor_original?: string;
+          profesor_suplente?: string;
+          fecha_inicio?: string;
+          fecha_fin?: string | null;
+          activa?: boolean;
+          creado_por?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       fichas_evaluacion: {
         Row: {
           id: string;

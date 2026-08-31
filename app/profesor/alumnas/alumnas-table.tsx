@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Input, Select } from "@/components/ui/field";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchIcon, ChevronRightIcon } from "@/components/ui/icons";
 import type { AlumnaListItem } from "@/lib/profesor/alumnas-data";
@@ -83,8 +84,9 @@ export function AlumnasTable({ alumnas, sedes }: { alumnas: AlumnaListItem[]; se
                   href={`/profesor/alumnas/${a.alumnoId}`}
                   className="group grid grid-cols-[1.2fr_1fr_1.4fr_1fr_auto] items-center gap-4 px-6 py-3.5 transition-colors hover:bg-neutral-50"
                 >
-                  <span className="min-w-0 truncate font-medium text-neutral-900">
+                  <span className="flex min-w-0 items-center gap-2 truncate font-medium text-neutral-900">
                     {a.nombre} {a.apellido}
+                    {a.esSuplencia && <Badge variant="info">Suplencia</Badge>}
                   </span>
                   <span className="min-w-0 truncate text-neutral-600">{a.telefono ?? "-"}</span>
                   <span className="min-w-0 truncate text-neutral-600">{a.email}</span>
@@ -99,8 +101,9 @@ export function AlumnasTable({ alumnas, sedes }: { alumnas: AlumnaListItem[]; se
           <div className="flex flex-col divide-y divide-neutral-100 sm:hidden">
             {filtradas.map((a) => (
               <Link key={a.alumnoId} href={`/profesor/alumnas/${a.alumnoId}`} className="flex flex-col gap-1 p-5">
-                <p className="font-semibold text-neutral-900">
+                <p className="flex items-center gap-2 font-semibold text-neutral-900">
                   {a.nombre} {a.apellido}
+                  {a.esSuplencia && <Badge variant="info">Suplencia</Badge>}
                 </p>
                 <p className="text-sm text-secondary-600">{a.sedes.join(", ")}</p>
                 <p className="mt-1 text-sm text-neutral-600">{a.telefono ?? "Sin teléfono"}</p>
