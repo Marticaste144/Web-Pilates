@@ -24,6 +24,11 @@ export type MiInscripcion = {
   // dicta) -- es sobre la que la alumna deja feedback ("después de una
   // clase"), mismo criterio que usa el profesor para tomar asistencia.
   fechaUltimaClase: string;
+  // Recuperación de turnos (solo tiene sentido si esHoy): liberar el turno
+  // se puede hasta 1hs antes del inicio -- ventana "espejada" respecto a la
+  // de confirmación (esa se ABRE 1hs antes; esta se CIERRA 1hs antes).
+  puedeLiberarHoy: boolean;
+  turnoLiberadoHoyId: string | null;
 };
 
 function aSegundosDelDia(hora: string): number {
@@ -40,6 +45,12 @@ function estaEnVentanaConfirmacion(horaInicio: string, horaFin: string, horaAhor
   const fin = aSegundosDelDia(horaFin);
   const ahora = aSegundosDelDia(horaAhora);
   return ahora >= inicio && ahora <= fin;
+}
+
+// Liberar el turno se cierra 1hs antes del inicio -- mismo criterio que el
+// trigger fn_validar_liberacion_turno (base de datos).
+function puedeLiberarTodavia(horaInicio: string, horaAhora: string): boolean {
+  return aSegundosDelDia(horaAhora) <= Math.max(aSegundosDelDia(horaInicio) - 3600, 0);
 }
 
 export async function listarMisInscripciones(): Promise<MiInscripcion[]> {
@@ -75,23 +86,33 @@ export async function listarMisInscripciones(): Promise<MiInscripcion[]> {
   const horaAhora = horaAhoraISO();
   const claseIdsDeHoy = [...clasePorId.values()].filter((c) => c.dia_semana === diaHoy).map((c) => c.id);
 
-  // Solo se necesita saber "¿ya confirmé HOY?" para las clases que dictan hoy
-  // -- el resto de los días no tiene botón de confirmar, así que no hace
-  // falta traer su historial de asistencias acá.
+  // Solo se necesita saber "¿ya confirmé / ya liberé HOY?" para las clases
+  // que dictan hoy -- el resto de los días no tiene esos botones, así que no
+  // hace falta traer ese historial.
   const confirmadasHoy = new Set<string>();
+  const turnoLiberadoPorClase = new Map<string, string>();
   if (claseIdsDeHoy.length > 0) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
-      const { data: asistenciasHoy } = await supabase
-        .from("asistencias")
-        .select("clase_id")
-        .eq("alumno_id", user.id)
-        .eq("fecha", fechaHoy)
-        .eq("confirmado", true)
-        .in("clase_id", claseIdsDeHoy);
+      const [{ data: asistenciasHoy }, { data: turnosHoy }] = await Promise.all([
+        supabase
+          .from("asistencias")
+          .select("clase_id")
+          .eq("alumno_id", user.id)
+          .eq("fecha", fechaHoy)
+          .eq("confirmado", true)
+          .in("clase_id", claseIdsDeHoy),
+        supabase
+          .from("turnos_liberados")
+          .select("id, clase_id")
+          .eq("alumno_original_id", user.id)
+          .eq("fecha", fechaHoy)
+          .in("clase_id", claseIdsDeHoy),
+      ]);
       for (const a of asistenciasHoy ?? []) confirmadasHoy.add(a.clase_id);
+      for (const t of turnosHoy ?? []) turnoLiberadoPorClase.set(t.clase_id, t.id);
     }
   }
 
@@ -116,6 +137,12 @@ export async function listarMisInscripciones(): Promise<MiInscripcion[]> {
         ventanaConfirmacionAbierta: esHoy && estaEnVentanaConfirmacion(clase.hora_inicio, clase.hora_fin, horaAhora),
         yaConfirmoHoy: esHoy && confirmadasHoy.has(i.clase_id),
         fechaUltimaClase: fechaUltimaOcurrencia(clase.dia_semana),
+        puedeLiberarHoy:
+          esHoy &&
+          i.estado === "activa" &&
+          !turnoLiberadoPorClase.has(i.clase_id) &&
+          puedeLiberarTodavia(clase.hora_inicio, horaAhora),
+        turnoLiberadoHoyId: esHoy ? turnoLiberadoPorClase.get(i.clase_id) ?? null : null,
       };
     })
     .filter((i): i is MiInscripcion => i !== null)

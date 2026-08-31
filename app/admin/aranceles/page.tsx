@@ -1,7 +1,9 @@
 import { listarArancelesVigentes } from "@/lib/admin/aranceles-data";
 import { obtenerConfiguracionPagos } from "@/lib/configuracion-pagos";
+import { obtenerMaxRecuperacionesPorMes } from "@/lib/configuracion-recuperaciones";
 import { ArancelCell } from "./arancel-cell";
 import { ConfiguracionPagosForm } from "./configuracion-pagos-form";
+import { ConfiguracionRecuperacionesForm } from "./configuracion-recuperaciones-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 
@@ -15,7 +17,11 @@ export const dynamic = "force-dynamic";
 // pelearse con anchos de columna, y de paso se ve bien tanto en mobile
 // como en desktop sin tener que armar dos layouts distintos.
 export default async function ArancelesPage() {
-  const [aranceles, configPagos] = await Promise.all([listarArancelesVigentes(), obtenerConfiguracionPagos()]);
+  const [aranceles, configPagos, maxRecuperaciones] = await Promise.all([
+    listarArancelesVigentes(),
+    obtenerConfiguracionPagos(),
+    obtenerMaxRecuperacionesPorMes(),
+  ]);
 
   const sedes = Array.from(new Map(aranceles.map((a) => [a.sedeId, a.sedeNombre])).entries());
   const frecuencias = [1, 2, 3, 4];
@@ -30,6 +36,8 @@ export default async function ArancelesPage() {
         cbuTransferencia={configPagos.cbuTransferencia}
         titularTransferencia={configPagos.titularTransferencia}
       />
+
+      <ConfiguracionRecuperacionesForm maxRecuperacionesPorMes={maxRecuperaciones} />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {sedes.map(([sedeId, sedeNombre]) => (

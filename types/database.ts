@@ -494,6 +494,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      configuracion_recuperaciones: {
+        Row: {
+          id: boolean;
+          max_recuperaciones_por_mes: number;
+          updated_at: string;
+        };
+        Insert: {
+          id?: boolean;
+          max_recuperaciones_por_mes?: number;
+          updated_at?: string;
+        };
+        Update: {
+          id?: boolean;
+          max_recuperaciones_por_mes?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      turnos_liberados: {
+        Row: {
+          id: string;
+          clase_id: string;
+          fecha: string;
+          alumno_original_id: string;
+          liberado_en: string;
+          tomado_por_id: string | null;
+          tomado_en: string | null;
+        };
+        Insert: {
+          id?: string;
+          clase_id: string;
+          fecha: string;
+          alumno_original_id: string;
+          liberado_en?: string;
+          tomado_por_id?: string | null;
+          tomado_en?: string | null;
+        };
+        Update: {
+          id?: string;
+          clase_id?: string;
+          fecha?: string;
+          alumno_original_id?: string;
+          liberado_en?: string;
+          tomado_por_id?: string | null;
+          tomado_en?: string | null;
+        };
+        Relationships: [];
+      };
       fichas_evaluacion: {
         Row: {
           id: string;
