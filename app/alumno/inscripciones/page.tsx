@@ -2,6 +2,7 @@ import { listarMisInscripciones } from "@/lib/alumno/inscripciones-data";
 import { SedeIcon } from "@/components/alumno/sede-icon";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { BajaButton } from "./baja-button";
+import { ConfirmarAsistenciaButton } from "./confirmar-asistencia-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +48,18 @@ export default async function MisInscripcionesPage() {
                   </div>
                 </div>
               </div>
-              <div className="shrink-0">
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                {i.estado === "activa" && i.esHoy && i.fechaHoy && (
+                  i.yaConfirmoHoy ? (
+                    <span className="text-sm font-medium text-success-700">Asistencia confirmada ✓</span>
+                  ) : i.ventanaConfirmacionAbierta ? (
+                    <ConfirmarAsistenciaButton claseId={i.claseId} fecha={i.fechaHoy} />
+                  ) : (
+                    <span className="text-xs text-neutral-400">
+                      Podés confirmar 1hs antes ({i.horaInicio.slice(0, 5)})
+                    </span>
+                  )
+                )}
                 <BajaButton inscripcionId={i.id} />
               </div>
             </Card>

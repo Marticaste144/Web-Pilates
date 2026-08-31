@@ -56,18 +56,22 @@ export default async function ClaseDetallePage({
         </Alert>
       )}
 
-      {clase.alumnosVisibles.length === 0 && clase.alumnosNoVisibles === 0 ? (
+      {clase.confirmados.length === 0 && clase.disponibles.length === 0 && clase.alumnosNoVisibles === 0 ? (
         <EmptyState
           title="Todavía no hay alumnas anotadas en esta clase"
           description="En cuanto alguien se anote, va a aparecer acá."
         />
       ) : (
-        clase.alumnosVisibles.length > 0 && (
-          // key incluye fecha a propósito: al entrar con otra ?fecha= (ej.
-          // desde un link viejo), remonta la lista entera para no arrastrar
-          // en memoria el estado de presente/ausente de otra fecha.
-          <AsistenciaLista key={fecha} claseId={clase.id} fecha={fecha} alumnos={clase.alumnosVisibles} />
-        )
+        // key incluye fecha a propósito: al entrar con otra ?fecha= (ej.
+        // desde un link viejo), remonta la lista entera para no arrastrar
+        // en memoria el estado de presente/ausente de otra fecha.
+        <AsistenciaLista
+          key={fecha}
+          claseId={clase.id}
+          fecha={fecha}
+          confirmados={clase.confirmados}
+          disponibles={clase.disponibles}
+        />
       )}
     </div>
   );

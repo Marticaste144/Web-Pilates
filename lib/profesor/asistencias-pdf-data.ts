@@ -59,7 +59,7 @@ export async function obtenerAsistenciasSemana(fechaReferencia: string): Promise
         horaInicio: c.horaInicio,
         horaFin: c.horaFin,
         fecha,
-        alumnos: (claseDetalle?.alumnosVisibles ?? []).map((a) => ({
+        alumnos: (claseDetalle?.confirmados ?? []).map((a) => ({
           nombre: a.nombre,
           apellido: a.apellido,
           estado: a.asistenciaEstado,

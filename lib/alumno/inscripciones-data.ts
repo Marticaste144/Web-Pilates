@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { hoyISO, diaSemanaHoy, horaAhoraISO } from "@/lib/fecha";
 import type { EstadoInscripcion } from "@/types/database";
 
 export type MiInscripcion = {
@@ -12,7 +13,29 @@ export type MiInscripcion = {
   estado: EstadoInscripcion;
   posicionEspera: number | null;
   fechaInscripcion: string;
+  // Confirmación de asistencia de HOY (solo tiene sentido si diaSemana es
+  // el día de hoy) -- ver estaEnVentanaConfirmacion.
+  esHoy: boolean;
+  fechaHoy: string | null;
+  ventanaConfirmacionAbierta: boolean;
+  yaConfirmoHoy: boolean;
 };
+
+function aSegundosDelDia(hora: string): number {
+  const [h, m, s] = hora.split(":").map(Number);
+  return h * 3600 + m * 60 + (s ?? 0);
+}
+
+// Se habilita 1hs antes del inicio de la clase y se cierra cuando termina --
+// mismo criterio que el trigger fn_validar_ventana_confirmacion_asistencia
+// (base de datos), repetido acá solo para no mostrarle a la alumna un botón
+// habilitado que el server igual va a rechazar.
+function estaEnVentanaConfirmacion(horaInicio: string, horaFin: string, horaAhora: string): boolean {
+  const inicio = Math.max(aSegundosDelDia(horaInicio) - 3600, 0);
+  const fin = aSegundosDelDia(horaFin);
+  const ahora = aSegundosDelDia(horaAhora);
+  return ahora >= inicio && ahora <= fin;
+}
 
 export async function listarMisInscripciones(): Promise<MiInscripcion[]> {
   const supabase = await createClient();
@@ -42,10 +65,36 @@ export async function listarMisInscripciones(): Promise<MiInscripcion[]> {
   const perfilPorId = new Map((perfiles ?? []).map((p) => [p.id, `${p.nombre} ${p.apellido}`]));
   const clasePorId = new Map((clases ?? []).map((c) => [c.id, c]));
 
+  const diaHoy = diaSemanaHoy();
+  const fechaHoy = hoyISO();
+  const horaAhora = horaAhoraISO();
+  const claseIdsDeHoy = [...clasePorId.values()].filter((c) => c.dia_semana === diaHoy).map((c) => c.id);
+
+  // Solo se necesita saber "¿ya confirmé HOY?" para las clases que dictan hoy
+  // -- el resto de los días no tiene botón de confirmar, así que no hace
+  // falta traer su historial de asistencias acá.
+  const confirmadasHoy = new Set<string>();
+  if (claseIdsDeHoy.length > 0) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: asistenciasHoy } = await supabase
+        .from("asistencias")
+        .select("clase_id")
+        .eq("alumno_id", user.id)
+        .eq("fecha", fechaHoy)
+        .eq("confirmado", true)
+        .in("clase_id", claseIdsDeHoy);
+      for (const a of asistenciasHoy ?? []) confirmadasHoy.add(a.clase_id);
+    }
+  }
+
   return inscripciones
     .map((i): MiInscripcion | null => {
       const clase = clasePorId.get(i.clase_id);
       if (!clase) return null;
+      const esHoy = clase.dia_semana === diaHoy;
       return {
         id: i.id,
         claseId: i.clase_id,
@@ -57,6 +106,10 @@ export async function listarMisInscripciones(): Promise<MiInscripcion[]> {
         estado: i.estado,
         posicionEspera: i.posicion_espera,
         fechaInscripcion: i.fecha_inscripcion,
+        esHoy,
+        fechaHoy: esHoy ? fechaHoy : null,
+        ventanaConfirmacionAbierta: esHoy && estaEnVentanaConfirmacion(clase.hora_inicio, clase.hora_fin, horaAhora),
+        yaConfirmoHoy: esHoy && confirmadasHoy.has(i.clase_id),
       };
     })
     .filter((i): i is MiInscripcion => i !== null)

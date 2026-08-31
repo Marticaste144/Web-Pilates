@@ -66,7 +66,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   });
   y -= 18;
 
-  for (const alumno of clase.alumnosVisibles) {
+  for (const alumno of clase.confirmados) {
     if (y < 60) {
       page = pdf.addPage([pageWidth, pageHeight]);
       y = pageHeight - 60;
@@ -77,8 +77,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     y -= 20;
   }
 
-  if (clase.alumnosVisibles.length === 0) {
-    drawText("No hay alumnos para mostrar en esta clase.", colApellido, y, 10);
+  if (clase.confirmados.length === 0) {
+    drawText("Nadie confirmó ni fue agregado a esta clase.", colApellido, y, 10);
     y -= 20;
   }
 

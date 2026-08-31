@@ -356,31 +356,60 @@ export type Database = {
         Row: {
           id: string;
           clase_id: string;
-          alumno_id: string;
+          /** Null solo cuando no_registrado = true (carga manual sin cuenta en el sistema). */
+          alumno_id: string | null;
           fecha: string;
           estado: EstadoAsistencia | null;
           tomado_por: string | null;
           tomado_en: string | null;
+          /** true = la propia alumna confirmó que va, 1hs antes de la clase. */
+          confirmado: boolean;
+          /** Tag preparado para la futura función de recuperación de turnos. */
+          es_recuperacion: boolean;
+          /** true = la fila la creó el profesor a mano, no la propia alumna. */
+          agregado_manualmente: boolean;
+          /** true = carga manual de alguien que no pertenece a esta clase/sede (sin alumno_id, con manual_*). */
+          no_registrado: boolean;
+          manual_nombre: string | null;
+          manual_apellido: string | null;
+          manual_sede_habitual: string | null;
+          manual_profesor_habitual: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           clase_id: string;
-          alumno_id: string;
+          alumno_id?: string | null;
           fecha: string;
           estado?: EstadoAsistencia | null;
           tomado_por?: string | null;
           tomado_en?: string | null;
+          confirmado?: boolean;
+          es_recuperacion?: boolean;
+          agregado_manualmente?: boolean;
+          no_registrado?: boolean;
+          manual_nombre?: string | null;
+          manual_apellido?: string | null;
+          manual_sede_habitual?: string | null;
+          manual_profesor_habitual?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           clase_id?: string;
-          alumno_id?: string;
+          alumno_id?: string | null;
           fecha?: string;
           estado?: EstadoAsistencia | null;
           tomado_por?: string | null;
           tomado_en?: string | null;
+          confirmado?: boolean;
+          es_recuperacion?: boolean;
+          agregado_manualmente?: boolean;
+          no_registrado?: boolean;
+          manual_nombre?: string | null;
+          manual_apellido?: string | null;
+          manual_sede_habitual?: string | null;
+          manual_profesor_habitual?: string | null;
           created_at?: string;
         };
         Relationships: [];

@@ -22,6 +22,30 @@ export function hoyISO(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA_HORARIA_ESTUDIO }).format(new Date());
 }
 
+// 1=lunes..7=domingo (mismo criterio que dia_semana en toda la app),
+// calculado a partir de hoyISO() -- nunca de Date.getDay() a secas, por el
+// mismo motivo de huso horario documentado arriba.
+export function diaSemanaHoy(): number {
+  const dia = new Date(`${hoyISO()}T12:00:00Z`).getUTCDay();
+  return dia === 0 ? 7 : dia;
+}
+
+// "HH:MM:SS" de la hora actual en Buenos Aires -- comparable directo contra
+// hora_inicio/hora_fin (columnas `time` de Postgres, mismo formato). Se arma
+// con formatToParts (no con el string ya formateado) para no depender de
+// separadores propios de una locale/runtime en particular.
+export function horaAhoraISO(): string {
+  const partes = new Intl.DateTimeFormat("en-GB", {
+    timeZone: ZONA_HORARIA_ESTUDIO,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const parte = (tipo: string) => partes.find((p) => p.type === tipo)?.value ?? "00";
+  return `${parte("hour")}:${parte("minute")}:${parte("second")}`;
+}
+
 const DIAS_LARGO = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const MESES_LARGO = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
