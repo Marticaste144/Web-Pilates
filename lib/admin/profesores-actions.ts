@@ -110,6 +110,59 @@ export async function actualizarProfesor(
   return { status: "success", message: "Datos actualizados." };
 }
 
+const TIPOS_FOTO_PERMITIDOS = ["image/jpeg", "image/png", "image/webp"];
+const TAMANO_FOTO_MAXIMO = 5 * 1024 * 1024; // 5 MiB, de sobra para una foto tipo carnet
+
+function extensionDeFoto(nombre: string, tipo: string): string {
+  const porNombre = nombre.split(".").pop();
+  if (porNombre && porNombre.length <= 5) return porNombre.toLowerCase();
+  return tipo === "image/png" ? "png" : "jpg";
+}
+
+// Foto tipo carnet para la sección pública de profesores (Tarea 1) -- bucket
+// "profesores" (público, creado a mano -- ver migración
+// 20260901090000_profesores_foto_publica.sql). Mismo path fijo
+// "<profesor_id>/foto.<ext>" que "rutinas": una subida nueva pisa siempre a
+// la anterior, sin basura acumulada.
+export async function subirFotoProfesor(_prevState: FormState, formData: FormData): Promise<FormState> {
+  await requireAdminProfile();
+
+  const profileId = String(formData.get("profile_id") ?? "");
+  const archivo = formData.get("foto");
+
+  if (!profileId || !(archivo instanceof File) || archivo.size === 0) {
+    return { status: "error", message: "Elegí una imagen para subir." };
+  }
+  if (!TIPOS_FOTO_PERMITIDOS.includes(archivo.type)) {
+    return { status: "error", message: "Solo se aceptan imágenes JPG, PNG o WEBP." };
+  }
+  if (archivo.size > TAMANO_FOTO_MAXIMO) {
+    return { status: "error", message: "La imagen pesa más de 5 MB." };
+  }
+
+  const supabase = await createClient();
+  const path = `${profileId}/foto.${extensionDeFoto(archivo.name, archivo.type)}`;
+
+  const { error: errorUpload } = await supabase.storage
+    .from("profesores")
+    .upload(path, archivo, { contentType: archivo.type, upsert: true });
+
+  if (errorUpload) {
+    return { status: "error", message: `No se pudo subir la foto: ${errorUpload.message}` };
+  }
+
+  const { error } = await supabase.from("profesores").update({ foto_url: path }).eq("profile_id", profileId);
+
+  if (error) {
+    return { status: "error", message: error.message };
+  }
+
+  revalidatePath("/admin/profesores");
+  revalidatePath(`/admin/profesores/${profileId}`);
+  revalidatePath("/");
+  return { status: "success", message: "Foto actualizada." };
+}
+
 // Cambiar el email de acceso es distinto a los demás datos: hay que tocar
 // auth.users (API de admin, service_role) Y profiles.email (una copia
 // cacheada desde el paso 2). El update de profiles.email se hace con la

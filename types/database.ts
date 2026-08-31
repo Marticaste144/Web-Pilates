@@ -19,6 +19,7 @@ export type MedioPago = "mercadopago" | "efectivo" | "transferencia";
 export type EstadoPago = "pendiente" | "procesando" | "aprobado" | "rechazado";
 export type EstadoAsistencia = "presente" | "ausente";
 export type EstadoVisualCuota = "al_dia" | "por_vencer" | "vencida";
+export type TipoGaleriaItem = "foto" | "video";
 
 export type Database = {
   public: {
@@ -78,16 +79,20 @@ export type Database = {
         Row: {
           profile_id: string;
           activo: boolean;
+          /** Path en el bucket de Storage "profesores" (público). Null = usar placeholder en el front. */
+          foto_url: string | null;
           created_at: string;
         };
         Insert: {
           profile_id: string;
           activo?: boolean;
+          foto_url?: string | null;
           created_at?: string;
         };
         Update: {
           profile_id?: string;
           activo?: boolean;
+          foto_url?: string | null;
           created_at?: string;
         };
         Relationships: [];
@@ -489,6 +494,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      galeria_items: {
+        Row: {
+          id: string;
+          tipo: TipoGaleriaItem;
+          storage_path: string;
+          titulo: string | null;
+          orden: number;
+          publicado: boolean;
+          subido_por: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tipo: TipoGaleriaItem;
+          storage_path: string;
+          titulo?: string | null;
+          orden?: number;
+          publicado?: boolean;
+          subido_por?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tipo?: TipoGaleriaItem;
+          storage_path?: string;
+          titulo?: string | null;
+          orden?: number;
+          publicado?: boolean;
+          subido_por?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       feedback_clases: {
         Row: {
           id: string;
@@ -538,6 +576,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      v_profesores_publicos: {
+        Row: {
+          id: string;
+          nombre: string;
+          apellido: string;
+          foto_url: string | null;
+        };
+        Relationships: [];
+      };
+      v_galeria_publica: {
+        Row: {
+          id: string;
+          tipo: TipoGaleriaItem;
+          storage_path: string;
+          titulo: string | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: Record<string, never>;
     Enums: {
@@ -546,6 +602,7 @@ export type Database = {
       medio_pago: MedioPago;
       estado_pago: EstadoPago;
       estado_asistencia: EstadoAsistencia;
+      tipo_galeria_item: TipoGaleriaItem;
     };
   };
 };

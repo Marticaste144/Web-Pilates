@@ -3,6 +3,7 @@ import Link from "next/link";
 import { obtenerProfesor } from "@/lib/admin/profesores-data";
 import { ToggleActivoButton } from "../toggle-activo-button";
 import { EditarProfesorForm } from "./editar-form";
+import { FotoProfesorForm } from "./foto-form";
 import { EditarEmailForm } from "./editar-email-form";
 import { EliminarProfesorButton } from "./eliminar-button";
 import { Card } from "@/components/ui/card";
@@ -43,6 +44,12 @@ export default async function EditarProfesorPage({
       <Card className="max-w-md">
         <h2 className="mb-3 font-semibold text-neutral-900">Datos personales</h2>
         <EditarProfesorForm profesor={profesor} />
+      </Card>
+
+      <Card className="max-w-md">
+        <h2 className="mb-1 font-semibold text-neutral-900">Foto pública</h2>
+        <p className="mb-3 text-sm text-neutral-500">Se muestra en la sección de profesores de la página de inicio.</p>
+        <FotoProfesorForm profileId={profesor.profileId} fotoUrl={profesor.fotoUrl} />
       </Card>
 
       <Card className="max-w-md">

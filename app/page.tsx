@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile, homePathForRole } from "@/lib/auth/session";
 import { Isotipo } from "@/components/ui/isotipo";
 import { Reveal } from "@/components/landing/reveal";
+import { ProfesoresSection } from "@/components/landing/profesores-section";
 import {
   MapPinIcon,
   UserIcon,
@@ -244,6 +245,9 @@ export default async function Home() {
           </Reveal>
         </div>
       </section>
+
+      {/* ==================== PROFESORES ==================== */}
+      <ProfesoresSection />
 
       {/* ==================== FOOTER ==================== */}
       <footer id="contacto" className="bg-gradient-to-r from-primary-900 to-secondary-900 py-10">

@@ -7,6 +7,7 @@ export type ProfesorListItem = {
   apellido: string;
   email: string;
   telefono: string | null;
+  fotoUrl: string | null;
 };
 
 // Dos queries + merge en vez de un select anidado: como types/database.ts
@@ -18,7 +19,7 @@ export async function listarProfesores(): Promise<ProfesorListItem[]> {
 
   const { data: profesores } = await supabase
     .from("profesores")
-    .select("profile_id, activo");
+    .select("profile_id, activo, foto_url");
 
   if (!profesores || profesores.length === 0) return [];
 
@@ -41,6 +42,7 @@ export async function listarProfesores(): Promise<ProfesorListItem[]> {
         apellido: perfil.apellido,
         email: perfil.email,
         telefono: perfil.telefono,
+        fotoUrl: p.foto_url ? supabase.storage.from("profesores").getPublicUrl(p.foto_url).data.publicUrl : null,
       };
     })
     .filter((item): item is ProfesorListItem => item !== null);
@@ -53,7 +55,7 @@ export async function obtenerProfesor(profileId: string): Promise<ProfesorListIt
 
   const { data: profesor } = await supabase
     .from("profesores")
-    .select("profile_id, activo")
+    .select("profile_id, activo, foto_url")
     .eq("profile_id", profileId)
     .single();
 
@@ -74,5 +76,8 @@ export async function obtenerProfesor(profileId: string): Promise<ProfesorListIt
     apellido: perfil.apellido,
     email: perfil.email,
     telefono: perfil.telefono,
+    fotoUrl: profesor.foto_url
+      ? supabase.storage.from("profesores").getPublicUrl(profesor.foto_url).data.publicUrl
+      : null,
   };
 }
