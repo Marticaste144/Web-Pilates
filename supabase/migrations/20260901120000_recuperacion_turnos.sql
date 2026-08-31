@@ -15,9 +15,14 @@
 --    es_recuperacion = true (el tag que ya se había dejado preparado en
 --    confirmacion_asistencia) -- así el profesor la ve en la misma lista de
 --    "confirmadas" de su clase, marcada como recuperación.
+--
+-- Reescrita para poder correrse de nuevo sin error sobre lo que ya haya
+-- quedado creado de un intento anterior (create table/policy/trigger todos
+-- con guard) y con un tag propio por cada función ($fn_..$ en vez de $$
+-- genérico) para que cada bloque quede inequívocamente delimitado.
 -- ============================================================================
 
-create table public.configuracion_recuperaciones (
+create table if not exists public.configuracion_recuperaciones (
   id boolean primary key default true,
   max_recuperaciones_por_mes int not null default 2 check (max_recuperaciones_por_mes >= 0),
   updated_at timestamptz not null default now(),
@@ -27,26 +32,31 @@ create table public.configuracion_recuperaciones (
 comment on table public.configuracion_recuperaciones is
   'Fila única (id siempre true) -- configuración global del máximo de recuperaciones por mes. Editable desde /admin sin tocar código.';
 
-insert into public.configuracion_recuperaciones (id) values (true);
+insert into public.configuracion_recuperaciones (id)
+values (true)
+on conflict (id) do nothing;
 
 alter table public.configuracion_recuperaciones enable row level security;
 
+drop policy if exists "autenticados ven configuracion de recuperaciones" on public.configuracion_recuperaciones;
 create policy "autenticados ven configuracion de recuperaciones"
   on public.configuracion_recuperaciones for select
   to authenticated
   using (true);
 
+drop policy if exists "admin edita configuracion de recuperaciones" on public.configuracion_recuperaciones;
 create policy "admin edita configuracion de recuperaciones"
   on public.configuracion_recuperaciones for update
   using (public.fn_current_role() = 'admin')
   with check (public.fn_current_role() = 'admin');
 
+drop trigger if exists trg_configuracion_recuperaciones_updated_at on public.configuracion_recuperaciones;
 create trigger trg_configuracion_recuperaciones_updated_at
   before update on public.configuracion_recuperaciones
   for each row execute function public.fn_set_updated_at();
 
 -- ---------------------------------------------------------------------------
-create table public.turnos_liberados (
+create table if not exists public.turnos_liberados (
   id uuid primary key default gen_random_uuid(),
   clase_id uuid not null references public.clases (id) on delete cascade,
   fecha date not null,
@@ -60,8 +70,8 @@ create table public.turnos_liberados (
 comment on table public.turnos_liberados is
   'Un lugar liberado por una alumna en una sesión puntual (clase_id+fecha) -- no toca la inscripción semanal fija. tomado_por_id null = todavía disponible para que alguien lo recupere.';
 
-create index idx_turnos_liberados_disponibles on public.turnos_liberados (clase_id, fecha) where tomado_por_id is null;
-create index idx_turnos_liberados_tomados on public.turnos_liberados (tomado_por_id, fecha);
+create index if not exists idx_turnos_liberados_disponibles on public.turnos_liberados (clase_id, fecha) where tomado_por_id is null;
+create index if not exists idx_turnos_liberados_tomados on public.turnos_liberados (tomado_por_id, fecha);
 
 alter table public.turnos_liberados enable row level security;
 
@@ -76,7 +86,7 @@ language sql
 stable
 security definer
 set search_path = public
-as $$
+as $fn_alumno_en_sede_de_clase$
   select exists (
     select 1
     from public.inscripciones i
@@ -84,14 +94,14 @@ as $$
     join public.clases c2 on c2.sede_id = c1.sede_id
     where i.alumno_id = auth.uid() and i.estado = 'activa' and c2.id = p_clase_id
   );
-$$;
+$fn_alumno_en_sede_de_clase$;
 
 -- Ventana de liberación: hasta 1hs antes del inicio de la clase.
 create or replace function public.fn_validar_liberacion_turno()
 returns trigger
 language plpgsql
 security definer set search_path = public
-as $$
+as $fn_validar_liberacion_turno$
 declare
   v_hora_inicio time;
   v_inicio_clase timestamptz;
@@ -110,8 +120,9 @@ begin
 
   return new;
 end;
-$$;
+$fn_validar_liberacion_turno$;
 
+drop trigger if exists trg_validar_liberacion_turno on public.turnos_liberados;
 create trigger trg_validar_liberacion_turno
   before insert on public.turnos_liberados
   for each row execute function public.fn_validar_liberacion_turno();
@@ -123,7 +134,7 @@ create or replace function public.fn_validar_reclamo_turno_liberado()
 returns trigger
 language plpgsql
 security definer set search_path = public
-as $$
+as $fn_validar_reclamo_turno_liberado$
 declare
   v_hora_inicio time;
   v_inicio_clase timestamptz;
@@ -177,8 +188,9 @@ begin
 
   return new;
 end;
-$$;
+$fn_validar_reclamo_turno_liberado$;
 
+drop trigger if exists trg_validar_reclamo_turno_liberado on public.turnos_liberados;
 create trigger trg_validar_reclamo_turno_liberado
   before update on public.turnos_liberados
   for each row execute function public.fn_validar_reclamo_turno_liberado();
@@ -186,15 +198,18 @@ create trigger trg_validar_reclamo_turno_liberado
 -- ---------------------------------------------------------------------------
 -- RLS de turnos_liberados
 -- ---------------------------------------------------------------------------
+drop policy if exists "admin gestiona turnos liberados" on public.turnos_liberados;
 create policy "admin gestiona turnos liberados"
   on public.turnos_liberados for all
   using (public.fn_current_role() = 'admin')
   with check (public.fn_current_role() = 'admin');
 
+drop policy if exists "profesor ve turnos liberados de sus clases" on public.turnos_liberados;
 create policy "profesor ve turnos liberados de sus clases"
   on public.turnos_liberados for select
   using (exists (select 1 from public.clases c where c.id = clase_id and c.profesor_id = auth.uid()));
 
+drop policy if exists "alumno ve turnos liberados relevantes" on public.turnos_liberados;
 create policy "alumno ve turnos liberados relevantes"
   on public.turnos_liberados for select
   using (
@@ -203,6 +218,7 @@ create policy "alumno ve turnos liberados relevantes"
     or (tomado_por_id is null and public.fn_alumno_en_sede_de_clase(clase_id))
   );
 
+drop policy if exists "alumno libera su propio turno" on public.turnos_liberados;
 create policy "alumno libera su propio turno"
   on public.turnos_liberados for insert
   with check (
@@ -213,10 +229,12 @@ create policy "alumno libera su propio turno"
     )
   );
 
+drop policy if exists "alumno cancela su propio turno liberado sin tomar" on public.turnos_liberados;
 create policy "alumno cancela su propio turno liberado sin tomar"
   on public.turnos_liberados for delete
   using (alumno_original_id = auth.uid() and tomado_por_id is null);
 
+drop policy if exists "alumno toma un turno liberado de su sede" on public.turnos_liberados;
 create policy "alumno toma un turno liberado de su sede"
   on public.turnos_liberados for update
   using (tomado_por_id is null and public.fn_alumno_en_sede_de_clase(clase_id))
@@ -235,7 +253,7 @@ language sql
 stable
 security definer
 set search_path = public
-as $$
+as $fn_es_mi_alumno$
   select exists (
     select 1
     from public.inscripciones i
@@ -251,7 +269,7 @@ as $$
     where t.tomado_por_id = p_alumno_id
       and c.profesor_id = auth.uid()
   );
-$$;
+$fn_es_mi_alumno$;
 
 -- ---------------------------------------------------------------------------
 -- La alumna confirma su propia asistencia de RECUPERACIÓN: caso aparte del
@@ -260,6 +278,7 @@ $$;
 -- esa clase puntual -- acá, en cambio, exige tener un turno_liberado tomado
 -- para esa misma clase+fecha.
 -- ---------------------------------------------------------------------------
+drop policy if exists "alumno confirma asistencia de recuperacion tomada" on public.asistencias;
 create policy "alumno confirma asistencia de recuperacion tomada"
   on public.asistencias for insert
   with check (
