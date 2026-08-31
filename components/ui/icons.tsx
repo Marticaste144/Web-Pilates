@@ -229,3 +229,21 @@ export function TrendingUpIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function ImageIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.5" fill="currentColor" stroke="none" />
+      <path d="M3 16.5 8.5 11 13 15l3-3 5 4.5" />
+    </svg>
+  );
+}
+
+export function PlayIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M7 5.5v13l11-6.5-11-6.5Z" strokeLinejoin="round" />
+    </svg>
+  );
+}

@@ -5,6 +5,7 @@ import { getCurrentProfile, homePathForRole } from "@/lib/auth/session";
 import { Isotipo } from "@/components/ui/isotipo";
 import { Reveal } from "@/components/landing/reveal";
 import { ProfesoresSection } from "@/components/landing/profesores-section";
+import { GaleriaSection } from "@/components/landing/galeria-section";
 import {
   MapPinIcon,
   UserIcon,
@@ -245,6 +246,9 @@ export default async function Home() {
           </Reveal>
         </div>
       </section>
+
+      {/* ==================== GALERÍA ==================== */}
+      <GaleriaSection />
 
       {/* ==================== PROFESORES ==================== */}
       <ProfesoresSection />
