@@ -465,6 +465,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      feedback_clases: {
+        Row: {
+          id: string;
+          clase_id: string;
+          alumno_id: string;
+          fecha: string;
+          comentario: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          clase_id: string;
+          alumno_id: string;
+          fecha: string;
+          comentario: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          clase_id?: string;
+          alumno_id?: string;
+          fecha?: string;
+          comentario?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       v_estado_cuota_alumno_sede: {

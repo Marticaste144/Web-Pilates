@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { hoyISO, diaSemanaHoy, horaAhoraISO } from "@/lib/fecha";
+import { fechaUltimaOcurrencia } from "@/lib/dias-semana";
 import type { EstadoInscripcion } from "@/types/database";
 
 export type MiInscripcion = {
@@ -19,6 +20,10 @@ export type MiInscripcion = {
   fechaHoy: string | null;
   ventanaConfirmacionAbierta: boolean;
   yaConfirmoHoy: boolean;
+  // Fecha de la última sesión real de esta clase (hoy, si hoy es el día que
+  // dicta) -- es sobre la que la alumna deja feedback ("después de una
+  // clase"), mismo criterio que usa el profesor para tomar asistencia.
+  fechaUltimaClase: string;
 };
 
 function aSegundosDelDia(hora: string): number {
@@ -110,6 +115,7 @@ export async function listarMisInscripciones(): Promise<MiInscripcion[]> {
         fechaHoy: esHoy ? fechaHoy : null,
         ventanaConfirmacionAbierta: esHoy && estaEnVentanaConfirmacion(clase.hora_inicio, clase.hora_fin, horaAhora),
         yaConfirmoHoy: esHoy && confirmadasHoy.has(i.clase_id),
+        fechaUltimaClase: fechaUltimaOcurrencia(clase.dia_semana),
       };
     })
     .filter((i): i is MiInscripcion => i !== null)

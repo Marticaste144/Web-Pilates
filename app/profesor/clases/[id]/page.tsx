@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { obtenerClaseDetalle } from "@/lib/profesor/clases-data";
+import { listarFeedbackDeClase } from "@/lib/profesor/feedback-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { formatearDiaMes } from "@/lib/fecha";
 import { AsistenciaLista } from "@/components/profesor/asistencia-lista";
 import { Alert } from "@/components/ui/alert";
+import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ChevronRightIcon } from "@/components/ui/icons";
 
@@ -28,6 +30,7 @@ export default async function ClaseDetallePage({
     notFound();
   }
   const fecha = clase.fecha;
+  const feedback = await listarFeedbackDeClase(id);
 
   const diaLabel = DIAS_SEMANA.find((d) => d.value === clase.diaSemana)?.label ?? String(clase.diaSemana);
   const diaLabelCapitalizado = diaLabel.charAt(0).toUpperCase() + diaLabel.slice(1);
@@ -73,6 +76,25 @@ export default async function ClaseDetallePage({
           disponibles={clase.disponibles}
         />
       )}
+
+      <Card padded={false}>
+        <h2 className="p-4 pb-0 font-semibold text-neutral-900">Feedback de las alumnas</h2>
+        {feedback.length === 0 ? (
+          <p className="p-4 pt-2 text-sm text-neutral-500">Todavía no dejaron comentarios sobre esta clase.</p>
+        ) : (
+          <div className="flex flex-col divide-y divide-neutral-100">
+            {feedback.map((f) => (
+              <div key={f.id} className="flex flex-col gap-1 p-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <p className="font-medium text-neutral-900">{f.alumnoNombre}</p>
+                  <p className="text-xs text-neutral-400">{formatearDiaMes(f.fecha)}</p>
+                </div>
+                <p className="text-sm text-neutral-600">{f.comentario}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
