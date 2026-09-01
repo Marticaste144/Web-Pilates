@@ -25,10 +25,10 @@ export default async function ArancelesPage() {
       <PageHeader title="Aranceles" />
 
       <ConfiguracionPagosForm
-        recargoMercadopagoPct={configPagos.recargoMercadopagoPct}
         aliasTransferencia={configPagos.aliasTransferencia}
         cbuTransferencia={configPagos.cbuTransferencia}
         titularTransferencia={configPagos.titularTransferencia}
+        aliasMercadopago={configPagos.aliasMercadopago}
       />
 
       <div className="grid gap-4 sm:grid-cols-2">

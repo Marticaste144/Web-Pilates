@@ -70,10 +70,10 @@ export default function LegalPage() {
 
           <h2 className={H2}>4. Pagos</h2>
           <p className={P}>
-            Los pagos de cuota se procesan a través de Mercado Pago. MUV Gimnasia Postural no almacena datos de tarjetas ni
-            medios de pago -- estos son gestionados directamente por Mercado Pago conforme a sus propios términos. También
-            podés abonar en efectivo directamente en el establecimiento, en cuyo caso el pago queda registrado manualmente
-            por el administrador.
+            Los pagos de cuota se realizan por transferencia bancaria (a los datos de cuenta/alias informados dentro de la
+            plataforma) subiendo el comprobante correspondiente, o en efectivo directamente en el establecimiento. En ambos
+            casos el pago lo revisa y confirma manualmente la administración -- no hay ninguna pasarela de pago automática
+            ni se almacenan datos de tarjetas.
           </p>
           <p className={P}>
             Los valores de cuota, su vencimiento y las políticas de mora son las informadas dentro de la plataforma y pueden
@@ -134,8 +134,8 @@ export default function LegalPage() {
             </li>
             <li>
               <strong className="font-semibold text-neutral-900">Datos de pago:</strong> el historial de pagos (monto,
-              fecha, medio) queda registrado en la plataforma; los datos sensibles de la transacción (número de tarjeta,
-              etc.) los procesa y almacena Mercado Pago, no nosotros.
+              fecha, medio) queda registrado en la plataforma. No procesamos ni almacenamos datos de tarjetas: el pago se
+              hace por transferencia o efectivo, y la administración lo confirma a mano.
             </li>
             <li>
               <strong className="font-semibold text-neutral-900">Comprobantes:</strong> si subís un comprobante de pago
@@ -167,9 +167,6 @@ export default function LegalPage() {
             limitada con:
           </p>
           <ul className={UL}>
-            <li>
-              <strong className="font-semibold text-neutral-900">Mercado Pago</strong>, para procesar pagos.
-            </li>
             <li>
               <strong className="font-semibold text-neutral-900">Proveedores de infraestructura técnica</strong> (hosting,
               envío de emails, almacenamiento), que actúan únicamente como proveedores de servicio y no usan tus datos con

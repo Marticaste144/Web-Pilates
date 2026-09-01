@@ -6,14 +6,18 @@ import { createClient } from "@/lib/supabase/server";
 
 export type PagoResult = { ok: boolean; message: string };
 
-// Aprueba a mano un pago ya existente que quedó "pendiente"/"procesando"
-// (ej. nunca confirmó por webhook de Mercado Pago). No hace falta calcular
-// aprobado_en/vencimiento ni escribir pagos_auditoria acá -- lo hacen los
-// triggers trg_pagos_calcular_vencimiento y trg_registrar_auditoria_pago en
-// cuanto estado pasa a 'aprobado'. Pensado para el botón genérico "Aprobar"
-// del panel de Pagos -- para comprobantes de transferencia con estado
-// 'pendiente', ver aprobarComprobante más abajo (no fuerza medio y valida
-// que siga pendiente antes de tocarlo).
+// Aprueba a mano un pago ya existente que quedó "pendiente"/"procesando".
+// No fuerza el medio -- lo deja como ya estaba cargado (antes esto pisaba
+// medio='efectivo' sin condición, lo que podía relabelear mal un pago por
+// transferencia si se usaba este botón genérico en vez del de "Aprobar
+// comprobante"; ahora respeta el medio real de la fila). No hace falta
+// calcular aprobado_en/vencimiento ni escribir pagos_auditoria acá -- lo
+// hacen los triggers trg_pagos_calcular_vencimiento y
+// trg_registrar_auditoria_pago en cuanto estado pasa a 'aprobado'. Pensado
+// para el botón genérico "Aprobar" del panel de Pagos -- para comprobantes
+// de transferencia con estado 'pendiente', ver aprobarComprobante más abajo
+// (mismo criterio de no forzar medio, y valida que siga pendiente antes de
+// tocarlo).
 export async function aprobarPagoEfectivo(pagoId: string, alumnoId: string): Promise<PagoResult> {
   const admin = await requireAdminProfile();
   const supabase = await createClient();
@@ -22,7 +26,6 @@ export async function aprobarPagoEfectivo(pagoId: string, alumnoId: string): Pro
     .from("pagos")
     .update({
       estado: "aprobado",
-      medio: "efectivo",
       marcado_por: admin.id,
       marcado_en: new Date().toISOString(),
     })
@@ -36,19 +39,13 @@ export async function aprobarPagoEfectivo(pagoId: string, alumnoId: string): Pro
   return { ok: true, message: "Pago aprobado." };
 }
 
-// Cubre el caso de un alumno que paga en efectivo en el local -- hasta ahora
-// la única forma de que una cuota pasara a "al día" era el webhook de
-// Mercado Pago. Inserta una fila NUEVA en pagos (mismo criterio que
-// iniciarPagoMercadoPago en lib/alumno/pago-actions.ts: cada pago es una
-// fila propia, nunca se pisa una existente), ya con estado='aprobado' --
-// fn_calcular_vencimiento_pago (paso 2) calcula aprobado_en/vencimiento
-// solo, igual que con cualquier pago que pasa a aprobado, sea cual sea el
-// medio. marcado_por/marcado_en quedan como registro de quién lo marcó y
-// cuándo, para distinguirlo de una aprobación real de Mercado Pago.
-//
-// A propósito NO toca lib/alumno/pago-actions.ts ni el webhook -- este es
-// un camino totalmente aparte, así que no hay riesgo de romper el flujo de
-// Mercado Pago que ya funciona.
+// Cubre el caso de un alumno que paga en efectivo en el local. Inserta una
+// fila NUEVA en pagos (cada pago es una fila propia, nunca se pisa una
+// existente), ya con estado='aprobado' -- fn_calcular_vencimiento_pago
+// (paso 2) calcula aprobado_en/vencimiento solo, igual que con cualquier
+// pago que pasa a aprobado, sea cual sea el
+// medio. marcado_por/marcado_en quedan como registro de quién y cuándo lo
+// marcó pagado manualmente.
 //
 // Dos componentes disparan esta misma operación bajo nombres históricos
 // distintos (MarcarEfectivoButton, en la card "Cuota por sede", y el panel

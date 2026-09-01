@@ -1,36 +1,33 @@
 import { createClient } from "@/lib/supabase/server";
 
-// La fórmula del recargo (calcularRecargoMercadoPago) vive en
-// lib/recargo-mercadopago.ts, NO acá -- ese archivo es una función pura sin
-// imports, así que también lo pueden importar Client Components (ej. la
-// vista previa del formulario de configuración). Si se reexportara desde
-// acá, cualquier import de esa función arrastraría este módulo entero
-// (que depende de next/headers vía lib/supabase/server) y rompería el build
-// apenas se usara desde un componente de cliente.
-
 export type ConfiguracionPagos = {
-  recargoMercadopagoPct: number;
   aliasTransferencia: string | null;
   cbuTransferencia: string | null;
   titularTransferencia: string | null;
+  /** Otro alias/CBU de destino para transferir a mano (ej. cuenta de Mercado Pago) -- no es una integración. */
+  aliasMercadopago: string | null;
 };
 
 const DEFAULT_CONFIG: ConfiguracionPagos = {
-  recargoMercadopagoPct: 0,
   aliasTransferencia: null,
   cbuTransferencia: null,
   titularTransferencia: null,
+  aliasMercadopago: null,
 };
 
 // Fila única (id=true), legible por cualquier autenticado -- ver migración
-// 20260815100000_configuracion_pagos.sql. Si por lo que sea la fila no
-// está (no debería pasar, se siembra en la migración), se cae a "sin
-// recargo" en vez de romper el flujo de pago.
+// 20260815100000_configuracion_pagos.sql (extendida en
+// 20260901150000_datos_transferencia_sin_mercadopago.sql con
+// alias_mercadopago). El pago ya no tiene ningún recargo (se dejó de
+// integrar Mercado Pago): recargo_mercadopago_pct sigue en la base por
+// compatibilidad con pagos históricos, pero no se lee más acá. Si por lo
+// que sea la fila no está (no debería pasar, se siembra en la migración),
+// se cae a "sin datos cargados" en vez de romper el flujo de pago.
 export async function obtenerConfiguracionPagos(): Promise<ConfiguracionPagos> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("configuracion_pagos")
-    .select("recargo_mercadopago_pct, alias_transferencia, cbu_transferencia, titular_transferencia")
+    .select("alias_transferencia, cbu_transferencia, titular_transferencia, alias_mercadopago")
     .eq("id", true)
     .maybeSingle();
 
@@ -41,9 +38,9 @@ export async function obtenerConfiguracionPagos(): Promise<ConfiguracionPagos> {
   if (!data) return DEFAULT_CONFIG;
 
   return {
-    recargoMercadopagoPct: data.recargo_mercadopago_pct,
     aliasTransferencia: data.alias_transferencia,
     cbuTransferencia: data.cbu_transferencia,
     titularTransferencia: data.titular_transferencia,
+    aliasMercadopago: data.alias_mercadopago,
   };
 }

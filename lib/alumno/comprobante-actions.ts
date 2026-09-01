@@ -15,18 +15,15 @@ function extensionDe(nombre: string, tipo: string): string {
 }
 
 // Sube un comprobante (imagen o PDF) como respaldo de una transferencia por
-// alias/CBU -- NO reemplaza al flujo de Mercado Pago (esa cuota se sigue
-// aprobando sola por el webhook) ni pisa nada de lib/alumno/pago-actions.ts,
-// a propósito: es un camino totalmente aparte, para no arriesgar el flujo
-// de pagos que ya funciona.
+// alias/CBU -- es el único camino de pago (junto con efectivo registrado a
+// mano por la admin) desde que se dejó de integrar Mercado Pago.
 //
 // Crea una fila NUEVA en pagos con estado='pendiente' (la RLS "alumno crea
 // su intento de pago" ya permite exactamente esto) y medio='transferencia'
 // -- queda a la vista de la admin, que la revisa y la aprueba o la rechaza
 // (ver aprobarComprobante/rechazarComprobante en lib/admin/pagos-actions.ts).
-// Sin recargo: a diferencia de medio='mercadopago', acá "monto" es
-// exactamente lo que se le pide transferir al alumno (ver
-// lib/configuracion-pagos.ts).
+// "monto" es exactamente lo que se le pide transferir al alumno (ver
+// lib/configuracion-pagos.ts) -- sin recargo.
 //
 // El archivo se sube ANTES de insertar la fila (no al revés): si la subida
 // falla, no queda ninguna fila "pendiente" húerfana sin comprobante -- y el

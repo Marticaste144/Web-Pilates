@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { PagarButton } from "./pagar-button";
 import { SubirComprobanteForm } from "./subir-comprobante-form";
 import { SedeIcon } from "@/components/alumno/sede-icon";
-import { calcularRecargoMercadoPago } from "@/lib/recargo-mercadopago";
 import type { CuotaSedeItem } from "@/lib/alumno/cuota-data";
 import type { ConfiguracionPagos } from "@/lib/configuracion-pagos";
 import { Card } from "@/components/ui/card";
@@ -24,8 +22,12 @@ function formatearFechaHora(fechaIso: string): string {
 
 // Layout de dos columnas (resumen de sedes a la izquierda, detalle de la
 // sede elegida a la derecha) -- selección puramente visual en el cliente,
-// no toca ninguna query ni acción: PagarButton/SubirComprobanteForm son las
-// mismas de siempre, solo se renderiza una a la vez según `selected`.
+// no toca ninguna query ni acción: SubirComprobanteForm es la misma de
+// siempre, solo se renderiza según `selected`.
+//
+// Sin pago automático: el único camino es transferir por fuera de la app
+// (a cualquiera de los destinos de abajo) y subir el comprobante -- la
+// admin lo revisa y confirma o rechaza desde /admin/comprobantes.
 export function CuotaPanel({ cuotas, configPagos }: { cuotas: CuotaSedeItem[]; configPagos: ConfiguracionPagos }) {
   const [selected, setSelected] = useState(
     () => cuotas.find((c) => c.estado !== "al_dia")?.sedeId ?? cuotas[0]?.sedeId ?? "",
@@ -34,13 +36,11 @@ export function CuotaPanel({ cuotas, configPagos }: { cuotas: CuotaSedeItem[]; c
   const activa = cuotas.find((c) => c.sedeId === selected) ?? cuotas[0];
   if (!activa) return null;
 
-  const tieneDatosTransferencia = Boolean(configPagos.aliasTransferencia || configPagos.cbuTransferencia);
+  const tieneDatosTransferencia = Boolean(
+    configPagos.aliasTransferencia || configPagos.cbuTransferencia || configPagos.aliasMercadopago,
+  );
   const label = ESTADO_LABEL[activa.estado];
   const puedePagar = activa.estado !== "al_dia";
-  const recargo = activa.precioActual
-    ? calcularRecargoMercadoPago(activa.precioActual, configPagos.recargoMercadopagoPct)
-    : 0;
-  const montoConRecargo = (activa.precioActual ?? 0) + recargo;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,280px)_1fr] lg:items-start">
@@ -96,37 +96,43 @@ export function CuotaPanel({ cuotas, configPagos }: { cuotas: CuotaSedeItem[]; c
         {activa.transferenciaPendiente && (
           <Alert variant="warning">
             Ya subiste un comprobante por ${activa.transferenciaPendiente.monto.toLocaleString("es-AR")} el{" "}
-            {formatearFechaHora(activa.transferenciaPendiente.createdAt)} -- está pendiente de que la administración
-            lo revise. Todavía no hace falta que subas otro.
+            {formatearFechaHora(activa.transferenciaPendiente.createdAt)} -- pendiente de verificación por la
+            administración. Todavía no hace falta que subas otro.
+          </Alert>
+        )}
+
+        {!activa.transferenciaPendiente && activa.ultimoRechazo && (
+          <Alert variant="error">
+            Tu comprobante por ${activa.ultimoRechazo.monto.toLocaleString("es-AR")} del{" "}
+            {formatearFechaHora(activa.ultimoRechazo.createdAt)} fue rechazado. Revisá el monto/destino y subí un
+            comprobante nuevo.
           </Alert>
         )}
 
         {puedePagar &&
+          !activa.transferenciaPendiente &&
           (activa.precioActual === null ? (
             <p className="border-t border-neutral-100 pt-3 text-sm text-error-600">
               No hay un arancel definido para tu frecuencia en esta sede todavía -- contactá a la administración.
             </p>
           ) : (
             <div className="flex flex-col gap-3 border-t border-neutral-100 pt-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm text-neutral-600">
-                  Pagar con Mercado Pago:{" "}
-                  <span className="font-medium text-neutral-900">${montoConRecargo.toLocaleString("es-AR")}</span>{" "}
-                  <span className="text-xs text-neutral-400">(incluye recargo)</span>
-                </p>
-                <PagarButton sedeId={activa.sedeId} montoConRecargo={montoConRecargo} />
-              </div>
-
               <div className="rounded-xl bg-neutral-50 p-3">
                 <p className="text-sm font-medium text-neutral-900">
-                  Transferir por alias/CBU: ${activa.precioActual.toLocaleString("es-AR")}{" "}
-                  <span className="text-xs font-normal text-neutral-400">(sin recargo)</span>
+                  Transferir: ${activa.precioActual.toLocaleString("es-AR")}
                 </p>
                 {tieneDatosTransferencia ? (
                   <div className="mt-1.5 flex flex-col gap-0.5 text-xs text-neutral-600">
+                    {configPagos.titularTransferencia && (
+                      <p>
+                        Titular:{" "}
+                        <span className="font-medium text-neutral-800">{configPagos.titularTransferencia}</span>
+                      </p>
+                    )}
                     {configPagos.aliasTransferencia && (
                       <p>
-                        Alias: <span className="font-medium text-neutral-800">{configPagos.aliasTransferencia}</span>
+                        Cuenta DNI / Alias:{" "}
+                        <span className="font-medium text-neutral-800">{configPagos.aliasTransferencia}</span>
                       </p>
                     )}
                     {configPagos.cbuTransferencia && (
@@ -134,10 +140,10 @@ export function CuotaPanel({ cuotas, configPagos }: { cuotas: CuotaSedeItem[]; c
                         CBU: <span className="font-medium text-neutral-800">{configPagos.cbuTransferencia}</span>
                       </p>
                     )}
-                    {configPagos.titularTransferencia && (
+                    {configPagos.aliasMercadopago && (
                       <p>
-                        Titular:{" "}
-                        <span className="font-medium text-neutral-800">{configPagos.titularTransferencia}</span>
+                        Mercado Pago / Alias:{" "}
+                        <span className="font-medium text-neutral-800">{configPagos.aliasMercadopago}</span>
                       </p>
                     )}
                   </div>

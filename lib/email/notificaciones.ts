@@ -194,45 +194,6 @@ export async function notificarInvitacionProfesor(params: {
   });
 }
 
-// Alerta operativa: el webhook de Mercado Pago falló (firma inválida, no se
-// pudo consultar el pago, o no se pudo actualizar la base). Sin esto, nadie
-// se entera hasta que un alumno se queja de que su cuota no se actualizó --
-// ver el dedupe por mp_data_id en app/api/mercadopago/webhook/route.ts (esta
-// función se llama una sola vez por data.id, no en cada reintento de MP).
-const ALERT_EMAIL = (process.env.ALERT_EMAIL || "castellanimartina3@gmail.com").trim();
-
-export async function notificarFalloWebhookMercadoPago(params: {
-  dataId: string;
-  tipoError: string;
-  detalle: string;
-}): Promise<void> {
-  const html = plantillaBase(
-    "Alerta: webhook de Mercado Pago",
-    `
-      <h1 style="font-size: 18px; margin: 0 0 12px;">El webhook de Mercado Pago falló</h1>
-      <p style="font-size: 14px; line-height: 1.5; margin: 0 0 8px;">
-        <strong>Payment id:</strong> ${params.dataId}<br />
-        <strong>Tipo de error:</strong> ${params.tipoError}<br />
-        <strong>Hora:</strong> ${new Date().toLocaleString("es-AR")}
-      </p>
-      <p style="font-size: 13px; line-height: 1.5; margin: 0; color: #64748b;">
-        ${params.detalle}
-      </p>
-      <p style="font-size: 12px; color: #94a3b8; margin: 16px 0 0;">
-        Este es el único aviso para este payment id -- si Mercado Pago reintenta la misma notificación, no se
-        vuelve a mandar otro email. Revisá los logs de Vercel para más detalle.
-      </p>
-    `,
-  );
-
-  await enviarEmail({
-    contexto: "webhook-mercadopago-fallo",
-    to: ALERT_EMAIL,
-    subject: `Webhook de Mercado Pago falló (${params.tipoError})`,
-    html,
-  });
-}
-
 // Caso 3: la admin publica un aviso -- se manda a todos los alumnos y
 // profesores afectados de una sola vez. Se manda con resend.batch.send
 // (hasta 100 emails por llamada, cada uno con su propio "to" -- nadie ve la

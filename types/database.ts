@@ -142,10 +142,13 @@ export type Database = {
       configuracion_pagos: {
         Row: {
           id: boolean;
+          /** Ya no se usa (se dejó de integrar Mercado Pago) -- queda por compatibilidad con pagos históricos. */
           recargo_mercadopago_pct: number;
           alias_transferencia: string | null;
           cbu_transferencia: string | null;
           titular_transferencia: string | null;
+          /** Otro alias/CBU de destino para transferir a mano (ej. cuenta de Mercado Pago) -- no es una integración. */
+          alias_mercadopago: string | null;
           updated_at: string;
         };
         Insert: {
@@ -154,6 +157,7 @@ export type Database = {
           alias_transferencia?: string | null;
           cbu_transferencia?: string | null;
           titular_transferencia?: string | null;
+          alias_mercadopago?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -162,6 +166,7 @@ export type Database = {
           alias_transferencia?: string | null;
           cbu_transferencia?: string | null;
           titular_transferencia?: string | null;
+          alias_mercadopago?: string | null;
           updated_at?: string;
         };
         Relationships: [];

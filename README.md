@@ -2142,6 +2142,42 @@ aparece en la consulta de "pendientes", rechazarlo como admin autenticado
    nada de mi parte, ya podés cargarlos vos mismo desde
    `/admin/aranceles` apenas corras las migraciones.
 
+## Paso 18: se deja de usar Mercado Pago -- transferencia + comprobante como único flujo de pago
+
+MUV decidió no usar integración automática, checkout ni API de Mercado
+Pago -- el pago pasa a ser **transferencia** (con comprobante, revisado a
+mano por la admin) o **efectivo**, apoyado en la estructura de
+comprobantes/`configuracion_pagos` que ya existía desde el paso 17 (no se
+duplicó nada nuevo, se adaptó lo que ya estaba).
+
+Se eliminó del código: `lib/mercadopago/client.ts`, `lib/recargo-mercadopago.ts`,
+`lib/alumno/pago-actions.ts` (`iniciarPagoMercadoPago`), `app/alumno/cuota/pagar-button.tsx`,
+`app/api/mercadopago/webhook/route.ts`, `app/api/mercadopago/debug-secret/route.ts`,
+la función `notificarFalloWebhookMercadoPago` (`lib/email/notificaciones.ts`) y la
+dependencia `mercadopago` de `package.json`. La columna
+`pagos.recargo_mercadopago`, el valor `'mercadopago'` de `medio_pago` y la
+tabla `webhook_alertas_enviadas` NO se borraron -- son historial de pagos
+viejos, simplemente ningún flujo nuevo los usa.
+
+`configuracion_pagos` sumó una columna (`alias_mercadopago`): es **otro
+alias más al que transferir a mano**, no una integración -- junto con
+alias/CBU/titular, son los 3 datos que ve el alumno en "Mi cuota" para
+transferir por fuera de la app y después subir el comprobante. Se
+precargaron los datos reales (titular, alias, alias de Mercado Pago como
+destino) vía migración, editables después desde `/admin/aranceles`.
+
+De paso se corrigió un bug preexistente en `aprobarPagoEfectivo`
+(`lib/admin/pagos-actions.ts`): forzaba `medio='efectivo'` en cualquier pago
+que aprobara por ese botón genérico, lo que podía relabelear mal un pago
+por transferencia si se usaba ese botón en vez del de "Aprobar comprobante".
+Ahora respeta el medio real de la fila.
+
+Variables de entorno que ya no hacen falta (se sacaron de
+`.env.local.example`): `MERCADOPAGO_ACCESS_TOKEN`,
+`NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY`, `MERCADOPAGO_WEBHOOK_SECRET`,
+`MERCADOPAGO_DEBUG_TOKEN`, `ALERT_EMAIL` -- se pueden borrar de Vercel
+cuando quieras, no rompen nada si quedan (simplemente no las lee nadie).
+
 ## Deploy
 
 Pensado para desplegar en [Vercel](https://vercel.com). Las env vars de
