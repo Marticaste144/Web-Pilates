@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType, SVGProps } from "react";
 import { Isotipo } from "@/components/ui/isotipo";
-import { HomeIcon, CalendarIcon, ListIcon, WalletIcon, ClockIcon } from "@/components/ui/icons";
+import { HomeIcon, CalendarIcon, ListIcon, WalletIcon } from "@/components/ui/icons";
 
 type NavLink = {
   href: string;
@@ -16,7 +16,6 @@ const LINKS: NavLink[] = [
   { href: "/alumno", label: "Inicio", icon: HomeIcon },
   { href: "/alumno/clases", label: "Clases", icon: CalendarIcon },
   { href: "/alumno/inscripciones", label: "Mis clases", icon: ListIcon },
-  { href: "/alumno/recuperar", label: "Recuperar", icon: ClockIcon },
   { href: "/alumno/cuota", label: "Mi cuota", icon: WalletIcon },
 ];
 

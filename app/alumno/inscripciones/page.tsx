@@ -3,7 +3,6 @@ import { SedeIcon } from "@/components/alumno/sede-icon";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { BajaButton } from "./baja-button";
 import { ConfirmarAsistenciaButton } from "./confirmar-asistencia-button";
-import { LiberarTurnoButton } from "./liberar-turno-button";
 import { FeedbackForm } from "./feedback-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
@@ -63,16 +62,6 @@ export default async function MisInscripcionesPage() {
                       </span>
                     )
                   )}
-                  {i.estado === "activa" &&
-                    i.esHoy &&
-                    !i.yaConfirmoHoy &&
-                    (i.puedeLiberarHoy || i.turnoLiberadoHoyId) && (
-                      <LiberarTurnoButton
-                        claseId={i.claseId}
-                        fecha={i.fechaHoy ?? ""}
-                        turnoLiberadoId={i.turnoLiberadoHoyId}
-                      />
-                    )}
                   <BajaButton inscripcionId={i.id} />
                 </div>
               </div>
