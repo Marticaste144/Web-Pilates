@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fotoEstaticaDeProfesor } from "@/lib/landing/profesores-fotos-estaticas";
 
 export type ProfesorListItem = {
   profileId: string;
@@ -42,7 +43,9 @@ export async function listarProfesores(): Promise<ProfesorListItem[]> {
         apellido: perfil.apellido,
         email: perfil.email,
         telefono: perfil.telefono,
-        fotoUrl: p.foto_url ? supabase.storage.from("profesores").getPublicUrl(p.foto_url).data.publicUrl : null,
+        fotoUrl: p.foto_url
+          ? supabase.storage.from("profesores").getPublicUrl(p.foto_url).data.publicUrl
+          : fotoEstaticaDeProfesor(perfil.nombre),
       };
     })
     .filter((item): item is ProfesorListItem => item !== null);
@@ -78,6 +81,6 @@ export async function obtenerProfesor(profileId: string): Promise<ProfesorListIt
     telefono: perfil.telefono,
     fotoUrl: profesor.foto_url
       ? supabase.storage.from("profesores").getPublicUrl(profesor.foto_url).data.publicUrl
-      : null,
+      : fotoEstaticaDeProfesor(perfil.nombre),
   };
 }

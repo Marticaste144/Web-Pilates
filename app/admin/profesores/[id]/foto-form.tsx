@@ -24,12 +24,12 @@ export function FotoProfesorForm({ profileId, fotoUrl }: { profileId: string; fo
       <input type="hidden" name="profile_id" value={profileId} />
 
       <div className="flex items-center gap-4">
-        <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-neutral-100 text-neutral-400">
+        <span className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-primary-100 to-primary-50 text-primary-300 shadow-sm ring-1 ring-black/5">
           {fotoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- URL de Storage externa/dinámica, no un asset local de /public.
             <img src={fotoUrl} alt="" className="h-full w-full object-cover" />
           ) : (
-            <UserIcon className="h-7 w-7" />
+            <UserIcon className="h-8 w-8" />
           )}
         </span>
         <input

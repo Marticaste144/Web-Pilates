@@ -4,6 +4,7 @@ import { InvitarProfesorForm } from "./invitar-form";
 import { ToggleActivoButton } from "./toggle-activo-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
+import { UserIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -39,8 +40,20 @@ export default async function ProfesoresPage() {
             )}
             {profesores.map((p) => (
               <tr key={p.profileId} className="border-t border-neutral-100">
-                <td className="px-4 py-3 font-medium text-neutral-900">
-                  {p.nombre} {p.apellido}
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-50 text-primary-300 ring-1 ring-black/5">
+                      {p.fotoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- URL de Storage/estática dinámica.
+                        <img src={p.fotoUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <UserIcon className="h-4.5 w-4.5" />
+                      )}
+                    </span>
+                    <span className="font-medium text-neutral-900">
+                      {p.nombre} {p.apellido}
+                    </span>
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-neutral-600">{p.email}</td>
                 <td className="px-4 py-3 text-neutral-600">{p.telefono ?? "-"}</td>

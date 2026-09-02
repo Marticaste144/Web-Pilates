@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fotoEstaticaDeProfesor } from "./profesores-fotos-estaticas";
 
 export type ProfesorPublico = {
   id: string;
@@ -11,7 +12,10 @@ export type ProfesorPublico = {
 // ya filtra "activo" y solo expone nombre/apellido/foto (ver migración
 // 20260901090000_profesores_foto_publica.sql). foto_url guarda un PATH del
 // bucket "profesores" (público), no una URL -- getPublicUrl solo arma el
-// string, no hace ningún request de red.
+// string, no hace ningún request de red. Si todavía no se subió ninguna foto
+// desde Admin, se usa como fallback la foto real estática de /public que
+// coincida por nombre (BLOQUE VISUAL) -- esa subida sigue ganando siempre
+// que exista.
 export async function listarProfesoresPublicos(): Promise<ProfesorPublico[]> {
   const supabase = await createClient();
 
@@ -26,6 +30,8 @@ export async function listarProfesoresPublicos(): Promise<ProfesorPublico[]> {
     id: p.id,
     nombre: p.nombre,
     apellido: p.apellido,
-    fotoUrl: p.foto_url ? supabase.storage.from("profesores").getPublicUrl(p.foto_url).data.publicUrl : null,
+    fotoUrl: p.foto_url
+      ? supabase.storage.from("profesores").getPublicUrl(p.foto_url).data.publicUrl
+      : fotoEstaticaDeProfesor(p.nombre),
   }));
 }
