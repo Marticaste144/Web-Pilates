@@ -8,8 +8,10 @@ import {
   listarNotasEvolucion,
   listarClasesDelAlumnoParaEvolucion,
 } from "@/lib/fichas-evaluacion-data";
+import { obtenerLineaDeTiempo } from "@/lib/seguimiento-data";
 import { FichaForm } from "@/components/fichas-evaluacion/ficha-form";
 import { NotasEvolucion } from "@/components/fichas-evaluacion/notas-evolucion";
+import { LineaDeTiempo } from "@/components/fichas-evaluacion/linea-de-tiempo";
 import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { ChevronRightIcon } from "@/components/ui/icons";
@@ -25,13 +27,14 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: perfil }, ficha, pruebas, sedes, notas, clasesParaEvolucion] = await Promise.all([
+  const [{ data: perfil }, ficha, pruebas, sedes, notas, clasesParaEvolucion, lineaDeTiempo] = await Promise.all([
     supabase.from("profiles").select("nombre, apellido, email, telefono").eq("id", id).eq("role", "alumno").single(),
     obtenerFicha(id),
     obtenerPruebasFuncionalesIniciales(id),
     listarSedesParaFicha(),
     listarNotasEvolucion(id),
     listarClasesDelAlumnoParaEvolucion(id),
+    obtenerLineaDeTiempo(id),
   ]);
 
   if (!perfil) {
@@ -69,6 +72,11 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
       <Card>
         <h2 className="mb-3 font-semibold text-neutral-900">Evolución</h2>
         <NotasEvolucion alumnoId={id} notas={notas} clases={clasesParaEvolucion} />
+      </Card>
+
+      <Card>
+        <h2 className="mb-3 font-semibold text-neutral-900">Línea de tiempo</h2>
+        <LineaDeTiempo items={lineaDeTiempo} />
       </Card>
     </div>
   );

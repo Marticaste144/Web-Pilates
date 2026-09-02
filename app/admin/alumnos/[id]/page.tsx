@@ -8,12 +8,14 @@ import {
   listarNotasEvolucion,
   listarClasesDelAlumnoParaEvolucion,
 } from "@/lib/fichas-evaluacion-data";
+import { obtenerLineaDeTiempo } from "@/lib/seguimiento-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { MarcarEfectivoButton } from "./marcar-efectivo-button";
 import { AprobarComprobanteButton } from "./aprobar-comprobante-button";
 import { RechazarComprobanteButton } from "./rechazar-comprobante-button";
 import { FichaForm } from "@/components/fichas-evaluacion/ficha-form";
 import { NotasEvolucion } from "@/components/fichas-evaluacion/notas-evolucion";
+import { LineaDeTiempo } from "@/components/fichas-evaluacion/linea-de-tiempo";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
@@ -62,13 +64,14 @@ export default async function AlumnoDetallePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [alumno, ficha, pruebas, sedes, notas, clasesParaEvolucion] = await Promise.all([
+  const [alumno, ficha, pruebas, sedes, notas, clasesParaEvolucion, lineaDeTiempo] = await Promise.all([
     obtenerAlumno(id),
     obtenerFicha(id),
     obtenerPruebasFuncionalesIniciales(id),
     listarSedesParaFicha(),
     listarNotasEvolucion(id),
     listarClasesDelAlumnoParaEvolucion(id),
+    obtenerLineaDeTiempo(id),
   ]);
 
   if (!alumno) {
@@ -180,6 +183,11 @@ export default async function AlumnoDetallePage({
       <Card>
         <h2 className="mb-3 font-semibold text-neutral-900">Evolución</h2>
         <NotasEvolucion alumnoId={alumno.profileId} notas={notas} clases={clasesParaEvolucion} />
+      </Card>
+
+      <Card>
+        <h2 className="mb-3 font-semibold text-neutral-900">Línea de tiempo</h2>
+        <LineaDeTiempo items={lineaDeTiempo} />
       </Card>
 
       <div className="flex flex-col gap-3">
