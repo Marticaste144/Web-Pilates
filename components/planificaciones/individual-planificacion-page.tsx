@@ -6,6 +6,8 @@ import { crearPlanificacionIndividual } from "@/lib/planificaciones-actions";
 import { MetadataPanel } from "./metadata-panel";
 import { PlanificacionView } from "./planificacion-view";
 import { CrearPlanificacionForm } from "./crear-planificacion-form";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Alert } from "@/components/ui/alert";
 import { ChevronRightIcon } from "@/components/ui/icons";
 
 // Compartido entre /profesor/alumnas/[id]/planificacion y
@@ -14,17 +16,21 @@ import { ChevronRightIcon } from "@/components/ui/icons";
 //
 // `embedded` la usa el perfil del profesor (Bloque 4) para incrustar esto
 // como una tab más, sin repetir el encabezado "Volver"/título de la página
-// contenedora.
+// contenedora. `readOnly` la usa el mismo perfil cuando quien mira es un
+// suplente: puede VER la planificación pero no crearla/tocarla -- ver
+// migración de suplencias, RLS ya lo bloquea también del lado de la base.
 export async function IndividualPlanificacionPage({
   alumnoId,
   volverHref,
   historialHref,
   embedded = false,
+  readOnly = false,
 }: {
   alumnoId: string;
   volverHref: string;
   historialHref: string;
   embedded?: boolean;
+  readOnly?: boolean;
 }) {
   const supabase = await createClient();
   const [{ data: perfil }, plan] = await Promise.all([
@@ -50,12 +56,20 @@ export async function IndividualPlanificacionPage({
         </div>
       )}
 
+      {readOnly && (
+        <Alert variant="info">Estás viendo esta planificación por una suplencia activa -- podés consultarla, pero no editarla.</Alert>
+      )}
+
       {!plan ? (
-        <CrearPlanificacionForm crear={crearPlanificacionIndividual.bind(null, alumnoId)} tipoLabel="para este alumno" />
+        readOnly ? (
+          <EmptyState title="Todavía no hay una planificación cargada" description="El profesor titular todavía no cargó ninguna." />
+        ) : (
+          <CrearPlanificacionForm crear={crearPlanificacionIndividual.bind(null, alumnoId)} tipoLabel="para este alumno" />
+        )
       ) : (
         <>
-          <MetadataPanel plan={plan} readOnly={false} historialHref={historialHref} />
-          <PlanificacionView plan={plan} readOnly={false} />
+          <MetadataPanel plan={plan} readOnly={readOnly} historialHref={historialHref} />
+          <PlanificacionView plan={plan} readOnly={readOnly} />
         </>
       )}
     </div>

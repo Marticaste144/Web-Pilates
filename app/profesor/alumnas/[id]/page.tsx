@@ -10,7 +10,7 @@ import {
 } from "@/lib/fichas-evaluacion-data";
 import { obtenerLineaDeTiempo } from "@/lib/seguimiento-data";
 import { alumnoUsaPlanificacion } from "@/lib/planificaciones-data";
-import { obtenerClasesDeAlumnaParaResumen } from "@/lib/profesor/alumnas-data";
+import { obtenerClasesDeAlumnaParaResumen, esAlumnaPropiaDelProfesor } from "@/lib/profesor/alumnas-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { FichaForm } from "@/components/fichas-evaluacion/ficha-form";
 import { NotasEvolucion } from "@/components/fichas-evaluacion/notas-evolucion";
@@ -18,6 +18,7 @@ import { LineaDeTiempo } from "@/components/fichas-evaluacion/linea-de-tiempo";
 import { IndividualPlanificacionPage } from "@/components/planificaciones/individual-planificacion-page";
 import { PerfilAlumnoTabs } from "@/components/profesor/perfil-alumno-tabs";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { ChevronRightIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +50,7 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
     lineaDeTiempo,
     clasesResumen,
     mostrarPlanificacion,
+    esPropia,
   ] = await Promise.all([
     supabase.from("profiles").select("nombre, apellido, email, telefono").eq("id", id).eq("role", "alumno").single(),
     obtenerFicha(id),
@@ -59,12 +61,14 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
     obtenerLineaDeTiempo(id),
     obtenerClasesDeAlumnaParaResumen(id),
     alumnoUsaPlanificacion(id),
+    esAlumnaPropiaDelProfesor(id),
   ]);
 
   if (!perfil) {
     notFound();
   }
 
+  const esSuplencia = !esPropia;
   const ultimaEvolucion = notas[0] ?? null;
 
   const resumenContent = (
@@ -141,6 +145,7 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
       volverHref={`/profesor/alumnas/${id}`}
       historialHref={`/profesor/alumnas/${id}/planificacion/historial`}
       embedded
+      readOnly={esSuplencia}
     />
   );
 
@@ -171,8 +176,9 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
           <ChevronRightIcon className="h-3.5 w-3.5 rotate-180" />
           Volver
         </Link>
-        <h1 className="mt-2 text-xl font-bold text-neutral-900 sm:text-2xl">
+        <h1 className="mt-2 flex flex-wrap items-center gap-2 text-xl font-bold text-neutral-900 sm:text-2xl">
           {perfil.nombre} {perfil.apellido}
+          {esSuplencia && <Badge variant="info">Suplencia</Badge>}
         </h1>
         <p className="text-sm text-neutral-500">
           {perfil.email}

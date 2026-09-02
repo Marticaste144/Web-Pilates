@@ -145,3 +145,33 @@ export async function obtenerClasesDeAlumnaParaResumen(alumnoId: string): Promis
     }))
     .sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio));
 }
+
+// ¿Esta alumna está inscripta en alguna clase PROPIA del profesor logueado
+// (sin contar suplencia)? Si no, pero igual es visible (porque la RLS la
+// deja ver por una suplencia activa), el perfil se abre en modo "acceso por
+// suplencia": evaluación/evolución siguen editables (fn_es_mi_alumno ya lo
+// permite), pero la planificación se muestra de solo lectura.
+export async function esAlumnaPropiaDelProfesor(alumnoId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { data: inscripciones } = await supabase
+    .from("inscripciones")
+    .select("clase_id")
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "activa");
+
+  const claseIds = [...new Set((inscripciones ?? []).map((i) => i.clase_id))];
+  if (claseIds.length === 0) return false;
+
+  const { count } = await supabase
+    .from("clases")
+    .select("id", { count: "exact", head: true })
+    .in("id", claseIds)
+    .eq("profesor_id", user.id);
+
+  return (count ?? 0) > 0;
+}

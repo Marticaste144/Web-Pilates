@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 import { obtenerClaseDetalle } from "@/lib/profesor/clases-data";
 import { listarFeedbackDeClase } from "@/lib/profesor/feedback-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
@@ -8,6 +9,7 @@ import { AsistenciaLista } from "@/components/profesor/asistencia-lista";
 import { FechaPicker } from "./fecha-picker";
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LinkButton } from "@/components/ui/button";
 import { ChevronRightIcon } from "@/components/ui/icons";
@@ -27,12 +29,18 @@ export default async function ClaseDetallePage({
   // Sin ?fecha= en la URL, obtenerClaseDetalle resuelve la fecha por
   // defecto a la última ocurrencia real del día que dicta esta clase (no a
   // "hoy" a secas) -- ver fechaUltimaOcurrencia en lib/dias-semana.ts.
-  const clase = await obtenerClaseDetalle(id, fechaParam);
+  const [clase, supabase] = await Promise.all([obtenerClaseDetalle(id, fechaParam), createClient()]);
   if (!clase) {
     notFound();
   }
   const fecha = clase.fecha;
-  const feedback = await listarFeedbackDeClase(id);
+  const [feedback, { data: userData }] = await Promise.all([listarFeedbackDeClase(id), supabase.auth.getUser()]);
+
+  // Suplencia = estoy viendo una clase que no es mía (la RLS ya me dejó
+  // pasar porque la estoy cubriendo -- ver fn_es_suplente_de). Solo cambia
+  // la Planificación (se muestra de solo lectura); asistencia/ficha/
+  // evolución siguen totalmente editables durante la suplencia.
+  const esSuplencia = clase.profesorId !== userData.user?.id;
 
   const diaLabel = DIAS_SEMANA.find((d) => d.value === clase.diaSemana)?.label ?? String(clase.diaSemana);
   const diaLabelCapitalizado = diaLabel.charAt(0).toUpperCase() + diaLabel.slice(1);
@@ -51,9 +59,10 @@ export default async function ClaseDetallePage({
           <ChevronRightIcon className="h-3.5 w-3.5 rotate-180" />
           Volver
         </Link>
-        <h1 className="mt-2 text-xl font-bold text-neutral-900 sm:text-2xl">
+        <h1 className="mt-2 flex flex-wrap items-center gap-2 text-xl font-bold text-neutral-900 sm:text-2xl">
           {clase.sedeNombre}
           {clase.actividadNombre ? ` -- ${clase.actividadNombre}` : ""}
+          {esSuplencia && <Badge variant="info">Suplencia</Badge>}
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
           {diaLabelCapitalizado} {formatearDiaMes(fecha)} • {clase.horaInicio.slice(0, 5)} -{" "}
