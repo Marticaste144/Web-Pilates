@@ -5,6 +5,7 @@ import { listarFeedbackDeClase } from "@/lib/profesor/feedback-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { formatearDiaMes } from "@/lib/fecha";
 import { AsistenciaLista } from "@/components/profesor/asistencia-lista";
+import { FechaPicker } from "./fecha-picker";
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -36,6 +37,10 @@ export default async function ClaseDetallePage({
   const diaLabel = DIAS_SEMANA.find((d) => d.value === clase.diaSemana)?.label ?? String(clase.diaSemana);
   const diaLabelCapitalizado = diaLabel.charAt(0).toUpperCase() + diaLabel.slice(1);
 
+  // Pilates no usa planificación (confirmado con Sabina) -- se decide por la
+  // actividad real de la clase, no por quién la dicta.
+  const mostrarPlanificacion = clase.actividadNombre !== "Pilates";
+
   return (
     <div className="flex flex-col gap-4 py-4 sm:gap-5 sm:py-5">
       <div>
@@ -55,9 +60,12 @@ export default async function ClaseDetallePage({
           {clase.horaFin.slice(0, 5)} • {clase.totalInscriptos} de {clase.cupo} alumnas
           {clase.modalidad ? ` • ${clase.modalidad === "grupal" ? "Grupal" : "Personalizada"}` : ""}
         </p>
+        <div className="mt-3">
+          <FechaPicker fecha={fecha} />
+        </div>
       </div>
 
-      {clase.modalidad === "grupal" && (
+      {clase.modalidad === "grupal" && mostrarPlanificacion && (
         <LinkButton href={`/profesor/clases/${clase.id}/planificacion`} variant="secondary" className="self-start">
           Ver planificación grupal
         </LinkButton>
@@ -70,7 +78,7 @@ export default async function ClaseDetallePage({
         </Alert>
       )}
 
-      {clase.confirmados.length === 0 && clase.disponibles.length === 0 && clase.alumnosNoVisibles === 0 ? (
+      {clase.roster.length === 0 && clase.alumnosNoVisibles === 0 ? (
         <EmptyState
           title="Todavía no hay alumnas anotadas en esta clase"
           description="En cuanto alguien se anote, va a aparecer acá."
@@ -79,13 +87,7 @@ export default async function ClaseDetallePage({
         // key incluye fecha a propósito: al entrar con otra ?fecha= (ej.
         // desde un link viejo), remonta la lista entera para no arrastrar
         // en memoria el estado de presente/ausente de otra fecha.
-        <AsistenciaLista
-          key={fecha}
-          claseId={clase.id}
-          fecha={fecha}
-          confirmados={clase.confirmados}
-          disponibles={clase.disponibles}
-        />
+        <AsistenciaLista key={fecha} claseId={clase.id} fecha={fecha} roster={clase.roster} />
       )}
 
       <Card padded={false}>

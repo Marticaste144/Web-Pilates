@@ -10,17 +10,28 @@ export type AsistenciaResult = { ok: boolean; message: string };
 // mostrarse (ej. "El alumno tiene la cuota vencida..."). "Ausente" nunca
 // se bloquea por eso.
 //
-// Se marca por asistenciaId (no por alumno_id+clase+fecha) porque una fila
-// puede ser de alguien "no_registrado" (alumno_id null) -- el id de la fila
-// es lo único que identifica esos casos de forma unívoca.
+// El profesor no tiene que "agregar" a nadie antes de poder marcarle
+// presente/ausente: si la fila de asistencia todavía no existe para esta
+// alumna/fecha (asistenciaId null), se crea en el mismo paso (upsert por
+// clase+alumno+fecha, único en la base). Si ya existe -- incluidas las filas
+// "no_registrado" de alguien agregado a mano, que no tienen alumno_id -- se
+// actualiza por su id, el único identificador unívoco en ese caso.
 export async function marcarAsistencia(
   claseId: string,
-  asistenciaId: string,
+  fecha: string,
+  alumnoId: string | null,
+  asistenciaId: string | null,
   estado: "presente" | "ausente",
 ): Promise<AsistenciaResult> {
   const supabase = await createClient();
 
-  const { error } = await supabase.from("asistencias").update({ estado }).eq("id", asistenciaId);
+  const { error } = asistenciaId
+    ? await supabase.from("asistencias").update({ estado }).eq("id", asistenciaId)
+    : alumnoId
+      ? await supabase
+          .from("asistencias")
+          .upsert({ clase_id: claseId, alumno_id: alumnoId, fecha, estado }, { onConflict: "clase_id,alumno_id,fecha" })
+      : { error: { message: "No se pudo identificar a quién marcar." } };
 
   if (error) {
     return { ok: false, message: error.message };
@@ -30,32 +41,9 @@ export async function marcarAsistencia(
   return { ok: true, message: estado === "presente" ? "Marcado/a presente." : "Marcado/a ausente." };
 }
 
-// Caso (a) del alta manual: alumna de la propia clase (inscripta ahí) que se
-// olvidó de confirmar 1hs antes. Se crea la fila de asistencia (sin estado
-// todavía) para que pase a la lista y el profesor pueda marcarle
-// presente/ausente igual que a las que sí confirmaron.
-export async function agregarAlumnoRoster(claseId: string, alumnoId: string, fecha: string): Promise<AsistenciaResult> {
-  const supabase = await createClient();
-
-  const { error } = await supabase.from("asistencias").insert({
-    clase_id: claseId,
-    alumno_id: alumnoId,
-    fecha,
-    agregado_manualmente: true,
-  });
-
-  if (error) {
-    return { ok: false, message: error.message };
-  }
-
-  revalidatePath(`/profesor/clases/${claseId}`);
-  return { ok: true, message: "Alumna agregada a la lista." };
-}
-
-// Caso (b) del alta manual: alguien de recuperación que NO pertenece a esta
-// clase/sede (no debería pasar, pero el profesor necesita poder registrarlo
-// si sucede). Sin alumno_id -- queda identificado como "agregado
-// manualmente / no registrado" con los datos sueltos que cargue el profesor.
+// Alguien que no pertenece al roster de esta clase (ej. una alumna de otra
+// sede/turno que viene puntualmente) -- sin alumno_id, con los datos sueltos
+// que cargue el profesor, para que la asistencia quede registrada igual.
 export async function agregarAlumnoNoRegistrado(
   claseId: string,
   fecha: string,
@@ -86,5 +74,5 @@ export async function agregarAlumnoNoRegistrado(
   }
 
   revalidatePath(`/profesor/clases/${claseId}`);
-  return { ok: true, message: "Alumna de recuperación agregada a la lista." };
+  return { ok: true, message: "Agregada a la lista." };
 }
