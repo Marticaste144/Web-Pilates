@@ -11,7 +11,15 @@ import { ChevronRightIcon } from "@/components/ui/icons";
 // Compartido entre /profesor/alumnas/[id]/planificacion y
 // /admin/alumnos/[id]/planificacion -- la RLS decide sola qué puede ver/
 // tocar cada rol, acá no hace falta duplicar esa lógica por vista.
-export async function IndividualPlanificacionPage({ alumnoId, volverHref }: { alumnoId: string; volverHref: string }) {
+export async function IndividualPlanificacionPage({
+  alumnoId,
+  volverHref,
+  historialHref,
+}: {
+  alumnoId: string;
+  volverHref: string;
+  historialHref: string;
+}) {
   const supabase = await createClient();
   const [{ data: perfil }, plan] = await Promise.all([
     supabase.from("profiles").select("nombre, apellido").eq("id", alumnoId).eq("role", "alumno").single(),
@@ -38,7 +46,7 @@ export async function IndividualPlanificacionPage({ alumnoId, volverHref }: { al
         <CrearPlanificacionForm crear={crearPlanificacionIndividual.bind(null, alumnoId)} tipoLabel="para este alumno" />
       ) : (
         <>
-          <MetadataPanel plan={plan} readOnly={false} />
+          <MetadataPanel plan={plan} readOnly={false} historialHref={historialHref} />
           <PlanificacionView plan={plan} readOnly={false} />
         </>
       )}

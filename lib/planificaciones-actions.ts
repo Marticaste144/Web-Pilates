@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { obtenerPlanificacionPorId } from "@/lib/planificaciones-data";
 import type { TipoPlanificacion } from "@/types/database";
 
 export type PlanResult = { ok: boolean; message: string };
@@ -95,6 +96,136 @@ export async function actualizarMetadataPlanificacion(
 
   revalidarPlanificacion(data.alumno_id, data.clase_id);
   return { ok: true, message: "Datos guardados." };
+}
+
+// ---------------------------------------------------------------------------
+// Nueva versión: la actual pasa a es_actual=false (queda de solo lectura,
+// reforzado por RLS) y se crea una fila nueva como la nueva actual. Si
+// copiarContenido, se clonan días/bloques/ejercicios/semanas -- la copia es
+// una entidad totalmente independiente, modificarla no toca ni un registro
+// de la versión histórica.
+// ---------------------------------------------------------------------------
+export async function crearNuevaVersion(
+  planificacionActualId: string,
+  copiarContenido: boolean,
+  formData: FormData,
+): Promise<PlanResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "Iniciá sesión de nuevo." };
+
+  // Se lee con la lógica ya probada de lib/planificaciones-data.ts (RLS
+  // aplica igual, corre con la sesión del usuario) -- así se obtiene el
+  // árbol completo de una sola vez si hace falta copiarlo.
+  const actual = await obtenerPlanificacionPorId(planificacionActualId);
+  if (!actual || !actual.esActual) {
+    return { ok: false, message: "Esta ya no es la versión actual." };
+  }
+
+  const meta = leerMetadata(formData);
+
+  // 1) La actual deja de serlo -- a partir de acá queda de solo lectura.
+  const { error: errorViejaVersion } = await supabase
+    .from("planificaciones")
+    .update({ es_actual: false })
+    .eq("id", actual.id);
+
+  if (errorViejaVersion) {
+    return { ok: false, message: errorViejaVersion.message };
+  }
+
+  // 2) Nueva versión, ya como la actual.
+  const { data: nueva, error: errorNueva } = await supabase
+    .from("planificaciones")
+    .insert({
+      tipo: actual.tipo,
+      alumno_id: actual.alumnoId,
+      clase_id: actual.claseId,
+      es_actual: true,
+      version: actual.version + 1,
+      version_anterior_id: actual.id,
+      creado_por: user.id,
+      titulo: meta.titulo ?? actual.titulo,
+      objetivo_general: meta.objetivoGeneral ?? actual.objetivoGeneral,
+      observaciones: meta.observaciones ?? actual.observaciones,
+    })
+    .select("id")
+    .single();
+
+  if (errorNueva || !nueva) {
+    // La vieja ya quedó como no-actual pero no se pudo crear la nueva --
+    // se avisa con un mensaje claro en vez de dejarlo en silencio; el
+    // profesor puede reintentar "Nueva versión" de nuevo.
+    return {
+      ok: false,
+      message: `No se pudo crear la nueva versión (la anterior ya quedó archivada): ${errorNueva?.message ?? "error desconocido"}`,
+    };
+  }
+
+  if (copiarContenido) {
+    for (const dia of actual.dias) {
+      const { data: nuevoDia, error: errorDia } = await supabase
+        .from("planificacion_dias")
+        .insert({
+          planificacion_id: nueva.id,
+          nombre: dia.nombre,
+          estiramientos: dia.estiramientos,
+          orden: dia.orden,
+        })
+        .select("id")
+        .single();
+      if (errorDia || !nuevoDia) continue;
+
+      for (const bloque of dia.bloques) {
+        const { data: nuevoBloque, error: errorBloque } = await supabase
+          .from("planificacion_bloques")
+          .insert({
+            planificacion_id: nueva.id,
+            dia_id: nuevoDia.id,
+            nombre: bloque.nombre,
+            orden: bloque.orden,
+          })
+          .select("id")
+          .single();
+        if (errorBloque || !nuevoBloque) continue;
+
+        for (const ejercicio of bloque.ejercicios) {
+          const { data: nuevoEjercicio, error: errorEjercicio } = await supabase
+            .from("planificacion_ejercicios")
+            .insert({
+              planificacion_id: nueva.id,
+              bloque_id: nuevoBloque.id,
+              nombre: ejercicio.nombre,
+              orden: ejercicio.orden,
+            })
+            .select("id")
+            .single();
+          if (errorEjercicio || !nuevoEjercicio) continue;
+
+          if (ejercicio.semanas.length > 0) {
+            await supabase.from("planificacion_ejercicio_semanas").insert(
+              ejercicio.semanas.map((s) => ({
+                planificacion_id: nueva.id,
+                ejercicio_id: nuevoEjercicio.id,
+                numero_semana: s.numeroSemana,
+                carga: s.carga,
+                series: s.series,
+                repeticiones: s.repeticiones,
+                tiempo: s.tiempo,
+                pse: s.pse,
+                observaciones: s.observaciones,
+              })),
+            );
+          }
+        }
+      }
+    }
+  }
+
+  revalidarPlanificacion(actual.alumnoId, actual.claseId);
+  return { ok: true, message: copiarContenido ? "Nueva versión creada a partir de la actual." : "Nueva versión creada desde cero." };
 }
 
 // ---------------------------------------------------------------------------

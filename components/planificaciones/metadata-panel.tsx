@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { actualizarMetadataPlanificacion } from "@/lib/planificaciones-actions";
+import Link from "next/link";
+import { actualizarMetadataPlanificacion, crearNuevaVersion } from "@/lib/planificaciones-actions";
 import type { PlanificacionResumen } from "@/lib/planificaciones-data";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,10 +14,22 @@ function formatearFecha(fechaIso: string): string {
 }
 
 // Encabezado de la planificación: título/objetivo/observaciones (editables
-// solo si es la actual) y quién la creó.
-export function MetadataPanel({ plan, readOnly }: { plan: PlanificacionResumen; readOnly: boolean }) {
+// solo si es la actual), quién la creó, y las acciones de versión ("Nueva
+// versión" + link al historial). `historialHref` es null cuando no aplica
+// (ej. mientras se está viendo directamente una versión histórica -- ahí el
+// botón "Volver al historial" ya cumple ese rol desde la página).
+export function MetadataPanel({
+  plan,
+  readOnly,
+  historialHref,
+}: {
+  plan: PlanificacionResumen;
+  readOnly: boolean;
+  historialHref: string | null;
+}) {
   const [pending, startTransition] = useTransition();
   const [mensaje, setMensaje] = useState<string | null>(null);
+  const [mostrarNuevaVersion, setMostrarNuevaVersion] = useState(false);
 
   return (
     <Card className="flex flex-col gap-3">
@@ -31,7 +44,22 @@ export function MetadataPanel({ plan, readOnly }: { plan: PlanificacionResumen; 
             Profesor: {plan.creadoPorNombre} · Creada el {formatearFecha(plan.createdAt)}
           </p>
         </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          {historialHref && (
+            <Link href={historialHref} className="text-sm font-medium text-primary-600 hover:underline">
+              Ver historial
+            </Link>
+          )}
+          {!readOnly && plan.esActual && (
+            <Button type="button" size="sm" variant="secondary" onClick={() => setMostrarNuevaVersion((v) => !v)}>
+              Nueva versión
+            </Button>
+          )}
+        </div>
       </div>
+
+      {mostrarNuevaVersion && <NuevaVersionForm planificacionId={plan.id} onCerrar={() => setMostrarNuevaVersion(false)} />}
 
       {readOnly ? (
         <div className="flex flex-col gap-2 border-t border-neutral-100 pt-3 text-sm text-neutral-700">
@@ -79,5 +107,63 @@ export function MetadataPanel({ plan, readOnly }: { plan: PlanificacionResumen; 
         </form>
       )}
     </Card>
+  );
+}
+
+function NuevaVersionForm({ planificacionId, onCerrar }: { planificacionId: string; onCerrar: () => void }) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function crear(copiar: boolean, formData: FormData) {
+    setError(null);
+    startTransition(async () => {
+      const r = await crearNuevaVersion(planificacionId, copiar, formData);
+      if (!r.ok) setError(r.message);
+      else onCerrar();
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl bg-neutral-50 p-3">
+      <p className="text-sm text-neutral-600">
+        La versión actual queda archivada en el historial, de solo lectura, tal como está ahora.
+      </p>
+      <form className="flex flex-col gap-3" onSubmit={(e) => e.preventDefault()}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Título de la nueva versión" hint="Ej. Octubre 2026">
+            <Input name="titulo" placeholder="Octubre 2026" />
+          </Field>
+        </div>
+        {error && <p className="text-sm text-error-600">{error}</p>}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            loading={pending}
+            onClick={(e) => {
+              const formData = new FormData(e.currentTarget.closest("form") as HTMLFormElement);
+              crear(true, formData);
+            }}
+          >
+            Nueva versión basada en la actual
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            loading={pending}
+            onClick={(e) => {
+              const formData = new FormData(e.currentTarget.closest("form") as HTMLFormElement);
+              crear(false, formData);
+            }}
+          >
+            Nueva planificación desde cero
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={onCerrar}>
+            Cancelar
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }
