@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/field";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { ChevronDownIcon } from "@/components/ui/icons";
+import { ImagenEjercicio } from "./imagen-ejercicio";
 
 // Vista del árbol completo días > bloques > ejercicios > semanas. `readOnly`
 // se usa para versiones históricas -- la RLS ya bloquea cualquier escritura
@@ -360,43 +361,49 @@ function EjercicioRow({
 
   return (
     <div className="rounded-xl border border-neutral-100 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {editandoNombre ? (
-          <RenombrarInline
-            valorInicial={ejercicio.nombre}
-            onGuardar={async (v) => {
-              const r = await renombrarEjercicio(ejercicio.id, v);
-              setEditandoNombre(false);
-              return r;
-            }}
-            onCancelar={() => setEditandoNombre(false)}
-          />
-        ) : (
-          <p className="font-medium text-neutral-900">{ejercicio.nombre}</p>
-        )}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 gap-3">
+          <ImagenEjercicio ejercicioId={ejercicio.id} imagenUrl={ejercicio.imagenUrl} readOnly={readOnly} />
 
-        {!readOnly && !editandoNombre && (
-          <div className="flex items-center gap-2 text-xs">
-            <button type="button" onClick={() => setEditandoNombre(true)} className="font-medium text-primary-600 hover:underline">
-              Renombrar
-            </button>
-            <MoverBotones
-              onMover={(dir) =>
-                startTransition(async () => {
-                  await moverEjercicio(ejercicio.id, dir);
-                })
-              }
-              pending={pending}
-            />
-            <ConfirmButton
-              action={() => eliminarEjercicio(ejercicio.id)}
-              triggerLabel="Eliminar"
-              confirmTitle={`¿Eliminar "${ejercicio.nombre}"?`}
-              confirmDescription="Se borran también todas sus semanas cargadas. No se puede deshacer."
-              confirmLabel="Sí, eliminar"
-            />
+          <div className="min-w-0 flex-1">
+            {editandoNombre ? (
+              <RenombrarInline
+                valorInicial={ejercicio.nombre}
+                onGuardar={async (v) => {
+                  const r = await renombrarEjercicio(ejercicio.id, v);
+                  setEditandoNombre(false);
+                  return r;
+                }}
+                onCancelar={() => setEditandoNombre(false)}
+              />
+            ) : (
+              <p className="font-medium text-neutral-900">{ejercicio.nombre}</p>
+            )}
+
+            {!readOnly && !editandoNombre && (
+              <div className="mt-1.5 flex items-center gap-2 text-xs">
+                <button type="button" onClick={() => setEditandoNombre(true)} className="font-medium text-primary-600 hover:underline">
+                  Renombrar
+                </button>
+                <MoverBotones
+                  onMover={(dir) =>
+                    startTransition(async () => {
+                      await moverEjercicio(ejercicio.id, dir);
+                    })
+                  }
+                  pending={pending}
+                />
+                <ConfirmButton
+                  action={() => eliminarEjercicio(ejercicio.id)}
+                  triggerLabel="Eliminar"
+                  confirmTitle={`¿Eliminar "${ejercicio.nombre}"?`}
+                  confirmDescription="Se borran también todas sus semanas cargadas. No se puede deshacer."
+                  confirmLabel="Sí, eliminar"
+                />
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1.5">

@@ -509,6 +509,78 @@ export async function moverEjercicio(ejercicioId: string, direccion: "arriba" | 
 }
 
 // ---------------------------------------------------------------------------
+// Imagen ilustrativa del ejercicio -- mismo patrón que subirFotoProfesor
+// (bucket público "ejercicios", path "<ejercicio_id>/imagen.<ext>", una
+// subida nueva pisa la anterior). No hace falta requireRole: la policy de
+// Storage ya exige la misma autorización que la fila del ejercicio
+// (fn_planificacion_autorizada), y el update de la columna lo protege la RLS
+// de planificacion_ejercicios de siempre.
+// ---------------------------------------------------------------------------
+const TIPOS_IMAGEN_PERMITIDOS = ["image/jpeg", "image/png", "image/webp"];
+const TAMANO_IMAGEN_MAXIMO = 5 * 1024 * 1024; // 5 MiB
+
+function extensionDeImagen(nombre: string, tipo: string): string {
+  const porNombre = nombre.split(".").pop();
+  if (porNombre && porNombre.length <= 5) return porNombre.toLowerCase();
+  return tipo === "image/png" ? "png" : "jpg";
+}
+
+export async function guardarImagenEjercicio(ejercicioId: string, formData: FormData): Promise<PlanResult> {
+  const archivo = formData.get("imagen");
+
+  if (!(archivo instanceof File) || archivo.size === 0) {
+    return { ok: false, message: "Elegí una imagen para subir." };
+  }
+  if (!TIPOS_IMAGEN_PERMITIDOS.includes(archivo.type)) {
+    return { ok: false, message: "Solo se aceptan imágenes JPG, PNG o WEBP." };
+  }
+  if (archivo.size > TAMANO_IMAGEN_MAXIMO) {
+    return { ok: false, message: "La imagen pesa más de 5 MB." };
+  }
+
+  const supabase = await createClient();
+  const { data: ejercicio } = await supabase
+    .from("planificacion_ejercicios")
+    .select("planificacion_id")
+    .eq("id", ejercicioId)
+    .maybeSingle();
+  if (!ejercicio) return { ok: false, message: "Ejercicio no encontrado." };
+
+  const path = `${ejercicioId}/imagen.${extensionDeImagen(archivo.name, archivo.type)}`;
+
+  const { error: errorUpload } = await supabase.storage
+    .from("ejercicios")
+    .upload(path, archivo, { contentType: archivo.type, upsert: true });
+  if (errorUpload) return { ok: false, message: `No se pudo subir la imagen: ${errorUpload.message}` };
+
+  const { error } = await supabase.from("planificacion_ejercicios").update({ imagen_url: path }).eq("id", ejercicioId);
+  if (error) return { ok: false, message: error.message };
+
+  await revalidarPorPlanificacion(supabase, ejercicio.planificacion_id);
+  return { ok: true, message: "Imagen guardada." };
+}
+
+// Solo desvincula la imagen (imagen_url = null) -- no borra el archivo del
+// bucket, misma lógica simple que ya usa el resto de la app (una foto vieja
+// de "profesores" tampoco se borra al reemplazarla, queda huérfana en
+// Storage sin costo funcional).
+export async function eliminarImagenEjercicio(ejercicioId: string): Promise<PlanResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("planificacion_ejercicios")
+    .update({ imagen_url: null })
+    .eq("id", ejercicioId)
+    .select("planificacion_id")
+    .maybeSingle();
+
+  if (error) return { ok: false, message: error.message };
+  if (!data) return { ok: false, message: "No se pudo quitar la imagen (¿versión no editable?)." };
+
+  await revalidarPorPlanificacion(supabase, data.planificacion_id);
+  return { ok: true, message: "Imagen quitada." };
+}
+
+// ---------------------------------------------------------------------------
 // Semana de un ejercicio -- upsert por (ejercicio_id, numero_semana). "Quitar
 // semana" no existe como acción aparte: se sobreescriben los campos a vacío
 // guardando de nuevo, o directamente no se completa esa semana (no hace

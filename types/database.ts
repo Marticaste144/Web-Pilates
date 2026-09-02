@@ -692,6 +692,7 @@ export type Database = {
           bloque_id: string;
           nombre: string;
           orden: number;
+          imagen_url: string | null;
           created_at: string;
         };
         Insert: {
@@ -700,6 +701,7 @@ export type Database = {
           bloque_id: string;
           nombre?: string;
           orden?: number;
+          imagen_url?: string | null;
           created_at?: string;
         };
         Update: {
@@ -708,6 +710,7 @@ export type Database = {
           bloque_id?: string;
           nombre?: string;
           orden?: number;
+          imagen_url?: string | null;
           created_at?: string;
         };
         Relationships: [];

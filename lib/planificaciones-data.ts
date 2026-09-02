@@ -22,6 +22,7 @@ export type EjercicioPlanificacion = {
   id: string;
   nombre: string;
   orden: number;
+  imagenUrl: string | null;
   semanas: SemanaEjercicio[];
 };
 
@@ -125,7 +126,7 @@ async function armarCompleta(
       .order("orden"),
     supabase
       .from("planificacion_ejercicios")
-      .select("id, bloque_id, nombre, orden")
+      .select("id, bloque_id, nombre, orden, imagen_url")
       .eq("planificacion_id", resumen.id)
       .order("orden"),
     supabase
@@ -160,6 +161,7 @@ async function armarCompleta(
       id: e.id,
       nombre: e.nombre,
       orden: e.orden,
+      imagenUrl: e.imagen_url ? supabase.storage.from("ejercicios").getPublicUrl(e.imagen_url).data.publicUrl : null,
       semanas: semanasPorEjercicio.get(e.id) ?? [],
     });
     ejerciciosPorBloque.set(e.bloque_id, lista);
