@@ -10,6 +10,7 @@ import { FichaForm } from "@/components/fichas-evaluacion/ficha-form";
 import { NotasEvolucion } from "@/components/fichas-evaluacion/notas-evolucion";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ChevronRightIcon } from "@/components/ui/icons";
 import { PagosPanel } from "./pagos-panel";
@@ -85,6 +86,10 @@ export default async function AlumnoDetallePage({
           {alumno.telefono ? ` · ${alumno.telefono}` : ""}
         </p>
       </div>
+
+      <LinkButton href={`/admin/alumnos/${alumno.profileId}/planificacion`} variant="secondary" className="self-start">
+        Ver planificación
+      </LinkButton>
 
       <div className="flex flex-col gap-3">
         <h2 className="font-semibold text-neutral-900">Cuota por sede</h2>

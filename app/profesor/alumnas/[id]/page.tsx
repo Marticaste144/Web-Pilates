@@ -5,6 +5,7 @@ import { obtenerFicha, listarNotasEvolucion } from "@/lib/fichas-evaluacion-data
 import { FichaForm } from "@/components/fichas-evaluacion/ficha-form";
 import { NotasEvolucion } from "@/components/fichas-evaluacion/notas-evolucion";
 import { Card } from "@/components/ui/card";
+import { LinkButton } from "@/components/ui/button";
 import { ChevronRightIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,10 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
           {perfil.telefono ? ` · ${perfil.telefono}` : ""}
         </p>
       </div>
+
+      <LinkButton href={`/profesor/alumnas/${id}/planificacion`} variant="secondary" className="self-start">
+        Ver planificación
+      </LinkButton>
 
       <Card>
         <h2 className="mb-3 font-semibold text-neutral-900">Ficha de evaluación</h2>

@@ -21,6 +21,7 @@ export type EstadoAsistencia = "presente" | "ausente";
 export type EstadoVisualCuota = "al_dia" | "por_vencer" | "vencida";
 export type TipoGaleriaItem = "foto" | "video";
 export type ModalidadClase = "personalizada" | "grupal";
+export type TipoPlanificacion = "individual" | "grupal";
 
 export type Database = {
   public: {
@@ -574,6 +575,180 @@ export type Database = {
         };
         Relationships: [];
       };
+      planificaciones: {
+        Row: {
+          id: string;
+          tipo: TipoPlanificacion;
+          alumno_id: string | null;
+          clase_id: string | null;
+          es_actual: boolean;
+          version: number;
+          version_anterior_id: string | null;
+          titulo: string | null;
+          objetivo_general: string | null;
+          observaciones: string | null;
+          creado_por: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tipo: TipoPlanificacion;
+          alumno_id?: string | null;
+          clase_id?: string | null;
+          es_actual?: boolean;
+          version?: number;
+          version_anterior_id?: string | null;
+          titulo?: string | null;
+          objetivo_general?: string | null;
+          observaciones?: string | null;
+          creado_por: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tipo?: TipoPlanificacion;
+          alumno_id?: string | null;
+          clase_id?: string | null;
+          es_actual?: boolean;
+          version?: number;
+          version_anterior_id?: string | null;
+          titulo?: string | null;
+          objetivo_general?: string | null;
+          observaciones?: string | null;
+          creado_por?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      planificacion_dias: {
+        Row: {
+          id: string;
+          planificacion_id: string;
+          nombre: string;
+          estiramientos: string | null;
+          orden: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          planificacion_id: string;
+          nombre?: string;
+          estiramientos?: string | null;
+          orden?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          planificacion_id?: string;
+          nombre?: string;
+          estiramientos?: string | null;
+          orden?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      planificacion_bloques: {
+        Row: {
+          id: string;
+          planificacion_id: string;
+          dia_id: string;
+          nombre: string;
+          orden: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          planificacion_id: string;
+          dia_id: string;
+          nombre?: string;
+          orden?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          planificacion_id?: string;
+          dia_id?: string;
+          nombre?: string;
+          orden?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      planificacion_ejercicios: {
+        Row: {
+          id: string;
+          planificacion_id: string;
+          bloque_id: string;
+          nombre: string;
+          orden: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          planificacion_id: string;
+          bloque_id: string;
+          nombre?: string;
+          orden?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          planificacion_id?: string;
+          bloque_id?: string;
+          nombre?: string;
+          orden?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      planificacion_ejercicio_semanas: {
+        Row: {
+          id: string;
+          planificacion_id: string;
+          ejercicio_id: string;
+          numero_semana: number;
+          carga: string | null;
+          series: string | null;
+          repeticiones: string | null;
+          tiempo: string | null;
+          pse: string | null;
+          observaciones: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          planificacion_id: string;
+          ejercicio_id: string;
+          numero_semana: number;
+          carga?: string | null;
+          series?: string | null;
+          repeticiones?: string | null;
+          tiempo?: string | null;
+          pse?: string | null;
+          observaciones?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          planificacion_id?: string;
+          ejercicio_id?: string;
+          numero_semana?: number;
+          carga?: string | null;
+          series?: string | null;
+          repeticiones?: string | null;
+          tiempo?: string | null;
+          pse?: string | null;
+          observaciones?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       fichas_evaluacion: {
         Row: {
           id: string;
@@ -738,6 +913,7 @@ export type Database = {
       estado_asistencia: EstadoAsistencia;
       tipo_galeria_item: TipoGaleriaItem;
       modalidad_clase: ModalidadClase;
+      tipo_planificacion: TipoPlanificacion;
     };
   };
 };
