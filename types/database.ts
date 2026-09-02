@@ -22,6 +22,13 @@ export type EstadoVisualCuota = "al_dia" | "por_vencer" | "vencida";
 export type TipoGaleriaItem = "foto" | "video";
 export type ModalidadClase = "personalizada" | "grupal";
 export type TipoPlanificacion = "individual" | "grupal";
+export type CategoriaEvolucion =
+  | "seguimiento_general"
+  | "molestia_dolor"
+  | "mejora_progreso"
+  | "cambio_objetivo"
+  | "adaptacion"
+  | "reevaluacion";
 export type TurnoPosible = "manana" | "tarde" | "noche";
 
 export type Database = {
@@ -954,6 +961,8 @@ export type Database = {
           alumno_id: string;
           autor_id: string | null;
           contenido: string;
+          categoria: CategoriaEvolucion;
+          clase_id: string | null;
           fecha: string;
           created_at: string;
         };
@@ -962,6 +971,8 @@ export type Database = {
           alumno_id: string;
           autor_id?: string | null;
           contenido: string;
+          categoria?: CategoriaEvolucion;
+          clase_id?: string | null;
           fecha?: string;
           created_at?: string;
         };
@@ -970,6 +981,8 @@ export type Database = {
           alumno_id?: string;
           autor_id?: string | null;
           contenido?: string;
+          categoria?: CategoriaEvolucion;
+          clase_id?: string | null;
           fecha?: string;
           created_at?: string;
         };

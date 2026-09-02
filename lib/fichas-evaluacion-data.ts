@@ -1,17 +1,23 @@
 import { createClient } from "@/lib/supabase/server";
-import type { TurnoPosible } from "@/types/database";
+import { DIAS_SEMANA } from "@/lib/dias-semana";
+import type { CategoriaEvolucion, TurnoPosible } from "@/types/database";
 
 // Compartido entre /admin/alumnos/[id] y /profesor/alumnas/[id] -- la RLS
 // (fichas_evaluacion / ficha_evaluacion_pruebas_funcionales /
-// ficha_evaluacion_notas, migraciones 20260901110000 + 20260902110000) ya
-// resuelve sola quién puede ver o tocar los datos de cada alumno según el
-// rol de quien pregunta, así que estas funciones no necesitan un
-// requireRole propio: simplemente devuelven lo que la base deje ver.
+// ficha_evaluacion_notas, migraciones 20260901110000 + 20260902110000 +
+// 20260902120000) ya resuelve sola quién puede ver o tocar los datos de cada
+// alumno según el rol de quien pregunta, así que estas funciones no
+// necesitan un requireRole propio: simplemente devuelven lo que la base deje
+// ver.
 //
-// Los labels (ej. TURNO_LABELS) NO viven acá -- este archivo importa
-// lib/supabase/server.ts (-> next/headers), así que un Client Component que
-// importara un valor de acá rompería el build. Ver
+// Los labels (CATEGORIA_EVOLUCION_LABELS/TURNO_LABELS) NO viven acá --
+// este archivo importa lib/supabase/server.ts (-> next/headers), así que un
+// Client Component que importara un valor de acá rompería el build. Ver
 // lib/fichas-evaluacion-labels.ts.
+
+function diaLabel(dia: number): string {
+  return DIAS_SEMANA.find((d) => d.value === dia)?.label ?? String(dia);
+}
 
 // ---------------------------------------------------------------------------
 // Sedes -- para el selector "Gimnasio" de la ficha. Las 3 sedes reales de
@@ -237,8 +243,10 @@ export type NotaEvolucion = {
   id: string;
   autorNombre: string;
   contenido: string;
+  categoria: CategoriaEvolucion;
   fecha: string;
   createdAt: string;
+  claseLabel: string | null;
 };
 
 export async function listarNotasEvolucion(alumnoId: string): Promise<NotaEvolucion[]> {
@@ -246,7 +254,7 @@ export async function listarNotasEvolucion(alumnoId: string): Promise<NotaEvoluc
 
   const { data: notas, error } = await supabase
     .from("ficha_evaluacion_notas")
-    .select("id, autor_id, contenido, fecha, created_at")
+    .select("id, autor_id, contenido, categoria, clase_id, fecha, created_at")
     .eq("alumno_id", alumnoId)
     .order("fecha", { ascending: false })
     .order("created_at", { ascending: false });
@@ -258,17 +266,82 @@ export async function listarNotasEvolucion(alumnoId: string): Promise<NotaEvoluc
   if (!notas || notas.length === 0) return [];
 
   const autorIds = [...new Set(notas.map((n) => n.autor_id).filter((id): id is string => id !== null))];
-  const { data: autores } =
-    autorIds.length > 0 ? await supabase.from("profiles").select("id, nombre, apellido").in("id", autorIds) : { data: [] };
+  const claseIds = [...new Set(notas.map((n) => n.clase_id).filter((id): id is string => id !== null))];
+
+  const [{ data: autores }, { data: clasesRaw }] = await Promise.all([
+    autorIds.length > 0
+      ? supabase.from("profiles").select("id, nombre, apellido").in("id", autorIds)
+      : Promise.resolve({ data: [] as { id: string; nombre: string; apellido: string }[] }),
+    claseIds.length > 0
+      ? supabase.from("clases").select("id, sede_id, dia_semana, hora_inicio").in("id", claseIds)
+      : Promise.resolve({ data: [] as { id: string; sede_id: string; dia_semana: number; hora_inicio: string }[] }),
+  ]);
   const autorPorId = new Map((autores ?? []).map((a) => [a.id, `${a.nombre} ${a.apellido}`]));
+
+  const sedeIds = [...new Set((clasesRaw ?? []).map((c) => c.sede_id))];
+  const { data: sedes } =
+    sedeIds.length > 0 ? await supabase.from("sedes").select("id, nombre").in("id", sedeIds) : { data: [] };
+  const sedeNombrePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
+
+  const claseLabelPorId = new Map(
+    (clasesRaw ?? []).map((c) => [
+      c.id,
+      `${sedeNombrePorId.get(c.sede_id) ?? "?"} · ${diaLabel(c.dia_semana)} ${c.hora_inicio.slice(0, 5)}`,
+    ]),
+  );
 
   return notas.map(
     (n): NotaEvolucion => ({
       id: n.id,
       autorNombre: (n.autor_id && autorPorId.get(n.autor_id)) || "?",
       contenido: n.contenido,
+      categoria: n.categoria,
       fecha: n.fecha,
       createdAt: n.created_at,
+      claseLabel: n.clase_id ? claseLabelPorId.get(n.clase_id) ?? null : null,
     }),
   );
+}
+
+// Clases en las que está anotado el alumno -- para el selector opcional
+// "clase relacionada" al agregar una entrada de evolución.
+export type ClaseOption = { id: string; label: string };
+
+export async function listarClasesDelAlumnoParaEvolucion(alumnoId: string): Promise<ClaseOption[]> {
+  const supabase = await createClient();
+
+  const { data: inscripciones } = await supabase
+    .from("inscripciones")
+    .select("clase_id")
+    .eq("alumno_id", alumnoId)
+    .in("estado", ["activa", "lista_espera"]);
+
+  const claseIds = [...new Set((inscripciones ?? []).map((i) => i.clase_id))];
+  if (claseIds.length === 0) return [];
+
+  const { data: clases } = await supabase
+    .from("clases")
+    .select("id, sede_id, actividad_id, dia_semana, hora_inicio")
+    .in("id", claseIds);
+
+  const sedeIds = [...new Set((clases ?? []).map((c) => c.sede_id))];
+  const actividadIds = [...new Set((clases ?? []).map((c) => c.actividad_id).filter((id): id is string => Boolean(id)))];
+
+  const [{ data: sedes }, { data: actividades }] = await Promise.all([
+    sedeIds.length > 0
+      ? supabase.from("sedes").select("id, nombre").in("id", sedeIds)
+      : Promise.resolve({ data: [] as { id: string; nombre: string }[] }),
+    actividadIds.length > 0
+      ? supabase.from("actividades").select("id, nombre").in("id", actividadIds)
+      : Promise.resolve({ data: [] as { id: string; nombre: string }[] }),
+  ]);
+  const sedeNombrePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
+  const actividadNombrePorId = new Map((actividades ?? []).map((a) => [a.id, a.nombre]));
+
+  return (clases ?? []).map((c) => ({
+    id: c.id,
+    label: `${sedeNombrePorId.get(c.sede_id) ?? "?"}${
+      c.actividad_id ? ` · ${actividadNombrePorId.get(c.actividad_id) ?? "?"}` : ""
+    } · ${diaLabel(c.dia_semana)} ${c.hora_inicio.slice(0, 5)}`,
+  }));
 }

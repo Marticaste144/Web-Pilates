@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { FormState } from "@/lib/form-state";
+import type { CategoriaEvolucion } from "@/types/database";
 
 // Todas las acciones son compartidas entre /admin/alumnos/[id] y
 // /profesor/alumnas/[id] -- la RLS decide sola si quien llama puede tocar
@@ -172,6 +173,8 @@ export async function guardarPruebasFuncionales(_prevState: FormState, formData:
 export async function agregarNotaEvolucion(_prevState: FormState, formData: FormData): Promise<FormState> {
   const alumnoId = String(formData.get("alumno_id") ?? "");
   const contenido = String(formData.get("contenido") ?? "").trim();
+  const categoria = (String(formData.get("categoria") ?? "") || "seguimiento_general") as CategoriaEvolucion;
+  const claseId = String(formData.get("clase_id") ?? "").trim() || null;
 
   if (!alumnoId) {
     return { status: "error", message: "Falta identificar al alumno." };
@@ -192,6 +195,8 @@ export async function agregarNotaEvolucion(_prevState: FormState, formData: Form
     alumno_id: alumnoId,
     autor_id: user?.id ?? null,
     contenido,
+    categoria,
+    clase_id: claseId,
   });
 
   if (error) {

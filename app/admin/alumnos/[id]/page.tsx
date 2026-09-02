@@ -6,6 +6,7 @@ import {
   obtenerPruebasFuncionalesIniciales,
   listarSedesParaFicha,
   listarNotasEvolucion,
+  listarClasesDelAlumnoParaEvolucion,
 } from "@/lib/fichas-evaluacion-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { MarcarEfectivoButton } from "./marcar-efectivo-button";
@@ -61,12 +62,13 @@ export default async function AlumnoDetallePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [alumno, ficha, pruebas, sedes, notas] = await Promise.all([
+  const [alumno, ficha, pruebas, sedes, notas, clasesParaEvolucion] = await Promise.all([
     obtenerAlumno(id),
     obtenerFicha(id),
     obtenerPruebasFuncionalesIniciales(id),
     listarSedesParaFicha(),
     listarNotasEvolucion(id),
+    listarClasesDelAlumnoParaEvolucion(id),
   ]);
 
   if (!alumno) {
@@ -177,7 +179,7 @@ export default async function AlumnoDetallePage({
 
       <Card>
         <h2 className="mb-3 font-semibold text-neutral-900">Evolución</h2>
-        <NotasEvolucion alumnoId={alumno.profileId} notas={notas} />
+        <NotasEvolucion alumnoId={alumno.profileId} notas={notas} clases={clasesParaEvolucion} />
       </Card>
 
       <div className="flex flex-col gap-3">

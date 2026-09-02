@@ -6,6 +6,7 @@ import {
   obtenerPruebasFuncionalesIniciales,
   listarSedesParaFicha,
   listarNotasEvolucion,
+  listarClasesDelAlumnoParaEvolucion,
 } from "@/lib/fichas-evaluacion-data";
 import { FichaForm } from "@/components/fichas-evaluacion/ficha-form";
 import { NotasEvolucion } from "@/components/fichas-evaluacion/notas-evolucion";
@@ -24,12 +25,13 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: perfil }, ficha, pruebas, sedes, notas] = await Promise.all([
+  const [{ data: perfil }, ficha, pruebas, sedes, notas, clasesParaEvolucion] = await Promise.all([
     supabase.from("profiles").select("nombre, apellido, email, telefono").eq("id", id).eq("role", "alumno").single(),
     obtenerFicha(id),
     obtenerPruebasFuncionalesIniciales(id),
     listarSedesParaFicha(),
     listarNotasEvolucion(id),
+    listarClasesDelAlumnoParaEvolucion(id),
   ]);
 
   if (!perfil) {
@@ -66,7 +68,7 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
 
       <Card>
         <h2 className="mb-3 font-semibold text-neutral-900">Evolución</h2>
-        <NotasEvolucion alumnoId={id} notas={notas} />
+        <NotasEvolucion alumnoId={id} notas={notas} clases={clasesParaEvolucion} />
       </Card>
     </div>
   );
