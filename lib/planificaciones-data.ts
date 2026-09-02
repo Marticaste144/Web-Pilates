@@ -248,3 +248,35 @@ export async function listarHistorialDeAlumno(alumnoId: string): Promise<Planifi
 export async function listarHistorialDeClase(claseId: string): Promise<PlanificacionResumen[]> {
   return listarHistorialPor("clase_id", claseId);
 }
+
+// ---------------------------------------------------------------------------
+// Pilates no usa planificaciones (confirmado con Sabina) -- Postural y el
+// resto de las actividades sí. La decisión se toma por la ACTIVIDAD real de
+// las clases en las que está anotado el alumno (no por el profesor, no por
+// nada hardcodeado a un nombre de profesor): si TODAS sus clases activas son
+// de Pilates, se oculta la sección. Si tiene alguna clase sin actividad
+// clasificada todavía, o de cualquier otra actividad, se sigue mostrando --
+// nunca se oculta el sistema general de planificaciones por default.
+// ---------------------------------------------------------------------------
+export async function alumnoUsaPlanificacion(alumnoId: string): Promise<boolean> {
+  const supabase = await createClient();
+
+  const { data: inscripciones } = await supabase
+    .from("inscripciones")
+    .select("clase_id")
+    .eq("alumno_id", alumnoId)
+    .in("estado", ["activa", "lista_espera"]);
+
+  const claseIds = [...new Set((inscripciones ?? []).map((i) => i.clase_id))];
+  if (claseIds.length === 0) return true;
+
+  const { data: clases } = await supabase.from("clases").select("actividad_id").in("id", claseIds);
+  const actividadIds = [...new Set((clases ?? []).map((c) => c.actividad_id).filter((id): id is string => Boolean(id)))];
+  if (actividadIds.length === 0) return true;
+
+  const { data: actividades } = await supabase.from("actividades").select("nombre").in("id", actividadIds);
+  const nombres = (actividades ?? []).map((a) => a.nombre);
+  if (nombres.length === 0) return true;
+
+  return !nombres.every((n) => n === "Pilates");
+}

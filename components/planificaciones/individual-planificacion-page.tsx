@@ -11,14 +11,20 @@ import { ChevronRightIcon } from "@/components/ui/icons";
 // Compartido entre /profesor/alumnas/[id]/planificacion y
 // /admin/alumnos/[id]/planificacion -- la RLS decide sola qué puede ver/
 // tocar cada rol, acá no hace falta duplicar esa lógica por vista.
+//
+// `embedded` la usa el perfil del profesor (Bloque 4) para incrustar esto
+// como una tab más, sin repetir el encabezado "Volver"/título de la página
+// contenedora.
 export async function IndividualPlanificacionPage({
   alumnoId,
   volverHref,
   historialHref,
+  embedded = false,
 }: {
   alumnoId: string;
   volverHref: string;
   historialHref: string;
+  embedded?: boolean;
 }) {
   const supabase = await createClient();
   const [{ data: perfil }, plan] = await Promise.all([
@@ -31,16 +37,18 @@ export async function IndividualPlanificacionPage({
   }
 
   return (
-    <div className="flex flex-col gap-4 py-4 sm:gap-5 sm:py-5">
-      <div>
-        <Link href={volverHref} className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:underline">
-          <ChevronRightIcon className="h-3.5 w-3.5 rotate-180" />
-          Volver
-        </Link>
-        <h1 className="mt-2 text-xl font-bold text-neutral-900 sm:text-2xl">
-          Planificación de {perfil.nombre} {perfil.apellido}
-        </h1>
-      </div>
+    <div className={embedded ? "flex flex-col gap-4" : "flex flex-col gap-4 py-4 sm:gap-5 sm:py-5"}>
+      {!embedded && (
+        <div>
+          <Link href={volverHref} className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:underline">
+            <ChevronRightIcon className="h-3.5 w-3.5 rotate-180" />
+            Volver
+          </Link>
+          <h1 className="mt-2 text-xl font-bold text-neutral-900 sm:text-2xl">
+            Planificación de {perfil.nombre} {perfil.apellido}
+          </h1>
+        </div>
+      )}
 
       {!plan ? (
         <CrearPlanificacionForm crear={crearPlanificacionIndividual.bind(null, alumnoId)} tipoLabel="para este alumno" />

@@ -89,3 +89,59 @@ export async function listarMisAlumnas(): Promise<MisAlumnas> {
 
   return { alumnas, sedes };
 }
+
+export type ClaseResumenAlumno = {
+  claseId: string;
+  sedeNombre: string;
+  actividadNombre: string | null;
+  diaSemana: number;
+  horaInicio: string;
+  horaFin: string;
+};
+
+// Clases (propias o cubiertas por suplencia activa) en las que está anotada
+// esta alumna, con sede/actividad/horario -- para la sección "Resumen" del
+// perfil. Solo lo que ya deja ver la RLS de inscripciones/clases (nunca más
+// que eso), no inventa nada si no hay dato.
+export async function obtenerClasesDeAlumnaParaResumen(alumnoId: string): Promise<ClaseResumenAlumno[]> {
+  const supabase = await createClient();
+
+  const { data: inscripciones } = await supabase
+    .from("inscripciones")
+    .select("clase_id")
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "activa");
+
+  const claseIds = [...new Set((inscripciones ?? []).map((i) => i.clase_id))];
+  if (claseIds.length === 0) return [];
+
+  const { data: clases } = await supabase
+    .from("clases")
+    .select("id, sede_id, actividad_id, dia_semana, hora_inicio, hora_fin")
+    .in("id", claseIds);
+
+  const sedeIds = [...new Set((clases ?? []).map((c) => c.sede_id))];
+  const actividadIds = [...new Set((clases ?? []).map((c) => c.actividad_id).filter((id): id is string => Boolean(id)))];
+
+  const [{ data: sedes }, { data: actividades }] = await Promise.all([
+    sedeIds.length > 0
+      ? supabase.from("sedes").select("id, nombre").in("id", sedeIds)
+      : Promise.resolve({ data: [] as { id: string; nombre: string }[] }),
+    actividadIds.length > 0
+      ? supabase.from("actividades").select("id, nombre").in("id", actividadIds)
+      : Promise.resolve({ data: [] as { id: string; nombre: string }[] }),
+  ]);
+  const sedeNombrePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
+  const actividadNombrePorId = new Map((actividades ?? []).map((a) => [a.id, a.nombre]));
+
+  return (clases ?? [])
+    .map((c): ClaseResumenAlumno => ({
+      claseId: c.id,
+      sedeNombre: sedeNombrePorId.get(c.sede_id) ?? "?",
+      actividadNombre: c.actividad_id ? actividadNombrePorId.get(c.actividad_id) ?? null : null,
+      diaSemana: c.dia_semana,
+      horaInicio: c.hora_inicio,
+      horaFin: c.hora_fin,
+    }))
+    .sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio));
+}
