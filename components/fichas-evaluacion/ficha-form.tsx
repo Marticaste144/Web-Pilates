@@ -1,53 +1,54 @@
-"use client";
+import type { FichaEvaluacion, PruebasFuncionales, SedeOption } from "@/lib/fichas-evaluacion-data";
+import { FichaDatosForm } from "./ficha-datos-form";
+import { PruebasFuncionalesForm } from "./pruebas-funcionales-form";
+import { ObjetivosContactoForm } from "./objetivos-contacto-form";
 
-import { useActionState } from "react";
-import { guardarFicha } from "@/lib/fichas-evaluacion-actions";
-import { initialFormState } from "@/lib/form-state";
-import type { FichaEvaluacion } from "@/lib/fichas-evaluacion-data";
-import { Field, Textarea } from "@/components/ui/field";
-import { Button } from "@/components/ui/button";
-import { FormAlert } from "@/components/ui/form-alert";
-
-function formatearFechaHora(fechaIso: string): string {
-  return new Date(fechaIso).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" });
+function formatearFecha(fechaIso: string): string {
+  return new Date(`${fechaIso}T00:00:00`).toLocaleDateString("es-AR", { day: "2-digit", month: "long", year: "numeric" });
 }
 
-export function FichaForm({ ficha, readOnly = false }: { ficha: FichaEvaluacion; readOnly?: boolean }) {
-  const [state, formAction, pending] = useActionState(guardarFicha, initialFormState);
-
+// Panel completo de la ficha de admisión real (3 páginas del PDF, ver
+// Ficha_de_admision_gimnasio_rellenable.pdf) -- una sola ficha por alumno,
+// organizada en secciones/tarjetas en vez de una grilla tipo Excel. Nombre,
+// apellido, teléfono y email NO se repiten acá: se muestran arriba de la
+// página, leídos de profiles.
+export function FichaForm({
+  ficha,
+  pruebas,
+  sedes,
+  readOnly = false,
+}: {
+  ficha: FichaEvaluacion;
+  pruebas: PruebasFuncionales | null;
+  sedes: SedeOption[];
+  readOnly?: boolean;
+}) {
   return (
-    <div className="flex flex-col gap-3">
-      {ficha.updatedAt ? (
+    <div className="flex flex-col gap-4">
+      {ficha.existe ? (
         <p className="text-xs text-neutral-500">
-          Última actualización: {formatearFechaHora(ficha.updatedAt)}
-          {ficha.actualizadoPorNombre && ` -- ${ficha.actualizadoPorNombre}`}
+          Ficha N.º {ficha.numero} · Evaluación del {formatearFecha(ficha.fechaEvaluacion!)}
+          {ficha.profesionalEvaluadorNombre && ` · Evaluó: ${ficha.profesionalEvaluadorNombre}`}
+          {ficha.actualizadoPorNombre && ` · Última actualización: ${ficha.actualizadoPorNombre}`}
         </p>
       ) : (
-        <p className="text-xs text-neutral-400">Todavía no hay ficha cargada para este alumno.</p>
+        <p className="text-xs text-neutral-400">Todavía no hay ficha de admisión cargada para este alumno.</p>
       )}
 
-      {readOnly ? (
-        <p className="whitespace-pre-wrap text-sm text-neutral-700">
-          {ficha.doloresMolestias || "Sin dolores/molestias registradas."}
-        </p>
-      ) : (
-        <form action={formAction} className="flex flex-col gap-3">
-          <input type="hidden" name="alumno_id" value={ficha.alumnoId} />
-          <Field label="Dolores o molestias reportadas">
-            <Textarea
-              name="dolores_molestias"
-              rows={4}
-              maxLength={2000}
-              defaultValue={ficha.doloresMolestias ?? ""}
-              placeholder="Ej. Molestia lumbar al flexionar, dolor de rodilla derecha al subir escaleras..."
-            />
-          </Field>
-          <FormAlert state={state} />
-          <Button type="submit" size="sm" loading={pending} className="self-start">
-            Guardar ficha
-          </Button>
-        </form>
-      )}
+      <section className="flex flex-col gap-2">
+        <h3 className="text-sm font-semibold text-neutral-900">Datos personales y antecedentes</h3>
+        <FichaDatosForm ficha={ficha} sedes={sedes} readOnly={readOnly} />
+      </section>
+
+      <section className="flex flex-col gap-2 border-t border-neutral-100 pt-4">
+        <h3 className="text-sm font-semibold text-neutral-900">Pruebas funcionales</h3>
+        <PruebasFuncionalesForm alumnoId={ficha.alumnoId} pruebas={pruebas} readOnly={readOnly} />
+      </section>
+
+      <section className="flex flex-col gap-2 border-t border-neutral-100 pt-4">
+        <h3 className="text-sm font-semibold text-neutral-900">Objetivos, contacto y días posibles</h3>
+        <ObjetivosContactoForm ficha={ficha} readOnly={readOnly} />
+      </section>
     </div>
   );
 }

@@ -1,7 +1,12 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { obtenerFicha, listarNotasEvolucion } from "@/lib/fichas-evaluacion-data";
+import {
+  obtenerFicha,
+  obtenerPruebasFuncionalesIniciales,
+  listarSedesParaFicha,
+  listarNotasEvolucion,
+} from "@/lib/fichas-evaluacion-data";
 import { FichaForm } from "@/components/fichas-evaluacion/ficha-form";
 import { NotasEvolucion } from "@/components/fichas-evaluacion/notas-evolucion";
 import { Card } from "@/components/ui/card";
@@ -19,9 +24,11 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: perfil }, ficha, notas] = await Promise.all([
+  const [{ data: perfil }, ficha, pruebas, sedes, notas] = await Promise.all([
     supabase.from("profiles").select("nombre, apellido, email, telefono").eq("id", id).eq("role", "alumno").single(),
     obtenerFicha(id),
+    obtenerPruebasFuncionalesIniciales(id),
+    listarSedesParaFicha(),
     listarNotasEvolucion(id),
   ]);
 
@@ -53,12 +60,12 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
       </LinkButton>
 
       <Card>
-        <h2 className="mb-3 font-semibold text-neutral-900">Ficha de evaluación</h2>
-        <FichaForm ficha={ficha} />
+        <h2 className="mb-3 font-semibold text-neutral-900">Ficha de admisión</h2>
+        <FichaForm ficha={ficha} pruebas={pruebas} sedes={sedes} />
       </Card>
 
       <Card>
-        <h2 className="mb-3 font-semibold text-neutral-900">Evolución / notas de seguimiento</h2>
+        <h2 className="mb-3 font-semibold text-neutral-900">Evolución</h2>
         <NotasEvolucion alumnoId={id} notas={notas} />
       </Card>
     </div>

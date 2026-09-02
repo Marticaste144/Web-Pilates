@@ -1,7 +1,12 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { obtenerAlumno } from "@/lib/admin/alumnos-data";
-import { obtenerFicha, listarNotasEvolucion } from "@/lib/fichas-evaluacion-data";
+import {
+  obtenerFicha,
+  obtenerPruebasFuncionalesIniciales,
+  listarSedesParaFicha,
+  listarNotasEvolucion,
+} from "@/lib/fichas-evaluacion-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { MarcarEfectivoButton } from "./marcar-efectivo-button";
 import { AprobarComprobanteButton } from "./aprobar-comprobante-button";
@@ -56,9 +61,11 @@ export default async function AlumnoDetallePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [alumno, ficha, notas] = await Promise.all([
+  const [alumno, ficha, pruebas, sedes, notas] = await Promise.all([
     obtenerAlumno(id),
     obtenerFicha(id),
+    obtenerPruebasFuncionalesIniciales(id),
+    listarSedesParaFicha(),
     listarNotasEvolucion(id),
   ]);
 
@@ -164,12 +171,12 @@ export default async function AlumnoDetallePage({
       )}
 
       <Card>
-        <h2 className="mb-3 font-semibold text-neutral-900">Ficha de evaluación</h2>
-        <FichaForm ficha={ficha} />
+        <h2 className="mb-3 font-semibold text-neutral-900">Ficha de admisión</h2>
+        <FichaForm ficha={ficha} pruebas={pruebas} sedes={sedes} />
       </Card>
 
       <Card>
-        <h2 className="mb-3 font-semibold text-neutral-900">Evolución / notas de seguimiento</h2>
+        <h2 className="mb-3 font-semibold text-neutral-900">Evolución</h2>
         <NotasEvolucion alumnoId={alumno.profileId} notas={notas} />
       </Card>
 
