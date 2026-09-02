@@ -13,6 +13,7 @@ import { ToggleActivaButton } from "../toggle-activa-button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { LinkButton } from "@/components/ui/button";
 import { ChevronRightIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +62,12 @@ export default async function EditarClasePage({
           <ToggleActivaButton id={clase.id} activa={clase.activa} />
         </div>
       </div>
+
+      {clase.modalidad === "grupal" && (
+        <LinkButton href={`/admin/clases/${clase.id}/planificacion`} variant="secondary" className="self-start">
+          Ver planificación grupal
+        </LinkButton>
+      )}
 
       <Card>
         <ClaseForm

@@ -8,6 +8,7 @@ import { AsistenciaLista } from "@/components/profesor/asistencia-lista";
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { LinkButton } from "@/components/ui/button";
 import { ChevronRightIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,12 @@ export default async function ClaseDetallePage({
           {clase.modalidad ? ` • ${clase.modalidad === "grupal" ? "Grupal" : "Personalizada"}` : ""}
         </p>
       </div>
+
+      {clase.modalidad === "grupal" && (
+        <LinkButton href={`/profesor/clases/${clase.id}/planificacion`} variant="secondary" className="self-start">
+          Ver planificación grupal
+        </LinkButton>
+      )}
 
       {clase.alumnosNoVisibles > 0 && (
         <Alert variant="warning">
