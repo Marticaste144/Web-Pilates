@@ -77,7 +77,10 @@ export default async function ProfesorHomePage() {
                   <h2 className="mt-2 text-2xl font-bold text-neutral-900 sm:text-3xl">
                     {proximaClase.horaInicio.slice(0, 5)} - {proximaClase.horaFin.slice(0, 5)}
                   </h2>
-                  <p className="mt-1 text-lg font-semibold text-secondary-700">{proximaClase.sedeNombre}</p>
+                  <p className="mt-1 text-lg font-semibold text-secondary-700">
+                    {proximaClase.sedeNombre}
+                    {proximaClase.actividadNombre ? ` -- ${proximaClase.actividadNombre}` : ""}
+                  </p>
                   <p className="mt-2 flex items-center gap-1.5 text-sm text-neutral-700">
                     <UsersIcon className="h-4 w-4" />
                     {proximaClase.inscriptosActivos} de {proximaClase.cupo} alumnas
@@ -134,7 +137,10 @@ export default async function ProfesorHomePage() {
                           <span className="font-semibold text-neutral-900">
                             {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
                           </span>
-                          <span className="min-w-0 truncate text-neutral-600">{c.sedeNombre}</span>
+                          <span className="min-w-0 truncate text-neutral-600">
+                            {c.sedeNombre}
+                            {c.actividadNombre ? ` -- ${c.actividadNombre}` : ""}
+                          </span>
                           <span className="whitespace-nowrap text-neutral-600">
                             {c.inscriptosActivos}/{c.cupo}
                           </span>
@@ -165,7 +171,10 @@ export default async function ProfesorHomePage() {
                             <p className="font-semibold text-neutral-900">
                               {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
                             </p>
-                            <p className="mt-0.5 text-sm text-neutral-500">{c.sedeNombre}</p>
+                            <p className="mt-0.5 text-sm text-neutral-500">
+                              {c.sedeNombre}
+                              {c.actividadNombre ? ` -- ${c.actividadNombre}` : ""}
+                            </p>
                           </div>
                           <span className="shrink-0 text-sm text-neutral-500">
                             {c.inscriptosActivos}/{c.cupo}

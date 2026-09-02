@@ -99,6 +99,11 @@ export default async function ClasesDeSedePage({
                 <div className="min-w-0">
                   <p className="text-lg font-bold text-neutral-900">
                     {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
+                    {c.actividadNombre && (
+                      <span className="ml-2 text-sm font-semibold uppercase tracking-wide text-secondary-600">
+                        {c.actividadNombre}
+                      </span>
+                    )}
                   </p>
                   <div className="mt-1 flex items-center gap-2 text-sm text-neutral-500">
                     <span>Prof. {c.profesorNombre}</span>

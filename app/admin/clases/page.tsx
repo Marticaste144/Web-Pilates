@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { listarClases, listarSedes, listarProfesoresParaSelect } from "@/lib/admin/clases-data";
+import {
+  listarClases,
+  listarSedes,
+  listarProfesoresParaSelect,
+  listarActividadesPorSede,
+} from "@/lib/admin/clases-data";
 import { crearClase } from "@/lib/admin/clases-actions";
 import { ClaseForm } from "./clase-form";
 import { ClasesTable } from "./clases-table";
@@ -10,10 +15,11 @@ import { Alert } from "@/components/ui/alert";
 export const dynamic = "force-dynamic";
 
 export default async function ClasesPage() {
-  const [clases, sedes, profesores] = await Promise.all([
+  const [clases, sedes, profesores, actividadesPorSede] = await Promise.all([
     listarClases(),
     listarSedes(),
     listarProfesoresParaSelect(),
+    listarActividadesPorSede(),
   ]);
 
   return (
@@ -37,7 +43,13 @@ export default async function ClasesPage() {
             .
           </Alert>
         ) : (
-          <ClaseForm action={crearClase} sedes={sedes} profesores={profesores} submitLabel="Crear clase" />
+          <ClaseForm
+            action={crearClase}
+            sedes={sedes}
+            profesores={profesores}
+            actividadesPorSede={actividadesPorSede}
+            submitLabel="Crear clase"
+          />
         )}
       </Card>
 

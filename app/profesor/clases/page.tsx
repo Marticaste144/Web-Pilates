@@ -32,7 +32,10 @@ export default async function MisClasesPage() {
           <Link key={c.id} href={`/profesor/clases/${c.id}`} className="group">
             <Card className="flex items-center justify-between gap-4 transition-colors group-hover:border-primary-400">
               <div className="min-w-0">
-                <p className="font-medium text-neutral-900">{c.sedeNombre}</p>
+                <p className="font-medium text-neutral-900">
+                  {c.sedeNombre}
+                  {c.actividadNombre ? ` -- ${c.actividadNombre}` : ""}
+                </p>
                 <p className="mt-0.5 text-sm text-neutral-500">
                   {diaLabel(c.diaSemana)} {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
                 </p>

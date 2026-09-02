@@ -13,6 +13,8 @@ export type ClaseDisponible = {
   inscriptosActivos: number;
   miInscripcionId: string | null;
   miEstado: EstadoInscripcion | null;
+  /** Null si la clase todavía no tiene actividad asignada (ver migración 20260901160000). */
+  actividadNombre: string | null;
 };
 
 export type SedeItem = { id: string; nombre: string };
@@ -34,13 +36,14 @@ export async function listarClasesParaAlumno(): Promise<ClaseDisponible[]> {
   } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const [{ data: clases }, { data: sedes }, { data: cupos }, { data: misInscripciones }] =
+  const [{ data: clases }, { data: sedes }, { data: actividades }, { data: cupos }, { data: misInscripciones }] =
     await Promise.all([
       supabase
         .from("clases")
-        .select("id, sede_id, profesor_id, dia_semana, hora_inicio, hora_fin, cupo")
+        .select("id, sede_id, profesor_id, dia_semana, hora_inicio, hora_fin, cupo, actividad_id")
         .eq("activa", true),
       supabase.from("sedes").select("id, nombre"),
+      supabase.from("actividades").select("id, nombre"),
       supabase.from("v_cupo_clases").select("clase_id, inscriptos_activos"),
       supabase
         .from("inscripciones")
@@ -57,6 +60,7 @@ export async function listarClasesParaAlumno(): Promise<ClaseDisponible[]> {
     .in("id", profesorIds);
 
   const sedePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
+  const actividadPorId = new Map((actividades ?? []).map((a) => [a.id, a.nombre]));
   const perfilPorId = new Map((perfiles ?? []).map((p) => [p.id, `${p.nombre} ${p.apellido}`]));
   const cupoPorClase = new Map((cupos ?? []).map((c) => [c.clase_id, c.inscriptos_activos]));
   const miInscripcionPorClase = new Map((misInscripciones ?? []).map((i) => [i.clase_id, i]));
@@ -76,6 +80,7 @@ export async function listarClasesParaAlumno(): Promise<ClaseDisponible[]> {
         inscriptosActivos: cupoPorClase.get(c.id) ?? 0,
         miInscripcionId: mia?.id ?? null,
         miEstado: (mia?.estado as EstadoInscripcion | undefined) ?? null,
+        actividadNombre: c.actividad_id ? actividadPorId.get(c.actividad_id) ?? null : null,
       };
     })
     .sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio));

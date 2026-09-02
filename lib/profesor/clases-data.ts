@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { fechaUltimaOcurrencia } from "@/lib/dias-semana";
-import type { EstadoAsistencia, EstadoVisualCuota } from "@/types/database";
+import type { EstadoAsistencia, EstadoVisualCuota, ModalidadClase } from "@/types/database";
 
 export type MiClaseItem = {
   id: string;
@@ -10,6 +10,9 @@ export type MiClaseItem = {
   horaFin: string;
   cupo: number;
   inscriptosActivos: number;
+  /** Null en clases viejas todavía sin categorizar (ver migración 20260901160000). */
+  actividadNombre: string | null;
+  modalidad: ModalidadClase | null;
 };
 
 export async function listarMisClases(): Promise<MiClaseItem[]> {
@@ -21,18 +24,20 @@ export async function listarMisClases(): Promise<MiClaseItem[]> {
 
   const { data: clases } = await supabase
     .from("clases")
-    .select("id, sede_id, dia_semana, hora_inicio, hora_fin, cupo")
+    .select("id, sede_id, dia_semana, hora_inicio, hora_fin, cupo, actividad_id, modalidad")
     .eq("profesor_id", user.id)
     .eq("activa", true);
 
   if (!clases || clases.length === 0) return [];
 
-  const [{ data: sedes }, { data: cupos }] = await Promise.all([
+  const [{ data: sedes }, { data: actividades }, { data: cupos }] = await Promise.all([
     supabase.from("sedes").select("id, nombre"),
+    supabase.from("actividades").select("id, nombre"),
     supabase.from("v_cupo_clases").select("clase_id, inscriptos_activos"),
   ]);
 
   const sedePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
+  const actividadPorId = new Map((actividades ?? []).map((a) => [a.id, a.nombre]));
   const cupoPorClase = new Map((cupos ?? []).map((c) => [c.clase_id, c.inscriptos_activos]));
 
   return clases
@@ -44,6 +49,8 @@ export async function listarMisClases(): Promise<MiClaseItem[]> {
       horaFin: c.hora_fin,
       cupo: c.cupo,
       inscriptosActivos: cupoPorClase.get(c.id) ?? 0,
+      actividadNombre: c.actividad_id ? actividadPorId.get(c.actividad_id) ?? null : null,
+      modalidad: c.modalidad,
     }))
     .sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio));
 }
@@ -87,6 +94,8 @@ export type ClaseDetalle = {
   cupo: number;
   totalInscriptos: number;
   fecha: string;
+  actividadNombre: string | null;
+  modalidad: ModalidadClase | null;
   confirmados: AlumnoConfirmadoItem[];
   disponibles: AlumnoDisponibleItem[];
   alumnosNoVisibles: number;
@@ -106,7 +115,7 @@ export async function obtenerClaseDetalle(claseId: string, fecha?: string): Prom
 
   const { data: clase } = await supabase
     .from("clases")
-    .select("id, sede_id, dia_semana, hora_inicio, hora_fin, cupo")
+    .select("id, sede_id, dia_semana, hora_inicio, hora_fin, cupo, actividad_id, modalidad")
     .eq("id", claseId)
     .single();
 
@@ -114,7 +123,12 @@ export async function obtenerClaseDetalle(claseId: string, fecha?: string): Prom
 
   const fechaResuelta = fecha || fechaUltimaOcurrencia(clase.dia_semana);
 
-  const { data: sede } = await supabase.from("sedes").select("nombre").eq("id", clase.sede_id).single();
+  const [{ data: sede }, { data: actividad }] = await Promise.all([
+    supabase.from("sedes").select("nombre").eq("id", clase.sede_id).single(),
+    clase.actividad_id
+      ? supabase.from("actividades").select("nombre").eq("id", clase.actividad_id).single()
+      : Promise.resolve({ data: null }),
+  ]);
 
   const [{ data: inscripciones }, { data: asistencias }] = await Promise.all([
     supabase.from("inscripciones").select("alumno_id").eq("clase_id", claseId).eq("estado", "activa"),
@@ -141,6 +155,8 @@ export async function obtenerClaseDetalle(claseId: string, fecha?: string): Prom
     cupo: clase.cupo,
     totalInscriptos,
     fecha: fechaResuelta,
+    actividadNombre: actividad?.nombre ?? null,
+    modalidad: clase.modalidad,
   };
 
   const alumnoIdsConFila = new Set(filasAsistencia.map((a) => a.alumno_id).filter((id): id is string => id !== null));

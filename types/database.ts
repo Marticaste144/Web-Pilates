@@ -20,6 +20,7 @@ export type EstadoPago = "pendiente" | "procesando" | "aprobado" | "rechazado";
 export type EstadoAsistencia = "presente" | "ausente";
 export type EstadoVisualCuota = "al_dia" | "por_vencer" | "vencida";
 export type TipoGaleriaItem = "foto" | "video";
+export type ModalidadClase = "personalizada" | "grupal";
 
 export type Database = {
   public: {
@@ -181,6 +182,10 @@ export type Database = {
           hora_fin: string;
           cupo: number;
           activa: boolean;
+          /** Null en clases viejas -- la admin la completa a mano. */
+          actividad_id: string | null;
+          /** personalizada | grupal, null en clases viejas hasta que la admin la confirme. */
+          modalidad: ModalidadClase | null;
           created_at: string;
         };
         Insert: {
@@ -192,6 +197,8 @@ export type Database = {
           hora_fin: string;
           cupo?: number;
           activa?: boolean;
+          actividad_id?: string | null;
+          modalidad?: ModalidadClase | null;
           created_at?: string;
         };
         Update: {
@@ -203,7 +210,42 @@ export type Database = {
           hora_fin?: string;
           cupo?: number;
           activa?: boolean;
+          actividad_id?: string | null;
+          modalidad?: ModalidadClase | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      actividades: {
+        Row: {
+          id: string;
+          nombre: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          nombre: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          nombre?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      sede_actividades: {
+        Row: {
+          sede_id: string;
+          actividad_id: string;
+        };
+        Insert: {
+          sede_id: string;
+          actividad_id: string;
+        };
+        Update: {
+          sede_id?: string;
+          actividad_id?: string;
         };
         Relationships: [];
       };
@@ -695,6 +737,7 @@ export type Database = {
       estado_pago: EstadoPago;
       estado_asistencia: EstadoAsistencia;
       tipo_galeria_item: TipoGaleriaItem;
+      modalidad_clase: ModalidadClase;
     };
   };
 };

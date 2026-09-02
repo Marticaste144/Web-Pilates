@@ -4,6 +4,7 @@ import {
   obtenerClase,
   listarSedes,
   listarProfesoresParaSelect,
+  listarActividadesPorSede,
   listarInscriptosDeClase,
 } from "@/lib/admin/clases-data";
 import { actualizarClase } from "@/lib/admin/clases-actions";
@@ -29,10 +30,11 @@ export default async function EditarClasePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [clase, sedes, profesores] = await Promise.all([
+  const [clase, sedes, profesores, actividadesPorSede] = await Promise.all([
     obtenerClase(id),
     listarSedes(),
     listarProfesoresParaSelect(),
+    listarActividadesPorSede(),
   ]);
 
   if (!clase) {
@@ -53,7 +55,8 @@ export default async function EditarClasePage({
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-bold text-neutral-900 sm:text-2xl">
-            {clase.sedeNombre} -- {clase.profesorNombre}
+            {clase.sedeNombre}
+            {clase.actividadNombre ? ` -- ${clase.actividadNombre}` : ""} -- {clase.profesorNombre}
           </h1>
           <ToggleActivaButton id={clase.id} activa={clase.activa} />
         </div>
@@ -64,6 +67,7 @@ export default async function EditarClasePage({
           action={actualizarClase}
           sedes={sedes}
           profesores={profesores}
+          actividadesPorSede={actividadesPorSede}
           clase={clase}
           submitLabel="Guardar cambios"
         />

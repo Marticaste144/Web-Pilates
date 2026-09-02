@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { FormState } from "@/lib/form-state";
 import { initialFormState } from "@/lib/form-state";
-import type { ProfesorSelectItem, SedeItem, ClaseListItem } from "@/lib/admin/clases-data";
+import type { ProfesorSelectItem, SedeItem, ActividadItem, ClaseListItem } from "@/lib/admin/clases-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { Field, Select, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -13,16 +13,23 @@ export function ClaseForm({
   action,
   sedes,
   profesores,
+  actividadesPorSede,
   clase,
   submitLabel,
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   sedes: SedeItem[];
   profesores: ProfesorSelectItem[];
+  actividadesPorSede: Record<string, ActividadItem[]>;
   clase?: ClaseListItem;
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, initialFormState);
+  // La actividad depende de qué sede esté elegida -- se sigue en estado
+  // local (no server) solo para filtrar las opciones del <select>, la
+  // Server Action recibe igual el actividad_id final del formulario.
+  const [sedeId, setSedeId] = useState(clase?.sedeId ?? "");
+  const actividadesDisponibles = actividadesPorSede[sedeId] ?? [];
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
@@ -30,7 +37,12 @@ export function ClaseForm({
 
       <div className="flex flex-wrap gap-3">
         <Field label="Sede" className="min-w-[9rem] flex-1">
-          <Select name="sede_id" defaultValue={clase?.sedeId ?? ""} required>
+          <Select
+            name="sede_id"
+            value={sedeId}
+            onChange={(e) => setSedeId(e.target.value)}
+            required
+          >
             <option value="" disabled>
               Elegir sede
             </option>
@@ -39,6 +51,25 @@ export function ClaseForm({
                 {s.nombre}
               </option>
             ))}
+          </Select>
+        </Field>
+
+        <Field label="Actividad" className="min-w-[9rem] flex-1" hint={!sedeId ? "Elegí una sede primero" : undefined}>
+          <Select name="actividad_id" defaultValue={clase?.actividadId ?? ""} disabled={!sedeId}>
+            <option value="">Sin definir</option>
+            {actividadesDisponibles.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.nombre}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field label="Modalidad" className="min-w-[9rem] flex-1">
+          <Select name="modalidad" defaultValue={clase?.modalidad ?? ""}>
+            <option value="">Sin definir</option>
+            <option value="grupal">Grupal</option>
+            <option value="personalizada">Personalizada</option>
           </Select>
         </Field>
 

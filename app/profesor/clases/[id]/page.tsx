@@ -45,10 +45,14 @@ export default async function ClaseDetallePage({
           <ChevronRightIcon className="h-3.5 w-3.5 rotate-180" />
           Volver
         </Link>
-        <h1 className="mt-2 text-xl font-bold text-neutral-900 sm:text-2xl">{clase.sedeNombre}</h1>
+        <h1 className="mt-2 text-xl font-bold text-neutral-900 sm:text-2xl">
+          {clase.sedeNombre}
+          {clase.actividadNombre ? ` -- ${clase.actividadNombre}` : ""}
+        </h1>
         <p className="mt-1 text-sm text-neutral-500">
           {diaLabelCapitalizado} {formatearDiaMes(fecha)} • {clase.horaInicio.slice(0, 5)} -{" "}
           {clase.horaFin.slice(0, 5)} • {clase.totalInscriptos} de {clase.cupo} alumnas
+          {clase.modalidad ? ` • ${clase.modalidad === "grupal" ? "Grupal" : "Personalizada"}` : ""}
         </p>
       </div>
 

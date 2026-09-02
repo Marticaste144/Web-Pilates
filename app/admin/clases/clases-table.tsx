@@ -21,6 +21,8 @@ function diaLabel(dia: number) {
   return DIAS_SEMANA.find((d) => d.value === dia)?.label ?? String(dia);
 }
 
+const MODALIDAD_LABEL: Record<string, string> = { grupal: "Grupal", personalizada: "Personalizada" };
+
 // Ventana de números de página al estilo "1 … 4 5 6 … 12": siempre primera,
 // última, la actual y una vecina de cada lado; el resto se resume con "…".
 function pageWindow(current: number, total: number): (number | "…")[] {
@@ -86,10 +88,12 @@ export function ClasesTable({ clases }: { clases: ClaseListItem[] }) {
   return (
     <Card padded={false} className="flex min-h-0 flex-col overflow-hidden md:flex-1">
       <div ref={containerRef} className="min-h-0 overflow-x-auto overflow-y-hidden md:flex-1">
-        <table className="w-full min-w-[640px] text-left text-sm md:min-w-0">
+        <table className="w-full min-w-[820px] text-left text-sm md:min-w-0">
           <thead className="bg-neutral-50 text-neutral-500">
             <tr>
               <th className="px-4 py-3 font-medium">Sede</th>
+              <th className="px-4 py-3 font-medium">Actividad</th>
+              <th className="px-4 py-3 font-medium">Modalidad</th>
               <th className="px-4 py-3 font-medium">Día</th>
               <th className="px-4 py-3 font-medium">Horario</th>
               <th className="px-4 py-3 font-medium">Profesor/a</th>
@@ -101,7 +105,7 @@ export function ClasesTable({ clases }: { clases: ClaseListItem[] }) {
           <tbody>
             {clases.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-neutral-400">
+                <td colSpan={9} className="px-4 py-8 text-center text-neutral-400">
                   Todavía no hay clases cargadas.
                 </td>
               </tr>
@@ -109,6 +113,10 @@ export function ClasesTable({ clases }: { clases: ClaseListItem[] }) {
             {visibles.map((c) => (
               <tr key={c.id} className="border-t border-neutral-100">
                 <td className="px-4 py-3 text-neutral-900">{c.sedeNombre}</td>
+                <td className="px-4 py-3 text-neutral-600">{c.actividadNombre ?? "-"}</td>
+                <td className="px-4 py-3 text-neutral-600">
+                  {c.modalidad ? MODALIDAD_LABEL[c.modalidad] : "-"}
+                </td>
                 <td className="px-4 py-3 text-neutral-600">{diaLabel(c.diaSemana)}</td>
                 <td className="px-4 py-3 text-neutral-600">
                   {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
