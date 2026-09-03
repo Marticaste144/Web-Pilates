@@ -166,7 +166,7 @@ export async function listarPagosParaExportar(): Promise<PagoExportRow[]> {
       fecha: p.created_at,
       alumnoNombre: alumno ? `${alumno.nombre} ${alumno.apellido}` : "?",
       alumnoEmail: alumno?.email ?? "?",
-      sedeNombre: sedeNombrePorId.get(p.sede_id) ?? "?",
+      sedeNombre: (p.sede_id && sedeNombrePorId.get(p.sede_id)) || "?",
       monto: p.monto,
       medio: MEDIO_TEXTO[p.medio],
       estado: ESTADO_PAGO_TEXTO[p.estado],

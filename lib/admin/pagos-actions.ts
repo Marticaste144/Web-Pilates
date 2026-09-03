@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdminProfile } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { calcularMontoCuotaSede } from "@/lib/pagos-calculo-server";
 
 export type PagoResult = { ok: boolean; message: string };
 
@@ -47,6 +48,12 @@ export async function aprobarPagoEfectivo(pagoId: string, alumnoId: string): Pro
 // medio. marcado_por/marcado_en quedan como registro de quién y cuándo lo
 // marcó pagado manualmente.
 //
+// El monto usa la MISMA lógica que subirComprobantePago (por actividad,
+// combo 20% off y prorrateo -- ver lib/pagos-calculo-server.ts): antes este
+// cálculo era independiente y buscaba el arancel por sede_id, que ya no
+// existe para las sedes migradas al modelo por actividad (quedaba
+// "No hay un arancel definido..." aunque el precio sí existiera).
+//
 // Dos componentes disparan esta misma operación bajo nombres históricos
 // distintos (MarcarEfectivoButton, en la card "Cuota por sede", y el panel
 // de Pagos, más nuevo) -- en vez de mantener dos implementaciones que
@@ -55,46 +62,17 @@ export async function registrarPagoEfectivo(alumnoId: string, sedeId: string): P
   const admin = await requireAdminProfile();
   const supabase = await createClient();
 
-  const { data: inscripciones } = await supabase
-    .from("inscripciones")
-    .select("clase_id")
-    .eq("alumno_id", alumnoId)
-    .eq("estado", "activa");
-
-  const claseIds = [...new Set((inscripciones ?? []).map((i) => i.clase_id))];
-  if (claseIds.length === 0) {
-    return { ok: false, message: "Este alumno no tiene clases activas en ninguna sede." };
+  const calculo = await calcularMontoCuotaSede(supabase, alumnoId, sedeId);
+  if (!calculo.ok) {
+    return { ok: false, message: calculo.message };
   }
-
-  const { data: clases } = await supabase.from("clases").select("id, sede_id").in("id", claseIds);
-  const frecuenciaSemanal = (clases ?? []).filter((c) => c.sede_id === sedeId).length;
-
-  if (frecuenciaSemanal === 0) {
-    return { ok: false, message: "Este alumno no tiene clases activas en esta sede." };
-  }
-
-  // Fecha de "hoy" en horario argentino, no UTC -- mismo criterio que
-  // fechaUltimaOcurrencia (lib/dias-semana.ts): cerca de medianoche, la
-  // fecha del server puede ser un día distinto a la de Argentina y hacer
-  // que se tome (o se pierda) el arancel vigente equivocado.
-  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
-  const { data: arancelRows } = await supabase
-    .from("aranceles")
-    .select("valor_mensual, vigente_desde")
-    .eq("sede_id", sedeId)
-    .eq("clases_por_semana", frecuenciaSemanal)
-    .lte("vigente_desde", hoy)
-    .order("vigente_desde", { ascending: false })
-    .limit(1);
-
-  const monto = arancelRows?.[0]?.valor_mensual;
-  if (!monto) {
-    return { ok: false, message: "No hay un arancel definido para esta frecuencia todavía." };
-  }
+  const { monto, actividadesIds, frecuenciaSemanal, periodoMes } = calculo;
 
   const { error } = await supabase.from("pagos").insert({
     alumno_id: alumnoId,
     sede_id: sedeId,
+    actividades_ids: actividadesIds,
+    periodo_mes: periodoMes,
     frecuencia_semanal: frecuenciaSemanal,
     monto,
     medio: "efectivo",

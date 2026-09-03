@@ -105,7 +105,8 @@ export function CuotaPanel({ cuotas, configPagos }: { cuotas: CuotaSedeItem[]; c
           <Alert variant="error">
             Tu comprobante por ${activa.ultimoRechazo.monto.toLocaleString("es-AR")} del{" "}
             {formatearFechaHora(activa.ultimoRechazo.createdAt)} fue rechazado. Revisá el monto/destino y subí un
-            comprobante nuevo.
+            comprobante nuevo -- si no estás segura de por qué se rechazó, contactá directamente a la administración
+            de MUV antes de volver a transferir.
           </Alert>
         )}
 
@@ -113,14 +114,22 @@ export function CuotaPanel({ cuotas, configPagos }: { cuotas: CuotaSedeItem[]; c
           !activa.transferenciaPendiente &&
           (activa.precioActual === null ? (
             <p className="border-t border-neutral-100 pt-3 text-sm text-error-600">
-              No hay un arancel definido para tu frecuencia en esta sede todavía -- contactá a la administración.
+              {activa.faltaClasificarActividad
+                ? "Todavía falta clasificar la actividad de alguna de tus clases en esta sede -- contactá a la administración."
+                : "No hay un arancel definido para tu frecuencia en esta sede todavía -- contactá a la administración."}
             </p>
           ) : (
             <div className="flex flex-col gap-3 border-t border-neutral-100 pt-3">
               <div className="rounded-xl bg-neutral-50 p-3">
                 <p className="text-sm font-medium text-neutral-900">
-                  Transferir: ${activa.precioActual.toLocaleString("es-AR")}
+                  Transferir: ${activa.precioActual.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
                 </p>
+                {activa.esProrateado && (
+                  <p className="mt-1 text-xs text-secondary-600">
+                    Primera cuota prorrateada: te quedan {activa.clasesRestantes} de {activa.clasesDelMes} clases
+                    este mes. Desde el mes que viene pagás el mes completo, entre el 1 y el 10.
+                  </p>
+                )}
                 {tieneDatosTransferencia ? (
                   <div className="mt-1.5 flex flex-col gap-0.5 text-xs text-neutral-600">
                     {configPagos.titularTransferencia && (

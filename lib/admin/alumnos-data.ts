@@ -246,7 +246,7 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
 
   const pagos: AlumnoPagoItem[] = (pagosRaw ?? []).map((p) => ({
     id: p.id,
-    sedeNombre: sedeNombrePorId.get(p.sede_id) ?? "?",
+    sedeNombre: (p.sede_id && sedeNombrePorId.get(p.sede_id)) || "?",
     monto: p.monto,
     medio: p.medio,
     estado: p.estado,
@@ -255,7 +255,7 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
 
   const comprobantes: ComprobanteItem[] = (comprobantesRaw ?? []).map((p) => ({
     pagoId: p.id,
-    sedeNombre: sedeNombrePorId.get(p.sede_id) ?? "?",
+    sedeNombre: (p.sede_id && sedeNombrePorId.get(p.sede_id)) || "?",
     monto: p.monto,
     medio: p.medio,
     estado: p.estado,

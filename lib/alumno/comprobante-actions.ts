@@ -3,6 +3,7 @@
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { calcularMontoCuotaSede } from "@/lib/pagos-calculo-server";
 import type { FormState } from "@/lib/form-state";
 
 const TIPOS_PERMITIDOS = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
@@ -18,12 +19,17 @@ function extensionDe(nombre: string, tipo: string): string {
 // alias/CBU -- es el único camino de pago (junto con efectivo registrado a
 // mano por la admin) desde que se dejó de integrar Mercado Pago.
 //
+// El monto se recalcula acá server-side con la MISMA lógica que ya vio el
+// alumno en /alumno/cuota (lib/alumno/cuota-data.ts): precio por actividad
+// a su frecuencia real, combinado con el 20% off en la más cara si hace dos
+// actividades distintas en esta sede, y prorrateado por mes calendario si
+// es su primera cuota acá y se incorporó con el mes ya empezado -- nunca se
+// confía en un monto mandado desde el cliente.
+//
 // Crea una fila NUEVA en pagos con estado='pendiente' (la RLS "alumno crea
 // su intento de pago" ya permite exactamente esto) y medio='transferencia'
 // -- queda a la vista de la admin, que la revisa y la aprueba o la rechaza
 // (ver aprobarComprobante/rechazarComprobante en lib/admin/pagos-actions.ts).
-// "monto" es exactamente lo que se le pide transferir al alumno (ver
-// lib/configuracion-pagos.ts) -- sin recargo.
 //
 // El archivo se sube ANTES de insertar la fila (no al revés): si la subida
 // falla, no queda ninguna fila "pendiente" húerfana sin comprobante -- y el
@@ -52,37 +58,11 @@ export async function subirComprobantePago(_prevState: FormState, formData: Form
     return { status: "error", message: "El archivo pesa más de 10 MB." };
   }
 
-  // Frecuencia semanal = clases activas reales del alumno en esta sede --
-  // mismo criterio que iniciarPagoMercadoPago (lib/alumno/pago-actions.ts),
-  // duplicado a propósito acá en vez de compartido, ver comentario arriba.
-  const { data: inscripciones } = await supabase.from("inscripciones").select("clase_id").eq("estado", "activa");
-
-  const claseIds = [...new Set((inscripciones ?? []).map((i) => i.clase_id))];
-  if (claseIds.length === 0) {
-    return { status: "error", message: "No tenés clases activas en ninguna sede." };
+  const calculo = await calcularMontoCuotaSede(supabase, user.id, sedeId);
+  if (!calculo.ok) {
+    return { status: "error", message: calculo.message };
   }
-
-  const { data: clases } = await supabase.from("clases").select("id, sede_id").in("id", claseIds);
-  const frecuenciaSemanal = (clases ?? []).filter((c) => c.sede_id === sedeId).length;
-
-  if (frecuenciaSemanal === 0) {
-    return { status: "error", message: "No tenés clases activas en esta sede." };
-  }
-
-  const hoy = new Date().toISOString().slice(0, 10);
-  const { data: arancelRows } = await supabase
-    .from("aranceles")
-    .select("valor_mensual, vigente_desde")
-    .eq("sede_id", sedeId)
-    .eq("clases_por_semana", frecuenciaSemanal)
-    .lte("vigente_desde", hoy)
-    .order("vigente_desde", { ascending: false })
-    .limit(1);
-
-  const monto = arancelRows?.[0]?.valor_mensual;
-  if (!monto) {
-    return { status: "error", message: "No hay un arancel definido para esta frecuencia todavía." };
-  }
+  const { monto, actividadesIds, frecuenciaSemanal, periodoMes } = calculo;
 
   const pagoId = randomUUID();
   const path = `${user.id}/${pagoId}.${extensionDe(archivo.name, archivo.type)}`;
@@ -99,6 +79,8 @@ export async function subirComprobantePago(_prevState: FormState, formData: Form
     id: pagoId,
     alumno_id: user.id,
     sede_id: sedeId,
+    actividades_ids: actividadesIds,
+    periodo_mes: periodoMes,
     frecuencia_semanal: frecuenciaSemanal,
     monto,
     medio: "transferencia",

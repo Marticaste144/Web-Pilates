@@ -46,7 +46,7 @@ export async function listarComprobantesPendientes(): Promise<ComprobantePendien
       pagoId: p.id,
       alumnoId: p.alumno_id,
       alumnoNombre: alumno ? `${alumno.nombre} ${alumno.apellido}` : "?",
-      sedeNombre: sedeNombrePorId.get(p.sede_id) ?? "?",
+      sedeNombre: (p.sede_id && sedeNombrePorId.get(p.sede_id)) || "?",
       monto: p.monto,
       medio: p.medio,
       createdAt: p.created_at,
