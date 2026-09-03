@@ -14,12 +14,24 @@
 --    corresponde esta recuperación (id de la fila de asistencia de la clase
 --    que faltó). Enlazar 1 a 1 (no solo contar) es lo que permite, sin una
 --    tabla/contador aparte:
---      - nunca recuperar la misma ausencia dos veces (unique index abajo);
+--      - nunca dos recuperaciones ACTIVAS (reservada o presente) a la vez
+--        sobre la misma ausencia (unique index parcial abajo);
 --      - calcular "ausencias sin recuperar todavía" con una simple resta de
---        conjuntos (ausentes de Pilates del mes MENOS ya enlazadas), en vez
---        de mantener un contador separado que se puede desincronizar.
+--        conjuntos (ausentes de Pilates del mes MENOS ya enlazadas
+--        ACTIVAMENTE), en vez de mantener un contador separado que se puede
+--        desincronizar.
 --    El mes calendario de la recuperación se obtiene de asistencias.fecha
 --    (ya existe) -- no hace falta agregar una columna "periodo_mes" nueva.
+--
+--    "Activa" = estado IS DISTINCT FROM 'ausente' (o sea: reservada, con
+--    estado todavía null, o ya confirmada como 'presente'). Confirmado con
+--    el pedido: la recuperación NO se da por consumida por el solo hecho de
+--    reservarla -- recién se consume DEFINITIVAMENTE cuando el profesor la
+--    marca Presente. Si en cambio queda Ausente, dejó de estar "activa": la
+--    fila NO se borra (queda el historial de que hubo un intento fallido),
+--    pero el índice único de abajo la deja de contar, así que la MISMA
+--    ausencia original vuelve a estar disponible para un nuevo intento
+--    dentro de ese mismo mes calendario.
 --
 -- 2) fn_es_mi_alumno se extiende con el caso "vino a recuperar a mi clase"
 --    (misma idea que el motor viejo tenía para turnos_liberados, ahora
@@ -46,7 +58,7 @@ alter table public.asistencias
   add column recupera_ausencia_id uuid references public.asistencias (id) on delete set null;
 
 comment on column public.asistencias.recupera_ausencia_id is
-  'Para filas de recuperación (es_recuperacion=true): id de la fila de asistencia de la clase de Pilates que la alumna faltó y está reponiendo acá. Enlace 1 a 1 -- una ausencia no puede recuperarse dos veces (ver uq_asistencias_recupera_ausencia).';
+  'Para filas de recuperación (es_recuperacion=true): id de la fila de asistencia de la clase de Pilates que la alumna faltó y está reponiendo acá. Solo puede haber UNA recuperación ACTIVA (reservada o presente) por ausencia a la vez -- ver uq_asistencias_recupera_ausencia_activa. Si una recuperación queda ausente, deja de estar activa y la ausencia vuelve a quedar disponible para un intento nuevo (la fila vieja no se borra, queda como historial).';
 
 alter table public.asistencias
   add constraint chk_asistencias_recuperacion check (
@@ -54,9 +66,15 @@ alter table public.asistencias
     or (es_recuperacion = true and recupera_ausencia_id is not null)
   );
 
-create unique index uq_asistencias_recupera_ausencia
+-- Parcial (no un unique index simple): deliberadamente EXCLUYE las filas ya
+-- resueltas como 'ausente' -- esas ya no están "usando" la ausencia
+-- original, así que no deben seguir bloqueando un intento nuevo sobre la
+-- misma. "estado is distinct from 'ausente'" trata NULL (reservada,
+-- todavía sin marcar) como activa también -- IS DISTINCT FROM nunca da NULL
+-- como resultado, a diferencia de "estado <> 'ausente'" con estado null.
+create unique index uq_asistencias_recupera_ausencia_activa
   on public.asistencias (recupera_ausencia_id)
-  where recupera_ausencia_id is not null;
+  where recupera_ausencia_id is not null and estado is distinct from 'ausente';
 
 -- ---------------------------------------------------------------------------
 -- fn_es_mi_alumno: se agrega el caso "tiene una recuperación cargada en una

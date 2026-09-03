@@ -19,20 +19,24 @@ export type ElegibilidadRecuperacion =
 //     todavía en ese mismo mes calendario (no se acumulan de un mes a otro:
 //     una ausencia de julio no se puede recuperar en agosto).
 //   - Cada recuperación queda enlazada 1 a 1 a la ausencia puntual que
-//     repone (recupera_ausencia_id) -- así una misma ausencia nunca se
-//     recupera dos veces (constraint en la base) y el conteo de
-//     "disponibles" sale de una simple resta de conjuntos, sin un contador
-//     aparte que se pueda desincronizar.
+//     repone (recupera_ausencia_id).
 //
-// Decisión que quedó tomada acá (no confirmada explícitamente por el
-// pedido, señalada en el informe final): el cupo de recuperación se
-// considera OCUPADO desde el momento en que el profesor la agrega
-// (reservada), no recién cuando se marca Presente -- si después se marca
-// Ausente igual, no se libera ni se puede volver a usar esa misma ausencia.
-// Evita reservas sin límite real (agregar de más "por las dudas" sin que
-// nunca se marque nada) y es el único criterio que se puede aplicar sin
-// carreras raras entre "se reserva" y "se marca". Si Laura prefiere que un
-// no-show libere el cupo, es un cambio acotado a este mismo archivo.
+// CONSUMO (corregido -- confirmado por Marti): reservar una recuperación
+// (agregarla a la clase, estado todavía null) NO la da por consumida
+// todavía -- una recuperación se consume DEFINITIVAMENTE recién cuando el
+// profesor la marca Presente. Si en cambio queda Ausente, la ausencia
+// original vuelve a estar disponible para un intento nuevo dentro del mismo
+// mes calendario -- la fila vieja no se borra (queda como historial de que
+// hubo un intento), simplemente deja de "ocupar" la ausencia.
+// "Activa" = estado IS DISTINCT FROM 'ausente' (reservada -- estado null,
+// o presente). Tanto "ausencia sin recuperar todavía" como "recuperaciones
+// que ya cuentan contra el máximo mensual" se calculan con este MISMO
+// criterio -- ver uq_asistencias_recupera_ausencia_activa en la migración:
+// mientras está reservada, cuenta para ambos límites (evita sobre-reservar
+// más citas de las que la frecuencia permite); si se resuelve Ausente, dejó
+// de estar activa y libera los dos límites a la vez; si se resuelve
+// Presente, queda consumida para siempre (no se puede volver a usar esa
+// ausencia, ni libera el cupo mensual).
 export async function obtenerElegibilidadRecuperacion(
   supabase: Awaited<ReturnType<typeof createClient>>,
   alumnoId: string,
@@ -68,12 +72,17 @@ export async function obtenerElegibilidadRecuperacion(
       .order("fecha", { ascending: true }),
     supabase
       .from("asistencias")
-      .select("id, clase_id")
+      .select("id, clase_id, estado")
       .eq("alumno_id", alumnoId)
       .eq("es_recuperacion", true)
       .gte("fecha", desde)
       .lte("fecha", hasta),
-    supabase.from("asistencias").select("recupera_ausencia_id").not("recupera_ausencia_id", "is", null),
+    // Todas las recuperaciones ya enlazadas a una ausencia (de cualquier
+    // alumna/clase/mes) -- se filtra a "activas" en JS, no en la consulta,
+    // para no depender de "estado <> 'ausente'" en SQL: con estado NULL
+    // (reservada, todavía sin marcar) esa comparación da NULL (ni true ni
+    // false) y excluiría por error a las reservas pendientes.
+    supabase.from("asistencias").select("recupera_ausencia_id, estado").not("recupera_ausencia_id", "is", null),
   ]);
 
   const claseIdsRelevantes = [
@@ -93,17 +102,21 @@ export async function obtenerElegibilidadRecuperacion(
     return { ok: false, motivo: "Esta alumna no tiene Pilates activo -- las recuperaciones son solo para alumnas de Pilates." };
   }
 
-  const idsYaLigados = new Set((ligadas ?? []).map((r) => r.recupera_ausencia_id));
-  const ausenciasDisponibles = (ausenciasCrudo ?? []).filter(
-    (a) => clasesPilatesIds.has(a.clase_id) && !idsYaLigados.has(a.id),
+  const idsYaLigadosActivamente = new Set(
+    (ligadas ?? []).filter((r) => r.estado !== "ausente").map((r) => r.recupera_ausencia_id),
   );
-  const yaUsadasEsteMes = (recuperacionesCrudo ?? []).filter((r) => clasesPilatesIds.has(r.clase_id)).length;
+  const ausenciasDisponibles = (ausenciasCrudo ?? []).filter(
+    (a) => clasesPilatesIds.has(a.clase_id) && !idsYaLigadosActivamente.has(a.id),
+  );
+  const yaUsadasEsteMes = (recuperacionesCrudo ?? []).filter(
+    (r) => clasesPilatesIds.has(r.clase_id) && r.estado !== "ausente",
+  ).length;
 
   const restantesPorFrecuencia = frecuenciaSemanal - yaUsadasEsteMes;
   if (restantesPorFrecuencia <= 0) {
     return {
       ok: false,
-      motivo: `Ya usó las ${frecuenciaSemanal} recuperación(es) que le corresponden este mes según su frecuencia de Pilates (${frecuenciaSemanal}x por semana).`,
+      motivo: `Ya tiene las ${frecuenciaSemanal} recuperación(es) que le corresponden este mes según su frecuencia de Pilates (${frecuenciaSemanal}x por semana), entre reservadas y realizadas.`,
     };
   }
 
