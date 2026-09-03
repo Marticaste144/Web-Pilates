@@ -123,7 +123,13 @@ export default async function ClaseDetallePage({
         // key incluye fecha a propósito: al entrar con otra ?fecha= (ej.
         // desde un link viejo), remonta la lista entera para no arrastrar
         // en memoria el estado de presente/ausente de otra fecha.
-        <AsistenciaLista key={fecha} claseId={clase.id} fecha={fecha} roster={clase.roster} />
+        <AsistenciaLista
+          key={fecha}
+          claseId={clase.id}
+          fecha={fecha}
+          roster={clase.roster}
+          esPilates={clase.actividadNombre === "Pilates"}
+        />
       )}
 
       <Card padded={false}>

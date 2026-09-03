@@ -71,6 +71,8 @@ export type AlumnoAsistenciaItem = {
   noRegistrado: boolean;
   manualSedeHabitual: string | null;
   manualProfesorHabitual: string | null;
+  /** true = vino a recuperar una clase de Pilates que faltó, no es alumna habitual de esta clase. */
+  esRecuperacion: boolean;
 };
 
 export type ClaseDetalle = {
@@ -127,7 +129,9 @@ export async function obtenerClaseDetalle(claseId: string, fecha?: string): Prom
     supabase.from("inscripciones").select("alumno_id").eq("clase_id", claseId).eq("estado", "activa"),
     supabase
       .from("asistencias")
-      .select("id, alumno_id, estado, no_registrado, manual_nombre, manual_apellido, manual_sede_habitual, manual_profesor_habitual")
+      .select(
+        "id, alumno_id, estado, no_registrado, es_recuperacion, manual_nombre, manual_apellido, manual_sede_habitual, manual_profesor_habitual",
+      )
       .eq("clase_id", claseId)
       .eq("fecha", fechaResuelta),
   ]);
@@ -155,17 +159,24 @@ export async function obtenerClaseDetalle(claseId: string, fecha?: string): Prom
   };
 
   const noRegistradosRaw = filasAsistencia.filter((a) => a.no_registrado);
+  // Recuperación (solo Pilates, ver 20260904090000): alumna real pero NO
+  // inscripta habitualmente en esta clase -- su alumno_id no está en
+  // rosterIds, así que hace falta resolver su perfil aparte.
+  const recuperacionesRaw = filasAsistencia.filter(
+    (a): a is typeof a & { alumno_id: string } => a.es_recuperacion && a.alumno_id !== null,
+  );
   const asistenciaPorAlumno = new Map(
     filasAsistencia.filter((a): a is typeof a & { alumno_id: string } => a.alumno_id !== null).map((a) => [a.alumno_id, a]),
   );
 
-  if (rosterIds.length === 0 && noRegistradosRaw.length === 0) {
+  if (rosterIds.length === 0 && noRegistradosRaw.length === 0 && recuperacionesRaw.length === 0) {
     return { ...base, roster: [], alumnosNoVisibles: 0 };
   }
 
+  const idsAResolver = [...new Set([...rosterIds, ...recuperacionesRaw.map((a) => a.alumno_id)])];
   const [{ data: perfiles }, { data: cuotas }] = await Promise.all([
-    rosterIds.length > 0
-      ? supabase.from("profiles").select("id, nombre, apellido, telefono").in("id", rosterIds)
+    idsAResolver.length > 0
+      ? supabase.from("profiles").select("id, nombre, apellido, telefono").in("id", idsAResolver)
       : Promise.resolve({ data: [] as { id: string; nombre: string; apellido: string; telefono: string | null }[] }),
     supabase.from("v_estado_cuota_alumno_sede").select("alumno_id, estado_visual").eq("sede_id", clase.sede_id),
   ]);
@@ -189,6 +200,27 @@ export async function obtenerClaseDetalle(claseId: string, fecha?: string): Prom
         noRegistrado: false,
         manualSedeHabitual: null,
         manualProfesorHabitual: null,
+        esRecuperacion: false,
+      };
+    })
+    .sort((a, b) => a.apellido.localeCompare(b.apellido));
+
+  const recuperacionesItems: AlumnoAsistenciaItem[] = recuperacionesRaw
+    .filter((a) => perfilPorId.has(a.alumno_id))
+    .map((a): AlumnoAsistenciaItem => {
+      const perfil = perfilPorId.get(a.alumno_id)!;
+      return {
+        asistenciaId: a.id,
+        alumnoId: a.alumno_id,
+        nombre: perfil.nombre,
+        apellido: perfil.apellido,
+        telefono: perfil.telefono,
+        cuotaEstado: cuotaPorAlumno.get(a.alumno_id) ?? "sin_pagos",
+        asistenciaEstado: a.estado,
+        noRegistrado: false,
+        manualSedeHabitual: null,
+        manualProfesorHabitual: null,
+        esRecuperacion: true,
       };
     })
     .sort((a, b) => a.apellido.localeCompare(b.apellido));
@@ -205,12 +237,13 @@ export async function obtenerClaseDetalle(claseId: string, fecha?: string): Prom
       noRegistrado: true,
       manualSedeHabitual: a.manual_sede_habitual,
       manualProfesorHabitual: a.manual_profesor_habitual,
+      esRecuperacion: false,
     }))
     .sort((a, b) => a.apellido.localeCompare(b.apellido));
 
   return {
     ...base,
-    roster: [...rosterItems, ...noRegistradosItems],
+    roster: [...rosterItems, ...recuperacionesItems, ...noRegistradosItems],
     alumnosNoVisibles: totalInscriptos - rosterVisibleIds.length,
   };
 }

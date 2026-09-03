@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { marcarAsistencia, agregarAlumnoNoRegistrado } from "@/lib/profesor/asistencia-actions";
+import { buscarAlumnasPilates, agregarRecuperacionPilates, type AlumnaPilatesItem } from "@/lib/profesor/recuperaciones-actions";
 import type { AlumnoAsistenciaItem } from "@/lib/profesor/clases-data";
 import type { EstadoAsistencia } from "@/types/database";
 import { Badge } from "@/components/ui/badge";
@@ -24,10 +25,13 @@ export function AsistenciaLista({
   claseId,
   fecha,
   roster,
+  esPilates = false,
 }: {
   claseId: string;
   fecha: string;
   roster: AlumnoAsistenciaItem[];
+  /** Las recuperaciones son SOLO para Pilates -- el buscador no se muestra en el resto de las actividades. */
+  esPilates?: boolean;
 }) {
   const [estados, setEstados] = useState<Record<string, EstadoAsistencia | null>>(() =>
     Object.fromEntries(roster.map((a) => [itemKey(a), a.asistenciaEstado])),
@@ -39,6 +43,14 @@ export function AsistenciaLista({
   const [mostrarFormManual, setMostrarFormManual] = useState(false);
   const [manualPending, startManualTransition] = useTransition();
   const [manualMsg, setManualMsg] = useState<string | null>(null);
+
+  const [mostrarRecuperacion, setMostrarRecuperacion] = useState(false);
+  const [queryRecuperacion, setQueryRecuperacion] = useState("");
+  const [resultadosRecuperacion, setResultadosRecuperacion] = useState<AlumnaPilatesItem[]>([]);
+  const [buscandoRecuperacion, startBusquedaRecuperacion] = useTransition();
+  const [agregandoAlumnoId, setAgregandoAlumnoId] = useState<string | null>(null);
+  const [recuperacionMsg, setRecuperacionMsg] = useState<string | null>(null);
+  const [, startAgregarRecuperacion] = useTransition();
 
   const estadoDe = (a: AlumnoAsistenciaItem) => estados[itemKey(a)] ?? a.asistenciaEstado;
   const presentes = roster.filter((a) => estadoDe(a) === "presente").length;
@@ -70,6 +82,32 @@ export function AsistenciaLista({
       });
       setManualMsg(result.message);
       if (result.ok) setMostrarFormManual(false);
+    });
+  }
+
+  function buscarRecuperacion(texto: string) {
+    setQueryRecuperacion(texto);
+    setRecuperacionMsg(null);
+    if (texto.trim().length < 2) {
+      setResultadosRecuperacion([]);
+      return;
+    }
+    startBusquedaRecuperacion(async () => {
+      setResultadosRecuperacion(await buscarAlumnasPilates(texto));
+    });
+  }
+
+  function agregarRecuperacion(alumnoId: string) {
+    setAgregandoAlumnoId(alumnoId);
+    setRecuperacionMsg(null);
+    startAgregarRecuperacion(async () => {
+      const result = await agregarRecuperacionPilates(claseId, fecha, alumnoId);
+      setRecuperacionMsg(result.message);
+      setAgregandoAlumnoId(null);
+      if (result.ok) {
+        setQueryRecuperacion("");
+        setResultadosRecuperacion([]);
+      }
     });
   }
 
@@ -119,14 +157,17 @@ export function AsistenciaLista({
                   ) : (
                     nombreCompleto
                   )}
-                  {a.noRegistrado && (
+                  {(a.noRegistrado || a.esRecuperacion) && (
                     <div className="mt-1 flex flex-wrap gap-1.5">
-                      <Badge variant="warning">
-                        No pertenece a esta clase
-                        {a.manualSedeHabitual || a.manualProfesorHabitual
-                          ? ` (habitual: ${[a.manualSedeHabitual, a.manualProfesorHabitual].filter(Boolean).join(" · ")})`
-                          : ""}
-                      </Badge>
+                      {a.esRecuperacion && <Badge variant="info">Recuperación</Badge>}
+                      {a.noRegistrado && (
+                        <Badge variant="warning">
+                          No pertenece a esta clase
+                          {a.manualSedeHabitual || a.manualProfesorHabitual
+                            ? ` (habitual: ${[a.manualSedeHabitual, a.manualProfesorHabitual].filter(Boolean).join(" · ")})`
+                            : ""}
+                        </Badge>
+                      )}
                     </div>
                   )}
                 </div>
@@ -159,6 +200,77 @@ export function AsistenciaLista({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {esPilates && (
+        <div className="rounded-card border border-neutral-200 bg-white p-4">
+          <p className="font-semibold text-neutral-900">Agregar recuperación</p>
+          <p className="mt-1 text-sm text-neutral-500">
+            Solo para Pilates: una alumna que coordinó por WhatsApp reponer una clase que faltó este mes.
+          </p>
+
+          {!mostrarRecuperacion ? (
+            <button
+              type="button"
+              onClick={() => setMostrarRecuperacion(true)}
+              className="mt-2 text-sm font-medium text-primary-600 hover:underline"
+            >
+              Agregar recuperación
+            </button>
+          ) : (
+            <div className="mt-3 flex flex-col gap-3 rounded-xl bg-neutral-50 p-3">
+              <Field label="Buscar alumna" className="min-w-0">
+                <Input
+                  value={queryRecuperacion}
+                  onChange={(e) => buscarRecuperacion(e.target.value)}
+                  placeholder="Nombre o apellido..."
+                  autoFocus
+                />
+              </Field>
+
+              {buscandoRecuperacion && <p className="text-xs text-neutral-400">Buscando...</p>}
+
+              {!buscandoRecuperacion && queryRecuperacion.trim().length >= 2 && resultadosRecuperacion.length === 0 && (
+                <p className="text-xs text-neutral-500">No se encontró ninguna alumna con Pilates activo con ese nombre.</p>
+              )}
+
+              {resultadosRecuperacion.length > 0 && (
+                <div className="flex flex-col divide-y divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white">
+                  {resultadosRecuperacion.map((r) => (
+                    <div key={r.alumnoId} className="flex items-center justify-between gap-3 p-2.5">
+                      <p className="min-w-0 truncate text-sm font-medium text-neutral-900">
+                        {r.nombre} {r.apellido}
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        loading={agregandoAlumnoId === r.alumnoId}
+                        onClick={() => agregarRecuperacion(r.alumnoId)}
+                      >
+                        Agregar
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="self-start"
+                onClick={() => {
+                  setMostrarRecuperacion(false);
+                  setQueryRecuperacion("");
+                  setResultadosRecuperacion([]);
+                }}
+              >
+                Cerrar
+              </Button>
+            </div>
+          )}
+          {recuperacionMsg && <p className="mt-2 text-xs text-neutral-500">{recuperacionMsg}</p>}
         </div>
       )}
 
