@@ -34,7 +34,7 @@ async function profesorIdsPorSedes(supabase: SupabaseServerClient, sedeIds: stri
   let query = supabase.from("clases").select("profesor_id").eq("activa", true);
   if (sedeIds) query = query.in("sede_id", sedeIds);
   const { data: clases } = await query;
-  const profesorIds = [...new Set((clases ?? []).map((c) => c.profesor_id))];
+  const profesorIds = [...new Set((clases ?? []).map((c) => c.profesor_id).filter((id): id is string => id !== null))];
   if (profesorIds.length === 0) return [];
 
   const { data: profesores } = await supabase

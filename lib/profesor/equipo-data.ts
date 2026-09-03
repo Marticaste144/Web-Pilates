@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 export type ProfesorEquipoItem = {
   profesorId: string;
   nombre: string;
-  apellido: string;
 };
 
 export type SedeConProfesores = {
@@ -26,26 +25,28 @@ export async function listarEquipoPorSede(): Promise<SedeConProfesores[]> {
 
   const profesorIdsPorSede = new Map<string, Set<string>>();
   for (const c of clases ?? []) {
+    if (!c.profesor_id) continue; // sin cuenta de acceso todavía -- no puede aparecer en "el equipo" del sistema
     const set = profesorIdsPorSede.get(c.sede_id) ?? new Set<string>();
     set.add(c.profesor_id);
     profesorIdsPorSede.set(c.sede_id, set);
   }
 
-  const todosProfesorIds = [...new Set((clases ?? []).map((c) => c.profesor_id))];
+  const todosProfesorIds = [...new Set((clases ?? []).map((c) => c.profesor_id).filter((id): id is string => id !== null))];
   const { data: perfiles } =
     todosProfesorIds.length > 0
-      ? await supabase.from("profiles").select("id, nombre, apellido").in("id", todosProfesorIds)
-      : { data: [] as { id: string; nombre: string; apellido: string }[] };
+      ? await supabase.from("profiles").select("id, nombre").in("id", todosProfesorIds)
+      : { data: [] as { id: string; nombre: string }[] };
 
   const perfilPorId = new Map((perfiles ?? []).map((p) => [p.id, p]));
 
   return (sedes ?? []).map((s): SedeConProfesores => {
     const ids = [...(profesorIdsPorSede.get(s.id) ?? [])];
+    // Solo nombre, sin apellido -- pedido explícito de este bloque.
     const profesores = ids
       .map((id) => perfilPorId.get(id))
-      .filter((p): p is { id: string; nombre: string; apellido: string } => !!p)
-      .map((p): ProfesorEquipoItem => ({ profesorId: p.id, nombre: p.nombre, apellido: p.apellido }))
-      .sort((a, b) => a.apellido.localeCompare(b.apellido));
+      .filter((p): p is { id: string; nombre: string } => !!p)
+      .map((p): ProfesorEquipoItem => ({ profesorId: p.id, nombre: p.nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
     return { sedeId: s.id, sedeNombre: s.nombre, profesores };
   });
 }

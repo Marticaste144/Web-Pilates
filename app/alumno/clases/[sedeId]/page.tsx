@@ -7,7 +7,7 @@ import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ChevronRightIcon } from "@/components/ui/icons";
+import { ChevronRightIcon, UserIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -96,20 +96,30 @@ export default async function ClasesDeSedePage({
             const lleno = c.inscriptosActivos >= c.cupo;
             return (
               <Card key={c.id} className="flex flex-wrap items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-lg font-bold text-neutral-900">
-                    {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
-                    {c.actividadNombre && (
-                      <span className="ml-2 text-sm font-semibold uppercase tracking-wide text-secondary-600">
-                        {c.actividadNombre}
-                      </span>
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-primary-100 to-primary-50 text-primary-300 ring-1 ring-black/5">
+                    {c.profesorFotoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- URL de Storage/estática dinámica.
+                      <img src={c.profesorFotoUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <UserIcon className="h-6 w-6" />
                     )}
-                  </p>
-                  <div className="mt-1 flex items-center gap-2 text-sm text-neutral-500">
-                    <span>Prof. {c.profesorNombre}</span>
-                    <Badge variant={lleno ? "warning" : "neutral"}>
-                      {c.inscriptosActivos}/{c.cupo} lugares
-                    </Badge>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-lg font-bold text-neutral-900">
+                      {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
+                      {c.actividadNombre && (
+                        <span className="ml-2 text-sm font-semibold uppercase tracking-wide text-secondary-600">
+                          {c.actividadNombre}
+                        </span>
+                      )}
+                    </p>
+                    <div className="mt-1 flex items-center gap-2 text-sm text-neutral-500">
+                      <span>Prof. {c.profesorNombre}</span>
+                      <Badge variant={lleno ? "warning" : "neutral"}>
+                        {c.inscriptosActivos}/{c.cupo} lugares
+                      </Badge>
+                    </div>
                   </div>
                 </div>
                 <div className="shrink-0">

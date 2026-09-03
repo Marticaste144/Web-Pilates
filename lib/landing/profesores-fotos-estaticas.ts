@@ -1,23 +1,31 @@
-// Fotos reales subidas a /public (BLOQUE VISUAL) -- asociadas por NOMBRE a
-// los profesores que ya existen en la base. Se usan como FALLBACK, nunca
-// como reemplazo del sistema real: si el profesor tiene `foto_url` (subida
-// desde /admin/profesores/[id], bucket de Storage), esa sigue ganando
-// siempre -- ver listarProfesoresPublicos/listarProfesores/obtenerProfesor.
-// Sin dependencias de servidor a propósito (como dias-semana.ts): la puede
-// importar tanto un Server Component como uno de cliente.
+// Fotos reales subidas a /public -- asociadas por NOMBRE a los profesores
+// reales de MUV, tengan o no cuenta de acceso todavía (ver
+// profesor_pendiente_nombre en clases). Se usan como FALLBACK, nunca como
+// reemplazo del sistema real: si el profesor tiene `foto_url` (subida desde
+// /admin/profesores/[id], bucket de Storage), esa sigue ganando siempre --
+// ver listarProfesoresPublicos/listarProfesores/obtenerProfesor y las
+// cards de horarios (BLOQUE DATOS REALES). Sin dependencias de servidor a
+// propósito (como dias-semana.ts): la puede importar tanto un Server
+// Component como uno de cliente.
 //
-// Verificado contra los profesores reales de la base antes de escribir esto
-// (no se inventó ninguna asociación): de las 11 fotos subidas, solo 3
-// coinciden por nombre con un profesor existente. Las otras 8 quedan sin
-// usar hasta que esas personas se carguen como profesores reales -- no se
-// asignan a nadie "parecido".
+// Verificado contra la nómina real antes de escribir esto (no se inventó
+// ninguna asociación): de las 11 fotos subidas, todas menos Gabriela/
+// Mariel/Nicolás/Nacho/Analía/Richard coinciden por nombre con alguien de
+// la nómina real (con cuenta ya creada o pendiente de invitar).
 export const FOTOS_PROFESORES_ESTATICAS: Record<string, string> = {
-  sabina: "/foto-sabina.jpeg", // Sabina Duarte
-  laura: "/foto-laura.jpeg", // Laura Pagola
-  laila: "/foto-laila.jpeg", // Laila Casin
+  sabina: "/foto-sabina.jpeg", // Sabina Duarte (cuenta real)
+  laura: "/foto-laura.jpeg", // Laura Pagola (cuenta real)
+  laila: "/foto-laila.jpeg", // Laila Casin (cuenta real)
+  alan: "/foto-alan.jpeg", // pendiente de cuenta
+  camila: "/foto-camila.jpeg", // pendiente de cuenta
+  gonzalo: "/foto-gonzalo.jpeg", // pendiente de cuenta
+  matias: "/foto-matias.jpeg", // pendiente de cuenta (sin tilde a propósito: la clave se normaliza sin diacríticos)
+  nacho: "/foto-nacho.jpeg", // pendiente de cuenta
+  pablo: "/foto-pablo.jpeg", // pendiente de cuenta
+  sofia: "/foto-sofia.jpeg", // pendiente de cuenta (sin tilde a propósito)
+  yayi: "/foto-yayi.jpeg", // pendiente de cuenta
 
-  // Pendientes -- sin profesor real con ese nombre en la base todavía:
-  // alan, camila, gonzalo, matias, nacho, pablo, sofia, yayi.
+  // Sin foto todavía: Rocío, Gabriela, Mariel, Nicolás, Analía, Richard.
 };
 
 const DIACRITICOS = new RegExp(`[${String.fromCharCode(0x0300)}-${String.fromCharCode(0x036f)}]`, "g");

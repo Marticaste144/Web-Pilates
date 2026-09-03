@@ -56,6 +56,6 @@ export async function listarClasesDeSuplencia(): Promise<ClaseSuplencia[]> {
     diaSemana: c.dia_semana,
     horaInicio: c.hora_inicio,
     horaFin: c.hora_fin,
-    profesorOriginalNombre: perfilPorId.get(c.profesor_id) ?? "?",
+    profesorOriginalNombre: (c.profesor_id && perfilPorId.get(c.profesor_id)) || "?",
   }));
 }

@@ -3,9 +3,13 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerClaseDetalle } from "@/lib/profesor/clases-data";
 import { listarFeedbackDeClase } from "@/lib/profesor/feedback-data";
+import { listarSedes, listarActividadesPorSede } from "@/lib/admin/clases-data";
+import { cambiarActivaMiClase } from "@/lib/profesor/clases-actions";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { formatearDiaMes } from "@/lib/fecha";
 import { AsistenciaLista } from "@/components/profesor/asistencia-lista";
+import { EditarHorario } from "@/components/profesor/editar-horario";
+import { ToggleActivaButton } from "@/components/clases/toggle-activa-button";
 import { FechaPicker } from "./fecha-picker";
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
@@ -34,7 +38,12 @@ export default async function ClaseDetallePage({
     notFound();
   }
   const fecha = clase.fecha;
-  const [feedback, { data: userData }] = await Promise.all([listarFeedbackDeClase(id), supabase.auth.getUser()]);
+  const [feedback, { data: userData }, sedes, actividadesPorSede] = await Promise.all([
+    listarFeedbackDeClase(id),
+    supabase.auth.getUser(),
+    listarSedes(),
+    listarActividadesPorSede(),
+  ]);
 
   // Suplencia = estoy viendo una clase que no es mía (la RLS ya me dejó
   // pasar porque la estoy cubriendo -- ver fn_es_suplente_de). Solo cambia
@@ -69,10 +78,28 @@ export default async function ClaseDetallePage({
           {clase.horaFin.slice(0, 5)} • {clase.totalInscriptos} de {clase.cupo} alumnas
           {clase.modalidad ? ` • ${clase.modalidad === "grupal" ? "Grupal" : "Personalizada"}` : ""}
         </p>
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           <FechaPicker fecha={fecha} />
+          {!esSuplencia && <ToggleActivaButton id={clase.id} activa={clase.activa} action={cambiarActivaMiClase} />}
         </div>
       </div>
+
+      {!esSuplencia && (
+        <EditarHorario
+          clase={{
+            id: clase.id,
+            sedeId: clase.sedeId,
+            diaSemana: clase.diaSemana,
+            horaInicio: clase.horaInicio,
+            horaFin: clase.horaFin,
+            cupo: clase.cupo,
+            actividadId: clase.actividadId,
+            modalidad: clase.modalidad,
+          }}
+          sedes={sedes}
+          actividadesPorSede={actividadesPorSede}
+        />
+      )}
 
       {clase.modalidad === "grupal" && mostrarPlanificacion && (
         <LinkButton href={`/profesor/clases/${clase.id}/planificacion`} variant="secondary" className="self-start">

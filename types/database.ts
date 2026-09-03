@@ -185,7 +185,10 @@ export type Database = {
         Row: {
           id: string;
           sede_id: string;
-          profesor_id: string;
+          /** Null = profesor real confirmado pero sin cuenta de acceso todavía -- ver profesor_pendiente_nombre. */
+          profesor_id: string | null;
+          /** Nombre del profesor real sin cuenta de acceso todavía. Mutuamente excluyente con profesor_id. */
+          profesor_pendiente_nombre: string | null;
           dia_semana: number;
           hora_inicio: string;
           hora_fin: string;
@@ -200,7 +203,8 @@ export type Database = {
         Insert: {
           id?: string;
           sede_id: string;
-          profesor_id: string;
+          profesor_id?: string | null;
+          profesor_pendiente_nombre?: string | null;
           dia_semana: number;
           hora_inicio: string;
           hora_fin: string;
@@ -213,7 +217,8 @@ export type Database = {
         Update: {
           id?: string;
           sede_id?: string;
-          profesor_id?: string;
+          profesor_id?: string | null;
+          profesor_pendiente_nombre?: string | null;
           dia_semana?: number;
           hora_inicio?: string;
           hora_fin?: string;

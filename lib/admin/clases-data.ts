@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { nombreProfesorClase } from "@/lib/clases-profesor-nombre";
 import type { EstadoInscripcion, EstadoVisualCuota, ModalidadClase } from "@/types/database";
 
 export type SedeItem = { id: string; nombre: string };
@@ -9,7 +10,9 @@ export type ClaseListItem = {
   id: string;
   sedeId: string;
   sedeNombre: string;
-  profesorId: string;
+  profesorId: string | null;
+  /** Null = profesor real confirmado pero sin cuenta de acceso todavía. */
+  profesorPendienteNombre: string | null;
   profesorNombre: string;
   diaSemana: number;
   horaInicio: string;
@@ -35,7 +38,8 @@ export async function listarActividades(): Promise<ActividadItem[]> {
 
 // Qué actividades puede ofrecer cada sede -- se usa para filtrar el
 // desplegable de "Actividad" en el formulario según la sede elegida (ej. no
-// se puede cargar "Stretching" en MUV PILATES).
+// se puede cargar "Stretching" en MUV PILATES). También es la misma fuente
+// de verdad que valida la base (fn_validar_actividad_de_sede).
 export async function listarActividadesPorSede(): Promise<Record<string, ActividadItem[]>> {
   const supabase = await createClient();
   const { data: filas } = await supabase.from("sede_actividades").select("sede_id, actividad_id");
@@ -84,7 +88,8 @@ function mapearClase(
   c: {
     id: string;
     sede_id: string;
-    profesor_id: string;
+    profesor_id: string | null;
+    profesor_pendiente_nombre: string | null;
     dia_semana: number;
     hora_inicio: string;
     hora_fin: string;
@@ -102,7 +107,8 @@ function mapearClase(
     sedeId: c.sede_id,
     sedeNombre: sedePorId.get(c.sede_id) ?? "?",
     profesorId: c.profesor_id,
-    profesorNombre: profesorPorId.get(c.profesor_id) ?? "?",
+    profesorPendienteNombre: c.profesor_pendiente_nombre,
+    profesorNombre: nombreProfesorClase(c.profesor_id ? profesorPorId.get(c.profesor_id) : null, c.profesor_pendiente_nombre),
     diaSemana: c.dia_semana,
     horaInicio: c.hora_inicio,
     horaFin: c.hora_fin,
@@ -119,7 +125,7 @@ export async function listarClases(): Promise<ClaseListItem[]> {
 
   const { data: clases } = await supabase
     .from("clases")
-    .select("id, sede_id, profesor_id, dia_semana, hora_inicio, hora_fin, cupo, activa, actividad_id, modalidad");
+    .select("id, sede_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin, cupo, activa, actividad_id, modalidad");
 
   if (!clases || clases.length === 0) return [];
 
@@ -131,6 +137,9 @@ export async function listarClases(): Promise<ClaseListItem[]> {
 
   const sedePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
   const actividadPorId = new Map((actividades ?? []).map((a) => [a.id, a.nombre]));
+  // Admin ve nombre + apellido completo (necesita poder distinguir
+  // profesores que compartan nombre de pila) -- distinto del resto de la
+  // app, que muestra solo el nombre.
   const profesorPorId = new Map(profesores.map((p) => [p.profileId, `${p.nombre} ${p.apellido}`]));
 
   return clases
@@ -142,7 +151,7 @@ export async function obtenerClase(id: string): Promise<ClaseListItem | null> {
   const supabase = await createClient();
   const { data: c } = await supabase
     .from("clases")
-    .select("id, sede_id, profesor_id, dia_semana, hora_inicio, hora_fin, cupo, activa, actividad_id, modalidad")
+    .select("id, sede_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin, cupo, activa, actividad_id, modalidad")
     .eq("id", id)
     .single();
 
@@ -150,7 +159,9 @@ export async function obtenerClase(id: string): Promise<ClaseListItem | null> {
 
   const [{ data: sede }, { data: perfil }, { data: actividad }] = await Promise.all([
     supabase.from("sedes").select("nombre").eq("id", c.sede_id).single(),
-    supabase.from("profiles").select("nombre, apellido").eq("id", c.profesor_id).single(),
+    c.profesor_id
+      ? supabase.from("profiles").select("nombre, apellido").eq("id", c.profesor_id).single()
+      : Promise.resolve({ data: null as { nombre: string; apellido: string } | null }),
     c.actividad_id ? supabase.from("actividades").select("nombre").eq("id", c.actividad_id).single() : Promise.resolve({ data: null }),
   ]);
 
@@ -159,7 +170,8 @@ export async function obtenerClase(id: string): Promise<ClaseListItem | null> {
     sedeId: c.sede_id,
     sedeNombre: sede?.nombre ?? "?",
     profesorId: c.profesor_id,
-    profesorNombre: perfil ? `${perfil.nombre} ${perfil.apellido}` : "?",
+    profesorPendienteNombre: c.profesor_pendiente_nombre,
+    profesorNombre: nombreProfesorClase(perfil ? `${perfil.nombre} ${perfil.apellido}` : null, c.profesor_pendiente_nombre),
     diaSemana: c.dia_semana,
     horaInicio: c.hora_inicio,
     horaFin: c.hora_fin,
@@ -179,7 +191,7 @@ export async function listarClasesDeProfesor(profesorId: string): Promise<ClaseL
 
   const { data: clases } = await supabase
     .from("clases")
-    .select("id, sede_id, profesor_id, dia_semana, hora_inicio, hora_fin, cupo, activa, actividad_id, modalidad")
+    .select("id, sede_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin, cupo, activa, actividad_id, modalidad")
     .eq("profesor_id", profesorId);
 
   if (!clases || clases.length === 0) return [];

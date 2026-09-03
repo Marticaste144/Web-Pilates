@@ -75,15 +75,19 @@ export type AlumnoAsistenciaItem = {
 
 export type ClaseDetalle = {
   id: string;
-  profesorId: string;
+  /** Null = todavía sin cuenta de acceso vinculada (ver profesorPendienteNombre). */
+  profesorId: string | null;
+  profesorPendienteNombre: string | null;
   sedeId: string;
   sedeNombre: string;
   diaSemana: number;
   horaInicio: string;
   horaFin: string;
   cupo: number;
+  activa: boolean;
   totalInscriptos: number;
   fecha: string;
+  actividadId: string | null;
   actividadNombre: string | null;
   modalidad: ModalidadClase | null;
   roster: AlumnoAsistenciaItem[];
@@ -104,7 +108,7 @@ export async function obtenerClaseDetalle(claseId: string, fecha?: string): Prom
 
   const { data: clase } = await supabase
     .from("clases")
-    .select("id, profesor_id, sede_id, dia_semana, hora_inicio, hora_fin, cupo, actividad_id, modalidad")
+    .select("id, profesor_id, profesor_pendiente_nombre, sede_id, dia_semana, hora_inicio, hora_fin, cupo, activa, actividad_id, modalidad")
     .eq("id", claseId)
     .single();
 
@@ -135,14 +139,17 @@ export async function obtenerClaseDetalle(claseId: string, fecha?: string): Prom
   const base = {
     id: clase.id,
     profesorId: clase.profesor_id,
+    profesorPendienteNombre: clase.profesor_pendiente_nombre,
     sedeId: clase.sede_id,
     sedeNombre: sede?.nombre ?? "?",
     diaSemana: clase.dia_semana,
     horaInicio: clase.hora_inicio,
     horaFin: clase.hora_fin,
     cupo: clase.cupo,
+    activa: clase.activa,
     totalInscriptos,
     fecha: fechaResuelta,
+    actividadId: clase.actividad_id,
     actividadNombre: actividad?.nombre ?? null,
     modalidad: clase.modalidad,
   };

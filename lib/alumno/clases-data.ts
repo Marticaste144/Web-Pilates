@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { nombreProfesorClase } from "@/lib/clases-profesor-nombre";
+import { fotoEstaticaDeProfesor } from "@/lib/landing/profesores-fotos-estaticas";
 import type { EstadoInscripcion } from "@/types/database";
 
 export type ClaseDisponible = {
@@ -6,6 +8,7 @@ export type ClaseDisponible = {
   sedeId: string;
   sedeNombre: string;
   profesorNombre: string;
+  profesorFotoUrl: string | null;
   diaSemana: number;
   horaInicio: string;
   horaFin: string;
@@ -40,7 +43,7 @@ export async function listarClasesParaAlumno(): Promise<ClaseDisponible[]> {
     await Promise.all([
       supabase
         .from("clases")
-        .select("id, sede_id, profesor_id, dia_semana, hora_inicio, hora_fin, cupo, actividad_id")
+        .select("id, sede_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin, cupo, actividad_id")
         .eq("activa", true),
       supabase.from("sedes").select("id, nombre"),
       supabase.from("actividades").select("id, nombre"),
@@ -53,26 +56,33 @@ export async function listarClasesParaAlumno(): Promise<ClaseDisponible[]> {
 
   if (!clases || clases.length === 0) return [];
 
-  const profesorIds = [...new Set(clases.map((c) => c.profesor_id))];
-  const { data: perfiles } = await supabase
-    .from("profiles")
-    .select("id, nombre, apellido")
-    .in("id", profesorIds);
+  const profesorIds = [...new Set(clases.map((c) => c.profesor_id).filter((id): id is string => id !== null))];
+  const [{ data: perfiles }, { data: profesoresFoto }] = await Promise.all([
+    supabase.from("profiles").select("id, nombre").in("id", profesorIds),
+    supabase.from("profesores").select("profile_id, foto_url").in("profile_id", profesorIds),
+  ]);
 
   const sedePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
   const actividadPorId = new Map((actividades ?? []).map((a) => [a.id, a.nombre]));
-  const perfilPorId = new Map((perfiles ?? []).map((p) => [p.id, `${p.nombre} ${p.apellido}`]));
+  // Solo nombre, sin apellido -- pedido explícito de este bloque.
+  const nombrePorId = new Map((perfiles ?? []).map((p) => [p.id, p.nombre]));
+  const fotoPorId = new Map((profesoresFoto ?? []).map((p) => [p.profile_id, p.foto_url]));
   const cupoPorClase = new Map((cupos ?? []).map((c) => [c.clase_id, c.inscriptos_activos]));
   const miInscripcionPorClase = new Map((misInscripciones ?? []).map((i) => [i.clase_id, i]));
 
   return clases
     .map((c): ClaseDisponible => {
       const mia = miInscripcionPorClase.get(c.id);
+      const nombreReal = c.profesor_id ? nombrePorId.get(c.profesor_id) : null;
+      const fotoStorage = c.profesor_id ? fotoPorId.get(c.profesor_id) : null;
       return {
         id: c.id,
         sedeId: c.sede_id,
         sedeNombre: sedePorId.get(c.sede_id) ?? "?",
-        profesorNombre: perfilPorId.get(c.profesor_id) ?? "?",
+        profesorNombre: nombreProfesorClase(nombreReal, c.profesor_pendiente_nombre),
+        profesorFotoUrl: fotoStorage
+          ? supabase.storage.from("profesores").getPublicUrl(fotoStorage).data.publicUrl
+          : fotoEstaticaDeProfesor(nombreReal ?? c.profesor_pendiente_nombre ?? ""),
         diaSemana: c.dia_semana,
         horaInicio: c.hora_inicio,
         horaFin: c.hora_fin,

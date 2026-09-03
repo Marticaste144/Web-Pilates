@@ -3,38 +3,42 @@
 import { useActionState, useState } from "react";
 import type { FormState } from "@/lib/form-state";
 import { initialFormState } from "@/lib/form-state";
-import type { ProfesorSelectItem, SedeItem, ActividadItem, ClaseListItem } from "@/lib/admin/clases-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { Field, Select, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { FormAlert } from "@/components/ui/form-alert";
 
-export function ClaseForm({
+export type HorarioFormClase = {
+  id: string;
+  sedeId: string;
+  diaSemana: number;
+  horaInicio: string;
+  horaFin: string;
+  cupo: number;
+  actividadId: string | null;
+  modalidad: string | null;
+};
+
+// Form de horario para el profesor (crear/editar SOLO sus propios) -- sin
+// selector de profesor (siempre es quien está logueado, la RLS lo exige) a
+// diferencia de ClaseForm de Admin. No hardcodea 1 hora de duración: hora
+// inicio/fin son dos inputs independientes, igual que el de Admin.
+export function HorarioForm({
   action,
   sedes,
-  profesores,
   actividadesPorSede,
   clase,
   submitLabel,
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
-  sedes: SedeItem[];
-  profesores: ProfesorSelectItem[];
-  actividadesPorSede: Record<string, ActividadItem[]>;
-  clase?: ClaseListItem;
+  sedes: { id: string; nombre: string }[];
+  actividadesPorSede: Record<string, { id: string; nombre: string }[]>;
+  clase?: HorarioFormClase;
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, initialFormState);
-  // La actividad depende de qué sede esté elegida -- se sigue en estado
-  // local (no server) solo para filtrar las opciones del <select>, la
-  // Server Action recibe igual el actividad_id final del formulario.
   const [sedeId, setSedeId] = useState(clase?.sedeId ?? "");
   const actividadesDisponibles = actividadesPorSede[sedeId] ?? [];
-
-  // Profesor real (con cuenta) O nombre pendiente (confirmado por MUV pero
-  // todavía sin cuenta de acceso) -- nunca los dos, mismo constraint que la
-  // base. El toggle arranca en "pendiente" si la clase ya viene así cargada.
-  const [profesorPendiente, setProfesorPendiente] = useState(Boolean(clase?.profesorPendienteNombre));
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
@@ -42,12 +46,7 @@ export function ClaseForm({
 
       <div className="flex flex-wrap gap-3">
         <Field label="Sede" className="min-w-[9rem] flex-1">
-          <Select
-            name="sede_id"
-            value={sedeId}
-            onChange={(e) => setSedeId(e.target.value)}
-            required
-          >
+          <Select name="sede_id" value={sedeId} onChange={(e) => setSedeId(e.target.value)} required>
             <option value="" disabled>
               Elegir sede
             </option>
@@ -76,36 +75,6 @@ export function ClaseForm({
             <option value="grupal">Grupal</option>
             <option value="personalizada">Personalizada</option>
           </Select>
-        </Field>
-
-        <Field label="Profesor/a" className="min-w-[11rem] flex-1">
-          {profesorPendiente ? (
-            <Input
-              name="profesor_pendiente_nombre"
-              placeholder="Nombre real (ej. Rocío)"
-              defaultValue={clase?.profesorPendienteNombre ?? ""}
-              required
-            />
-          ) : (
-            <Select name="profesor_id" defaultValue={clase?.profesorId ?? ""} required>
-              <option value="" disabled>
-                Elegir profesor/a
-              </option>
-              {profesores.map((p) => (
-                <option key={p.profileId} value={p.profileId}>
-                  {p.nombre} {p.apellido}
-                  {!p.activo ? " (inactivo)" : ""}
-                </option>
-              ))}
-            </Select>
-          )}
-          <button
-            type="button"
-            onClick={() => setProfesorPendiente((v) => !v)}
-            className="mt-1 text-left text-xs font-medium text-primary-600 hover:underline"
-          >
-            {profesorPendiente ? "Elegir de la lista de profesores" : "Persona real sin cuenta todavía"}
-          </button>
         </Field>
 
         <Field label="Día" className="min-w-[8rem] flex-1">

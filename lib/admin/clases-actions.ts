@@ -8,7 +8,8 @@ import type { ModalidadClase } from "@/types/database";
 
 function parseClaseForm(formData: FormData) {
   const sedeId = String(formData.get("sede_id") ?? "");
-  const profesorId = String(formData.get("profesor_id") ?? "");
+  const profesorId = String(formData.get("profesor_id") ?? "").trim() || null;
+  const profesorPendienteNombre = String(formData.get("profesor_pendiente_nombre") ?? "").trim() || null;
   const diaSemana = Number(formData.get("dia_semana"));
   const horaInicio = String(formData.get("hora_inicio") ?? "");
   const horaFin = String(formData.get("hora_fin") ?? "");
@@ -19,11 +20,16 @@ function parseClaseForm(formData: FormData) {
     | ModalidadClase
     | null;
 
-  if (!sedeId || !profesorId || !horaInicio || !horaFin || !diaSemana) {
+  if (!sedeId || !horaInicio || !horaFin || !diaSemana) {
+    return null;
+  }
+  // El profesor es una cosa u otra, nunca las dos ni ninguna -- mismo
+  // constraint que la base (chk_clases_profesor_identificado).
+  if ((!profesorId && !profesorPendienteNombre) || (profesorId && profesorPendienteNombre)) {
     return null;
   }
 
-  return { sedeId, profesorId, diaSemana, horaInicio, horaFin, cupo, actividadId, modalidad };
+  return { sedeId, profesorId, profesorPendienteNombre, diaSemana, horaInicio, horaFin, cupo, actividadId, modalidad };
 }
 
 export async function crearClase(_prevState: FormState, formData: FormData): Promise<FormState> {
@@ -31,13 +37,14 @@ export async function crearClase(_prevState: FormState, formData: FormData): Pro
 
   const parsed = parseClaseForm(formData);
   if (!parsed) {
-    return { status: "error", message: "Completá todos los campos." };
+    return { status: "error", message: "Completá todos los campos (profesor real O nombre pendiente, nunca los dos)." };
   }
 
   const supabase = await createClient();
   const { error } = await supabase.from("clases").insert({
     sede_id: parsed.sedeId,
     profesor_id: parsed.profesorId,
+    profesor_pendiente_nombre: parsed.profesorPendienteNombre,
     dia_semana: parsed.diaSemana,
     hora_inicio: parsed.horaInicio,
     hora_fin: parsed.horaFin,
@@ -60,7 +67,7 @@ export async function actualizarClase(_prevState: FormState, formData: FormData)
   const id = String(formData.get("id") ?? "");
   const parsed = parseClaseForm(formData);
   if (!id || !parsed) {
-    return { status: "error", message: "Completá todos los campos." };
+    return { status: "error", message: "Completá todos los campos (profesor real O nombre pendiente, nunca los dos)." };
   }
 
   const supabase = await createClient();
@@ -69,6 +76,7 @@ export async function actualizarClase(_prevState: FormState, formData: FormData)
     .update({
       sede_id: parsed.sedeId,
       profesor_id: parsed.profesorId,
+      profesor_pendiente_nombre: parsed.profesorPendienteNombre,
       dia_semana: parsed.diaSemana,
       hora_inicio: parsed.horaInicio,
       hora_fin: parsed.horaFin,

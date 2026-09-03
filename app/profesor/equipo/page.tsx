@@ -43,9 +43,7 @@ export default async function EquipoPage() {
                       href={`/profesor/equipo/${p.profesorId}`}
                       className="group flex items-center justify-between gap-3 p-4 transition-colors hover:bg-neutral-50"
                     >
-                      <span className="font-medium text-neutral-900">
-                        {p.nombre} {p.apellido}
-                      </span>
+                      <span className="font-medium text-neutral-900">{p.nombre}</span>
                       <ChevronRightIcon className="h-4 w-4 text-neutral-300 group-hover:text-primary-500" />
                     </Link>
                   ))}

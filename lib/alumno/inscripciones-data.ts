@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { hoyISO, diaSemanaHoy, horaAhoraISO } from "@/lib/fecha";
 import { fechaUltimaOcurrencia } from "@/lib/dias-semana";
+import { nombreProfesorClase } from "@/lib/clases-profesor-nombre";
 import type { EstadoInscripcion } from "@/types/database";
 
 export type MiInscripcion = {
@@ -55,19 +56,20 @@ export async function listarMisInscripciones(): Promise<MiInscripcion[]> {
   const claseIds = [...new Set(inscripciones.map((i) => i.clase_id))];
   const { data: clases } = await supabase
     .from("clases")
-    .select("id, sede_id, profesor_id, dia_semana, hora_inicio, hora_fin")
+    .select("id, sede_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin")
     .in("id", claseIds);
 
   const sedeIds = [...new Set((clases ?? []).map((c) => c.sede_id))];
-  const profesorIds = [...new Set((clases ?? []).map((c) => c.profesor_id))];
+  const profesorIds = [...new Set((clases ?? []).map((c) => c.profesor_id).filter((id): id is string => id !== null))];
 
   const [{ data: sedes }, { data: perfiles }] = await Promise.all([
     supabase.from("sedes").select("id, nombre").in("id", sedeIds),
-    supabase.from("profiles").select("id, nombre, apellido").in("id", profesorIds),
+    supabase.from("profiles").select("id, nombre").in("id", profesorIds),
   ]);
 
   const sedePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
-  const perfilPorId = new Map((perfiles ?? []).map((p) => [p.id, `${p.nombre} ${p.apellido}`]));
+  // Solo nombre, sin apellido -- pedido explícito de este bloque.
+  const nombrePorId = new Map((perfiles ?? []).map((p) => [p.id, p.nombre]));
   const clasePorId = new Map((clases ?? []).map((c) => [c.id, c]));
 
   const diaHoy = diaSemanaHoy();
@@ -104,7 +106,7 @@ export async function listarMisInscripciones(): Promise<MiInscripcion[]> {
         id: i.id,
         claseId: i.clase_id,
         sedeNombre: sedePorId.get(clase.sede_id) ?? "?",
-        profesorNombre: perfilPorId.get(clase.profesor_id) ?? "?",
+        profesorNombre: nombreProfesorClase(clase.profesor_id ? nombrePorId.get(clase.profesor_id) : null, clase.profesor_pendiente_nombre),
         diaSemana: clase.dia_semana,
         horaInicio: clase.hora_inicio,
         horaFin: clase.hora_fin,
