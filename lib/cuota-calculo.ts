@@ -55,19 +55,35 @@ export function calcularCuotaProporcional(precioMensual: number, clasesDelMes: n
 }
 
 // ---------------------------------------------------------------------------
-// Dos actividades con precio distinto: la más cara paga con 20% off, la
-// otra al precio completo (regla CONFIRMADA). Para 3 o más actividades
-// distintas en el mismo pago no hay una regla confirmada todavía -- se
-// suman completas (sin ningún descuento) hasta que Laura la defina, en vez
-// de inventar cómo extenderla.
+// Dos actividades distintas: la actividad MÁS CARA paga con 20% off, la
+// otra al precio completo (regla confirmada por Laura -- ejemplo real:
+// Pilates 2x $61.000 -> 20% off -> $48.800, más Postural 1x $44.000 al
+// 100% -> total $92.800). La regla es por ACTIVIDAD, no por sede: si el
+// alumno hace las dos actividades en sedes distintas, igual se comparan
+// entre sí para decidir cuál de las dos lleva el descuento -- por eso esta
+// función recibe un item por cada (sede, actividad) del alumno y agrupa por
+// actividadId antes de comparar, en vez de asumir que ya vienen los
+// "2 precios de una misma sede". Para 3 o más actividades distintas no hay
+// una regla confirmada todavía -- se devuelven los precios completos, sin
+// ningún descuento, hasta que Laura la defina (no se inventa cómo
+// extenderla). "Combinado" (mencionado por Laura) es un concepto aparte,
+// de significado y precio todavía sin confirmar -- no es sinónimo de "3
+// actividades" ni de ninguna frecuencia puntual, así que tampoco se
+// automatiza acá.
 // ---------------------------------------------------------------------------
-export function calcularMontoCombinado(precios: number[]): number {
-  if (precios.length === 0) return 0;
-  if (precios.length === 1) return precios[0];
-  if (precios.length === 2) {
-    const masCara = Math.max(precios[0], precios[1]);
-    const masBarata = Math.min(precios[0], precios[1]);
-    return masCara * 0.8 + masBarata;
+export function aplicarDescuentoDosActividades<T extends { actividadId: string; precio: number }>(items: T[]): T[] {
+  const actividadesDistintas = [...new Set(items.map((i) => i.actividadId))];
+  if (actividadesDistintas.length !== 2) return items;
+
+  const totalPorActividad = new Map<string, number>();
+  for (const actividadId of actividadesDistintas) {
+    totalPorActividad.set(
+      actividadId,
+      items.filter((i) => i.actividadId === actividadId).reduce((acc, i) => acc + i.precio, 0),
+    );
   }
-  return precios.reduce((acc, p) => acc + p, 0);
+  const [a, b] = actividadesDistintas;
+  const actividadMasCara = (totalPorActividad.get(a) ?? 0) >= (totalPorActividad.get(b) ?? 0) ? a : b;
+
+  return items.map((i) => (i.actividadId === actividadMasCara ? { ...i, precio: i.precio * 0.8 } : i));
 }

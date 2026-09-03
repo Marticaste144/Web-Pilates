@@ -21,10 +21,11 @@ function extensionDe(nombre: string, tipo: string): string {
 //
 // El monto se recalcula acá server-side con la MISMA lógica que ya vio el
 // alumno en /alumno/cuota (lib/alumno/cuota-data.ts): precio por actividad
-// a su frecuencia real, combinado con el 20% off en la más cara si hace dos
-// actividades distintas en esta sede, y prorrateado por mes calendario si
-// es su primera cuota acá y se incorporó con el mes ya empezado -- nunca se
-// confía en un monto mandado desde el cliente.
+// a su frecuencia real, combinado con el 20% off en la actividad más cara
+// si hace dos actividades distintas (aunque estén en sedes distintas -- la
+// regla es por actividad, no por sede), y prorrateado por mes calendario si
+// es su primera cuota en esta sede y se incorporó con el mes ya empezado --
+// nunca se confía en un monto mandado desde el cliente.
 //
 // Crea una fila NUEVA en pagos con estado='pendiente' (la RLS "alumno crea
 // su intento de pago" ya permite exactamente esto) y medio='transferencia'

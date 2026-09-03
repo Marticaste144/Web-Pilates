@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 // Mismo patrón que ArancelCell (modelo viejo por sede) pero para el modelo
 // nuevo por actividad -- clasesPorSemana=0 es "Libre", no una frecuencia
 // inválida. valorMensual null = todavía sin confirmar (ej. el 4x de
-// Funcional/Fuerza/Stretching/Ritmo, o "Combinado" -- ver migración
-// 20260903130000) -- el input queda vacío, listo para cargarlo apenas Laura lo confirme.
+// Funcional/Fuerza/Stretching/Ritmo -- ver migración 20260903130000) -- el
+// input queda vacío, listo para cargarlo apenas Laura lo confirme.
 export function ArancelActividadCell({
   actividadId,
   clasesPorSemana,

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { calcularMontoCombinado, calcularCuotaProporcional, calcularClasesDelMesYRestantes } from "@/lib/cuota-calculo";
+import { calcularItemsCuotaAlumno } from "@/lib/pagos-calculo-server";
 import type { EstadoVisualCuota } from "@/types/database";
 
 export type CuotaSedeItem = {
@@ -13,10 +13,12 @@ export type CuotaSedeItem = {
    * Precio a transferir HOY para las actividades reales del alumno en esta
    * sede (no el monto histórico de su último pago, que puede quedar viejo
    * si el arancel subió). Ya aplica:
-   *   - el 20% de descuento en la actividad más cara si combina DOS
-   *     actividades distintas en esta misma sede (regla confirmada) --
-   *     combinaciones entre sedes distintas no se descuentan entre sí
-   *     todavía (cada sede se paga por separado).
+   *   - el 20% de descuento en la actividad más cara si el alumno combina
+   *     DOS actividades distintas (regla confirmada por Laura) -- la
+   *     comparación es por actividad, no por sede: si hace una en esta
+   *     sede y la otra en otra sede distinta, igual se comparan entre sí
+   *     para decidir cuál lleva el descuento, aunque cada sede se siga
+   *     pagando por separado (ver lib/pagos-calculo-server.ts).
    *   - el prorrateo por mes calendario si todavía no tiene ningún pago
    *     aprobado en esta sede y se incorporó con el mes ya empezado (ver
    *     esProrateado/clasesDelMes/clasesRestantes).
@@ -53,54 +55,26 @@ export async function listarEstadoCuotaAlumno(): Promise<CuotaSedeItem[]> {
 
   const { data: inscripciones } = await supabase
     .from("inscripciones")
-    .select("clase_id, fecha_inscripcion")
+    .select("clase_id")
     .in("estado", ["activa", "lista_espera"]);
 
   if (!inscripciones || inscripciones.length === 0) return [];
 
   const claseIds = [...new Set(inscripciones.map((i) => i.clase_id))];
-  const { data: clases } = await supabase.from("clases").select("id, sede_id, actividad_id, dia_semana").in("id", claseIds);
-  const clasePorId = new Map((clases ?? []).map((c) => [c.id, c]));
+  const { data: clases } = await supabase.from("clases").select("id, sede_id").in("id", claseIds);
   const sedeIds = [...new Set((clases ?? []).map((c) => c.sede_id))];
   if (sedeIds.length === 0) return [];
 
-  // Frecuencia semanal REAL por (sede, actividad), días de la semana por
-  // (sede, actividad) para el prorrateo, y fecha de incorporación más
-  // antigua por sede -- todo derivado de las inscripciones reales, no de un
-  // dato guardado aparte.
-  const frecuenciaPorSedeActividad = new Map<string, number>(); // key: `${sedeId}:${actividadId ?? "null"}`
-  const diasPorSedeActividad = new Map<string, number[]>();
-  const actividadesPorSede = new Map<string, Set<string | null>>();
-  const incorporacionPorSede = new Map<string, string>();
-  for (const i of inscripciones) {
-    const clase = clasePorId.get(i.clase_id);
-    if (!clase) continue;
-    const key = `${clase.sede_id}:${clase.actividad_id ?? "null"}`;
-    frecuenciaPorSedeActividad.set(key, (frecuenciaPorSedeActividad.get(key) ?? 0) + 1);
-    (diasPorSedeActividad.get(key) ?? diasPorSedeActividad.set(key, []).get(key)!).push(clase.dia_semana);
-    const set = actividadesPorSede.get(clase.sede_id) ?? new Set<string | null>();
-    set.add(clase.actividad_id);
-    actividadesPorSede.set(clase.sede_id, set);
-
-    const fechaIncorp = i.fecha_inscripcion.slice(0, 10);
-    const actual = incorporacionPorSede.get(clase.sede_id);
-    if (!actual || fechaIncorp < actual) incorporacionPorSede.set(clase.sede_id, fechaIncorp);
-  }
-
-  const actividadIds = [...new Set((clases ?? []).map((c) => c.actividad_id).filter((id): id is string => id !== null))];
-
-  const hoy = new Date();
-  const hoyIso = hoy.toISOString().slice(0, 10);
-  const [{ data: sedes }, { data: cuotas }, { data: aranceles }, { data: pagosRecientes }] = await Promise.all([
+  // El precio (con el descuento de dos actividades ya resuelto entre TODAS
+  // las sedes del alumno, no solo esta) sale de la misma función que usan
+  // subirComprobantePago/registrarPagoEfectivo -- para que la cifra que ve
+  // acá el alumno sea siempre la misma que se le termina cobrando. Incluye
+  // lista de espera (no solo "activa") a propósito: si el alumno todavía no
+  // tiene un lugar confirmado en ninguna sede, igual queda una fila
+  // "sin_pagos" en vez de desaparecer de la pantalla.
+  const [{ data: sedes }, { data: cuotas }, { data: pagosRecientes }, itemsCuota] = await Promise.all([
     supabase.from("sedes").select("id, nombre").in("id", sedeIds),
     supabase.from("v_estado_cuota_alumno_sede").select("*"),
-    actividadIds.length > 0
-      ? supabase
-          .from("aranceles")
-          .select("actividad_id, clases_por_semana, valor_mensual, vigente_desde")
-          .in("actividad_id", actividadIds)
-          .lte("vigente_desde", hoyIso)
-      : Promise.resolve({ data: [] as { actividad_id: string | null; clases_por_semana: number; valor_mensual: number; vigente_desde: string }[] }),
     // Todos los pagos recientes del alumno (cualquier estado) -- para
     // resolver, por sede, cuál fue el ÚLTIMO intento (pendiente/rechazado/
     // aprobado) y así distinguir "rechazado, todavía sin resolver" de
@@ -110,6 +84,7 @@ export async function listarEstadoCuotaAlumno(): Promise<CuotaSedeItem[]> {
       .select("sede_id, monto, estado, medio, created_at")
       .eq("alumno_id", user.id)
       .order("created_at", { ascending: false }),
+    calcularItemsCuotaAlumno(supabase, user.id, ["activa", "lista_espera"]),
   ]);
 
   const cuotaPorSede = new Map((cuotas ?? []).map((c) => [c.sede_id, c]));
@@ -135,73 +110,34 @@ export async function listarEstadoCuotaAlumno(): Promise<CuotaSedeItem[]> {
     }
   }
 
-  function precioVigentePorActividad(actividadId: string, frecuencia: number): number | null {
-    const vigente = (aranceles ?? [])
-      .filter((a) => a.actividad_id === actividadId && a.clases_por_semana === frecuencia)
-      .sort((a, b) => b.vigente_desde.localeCompare(a.vigente_desde))[0];
-    return vigente?.valor_mensual ?? null;
-  }
-
-  // Precio de la sede = combina el precio de cada actividad distinta que el
-  // alumno hace ahí (a su propia frecuencia semanal) -- 1 sola actividad:
-  // ese precio tal cual; 2 actividades distintas: la más cara con 20% off
-  // (regla confirmada); si falta clasificar la actividad de alguna clase, o
-  // falta el arancel de alguna frecuencia, no se puede calcular (null). Si
-  // todavía no tiene ningún pago aprobado en esta sede y el mes ya empezó,
-  // se prorratea sobre las clases que le quedan (mes calendario, nunca "30
-  // días desde el pago" -- ver lib/cuota-calculo.ts).
-  function calcularPrecioDeSede(
-    sedeId: string,
-    yaPagoAlgunaVez: boolean,
-  ): { precio: number | null; faltaClasificar: boolean; prorateado: boolean; clasesDelMes: number | null; clasesRestantes: number | null } {
-    const actividades = [...(actividadesPorSede.get(sedeId) ?? [])];
-    if (actividades.some((a) => a === null)) {
+  // Precio de la sede = suma el precio de cada actividad distinta que el
+  // alumno hace ahí (a su propia frecuencia semanal), ya con el 20% off en
+  // la más cara resuelto contra TODAS sus actividades -- ver el comentario
+  // de calcularItemsCuotaAlumno en lib/pagos-calculo-server.ts. Si falta
+  // clasificar la actividad de alguna clase, o falta el arancel de alguna
+  // frecuencia, no se puede calcular (null).
+  function calcularPrecioDeSede(sedeId: string): {
+    precio: number | null;
+    faltaClasificar: boolean;
+    prorateado: boolean;
+    clasesDelMes: number | null;
+    clasesRestantes: number | null;
+  } {
+    if (itemsCuota.sedesSinClasificar.has(sedeId)) {
       return { precio: null, faltaClasificar: true, prorateado: false, clasesDelMes: null, clasesRestantes: null };
     }
-
-    const anio = hoy.getFullYear();
-    const mes = hoy.getMonth() + 1;
-    const mesActualIso = `${anio}-${String(mes).padStart(2, "0")}`;
-
-    // "Desde su incorporación" -- el día que se anotó a esta sede (la más
-    // antigua de sus inscripciones ahí), NO el día de hoy (podría estar
-    // consultando la página varios días después de anotarse). Si se
-    // incorporó en un mes anterior a éste, este mes ya le corresponde
-    // completo -- el prorrateo es solo para el mes en que se incorpora.
-    const fechaIncorporacion = incorporacionPorSede.get(sedeId) ?? hoyIso;
-    const seIncorporoEsteMes = fechaIncorporacion.slice(0, 7) === mesActualIso;
-    const diaIncorporacion = seIncorporoEsteMes ? Number(fechaIncorporacion.slice(8, 10)) : 1;
-    const debeProratear = !yaPagoAlgunaVez && seIncorporoEsteMes && diaIncorporacion > 1;
-
-    const precios: number[] = [];
-    let clasesDelMesTotal = 0;
-    let clasesRestantesTotal = 0;
-    for (const actividadId of actividades as string[]) {
-      const key = `${sedeId}:${actividadId}`;
-      const frecuencia = frecuenciaPorSedeActividad.get(key) ?? 0;
-      const precioMensual = precioVigentePorActividad(actividadId, frecuencia);
-      if (precioMensual === null) {
-        return { precio: null, faltaClasificar: false, prorateado: false, clasesDelMes: null, clasesRestantes: null };
-      }
-
-      if (!debeProratear) {
-        precios.push(precioMensual);
-        continue;
-      }
-
-      const dias = diasPorSedeActividad.get(key) ?? [];
-      const { totalMes, restantes } = calcularClasesDelMesYRestantes(anio, mes, dias, diaIncorporacion);
-      clasesDelMesTotal += totalMes;
-      clasesRestantesTotal += restantes;
-      precios.push(calcularCuotaProporcional(precioMensual, totalMes, restantes));
+    if (itemsCuota.sedesSinArancel.has(sedeId)) {
+      return { precio: null, faltaClasificar: false, prorateado: false, clasesDelMes: null, clasesRestantes: null };
     }
 
+    const items = itemsCuota.items.filter((i) => i.sedeId === sedeId);
+    const prorateado = items.some((i) => i.prorateado);
     return {
-      precio: calcularMontoCombinado(precios),
+      precio: items.reduce((acc, i) => acc + i.precio, 0),
       faltaClasificar: false,
-      prorateado: debeProratear,
-      clasesDelMes: debeProratear ? clasesDelMesTotal : null,
-      clasesRestantes: debeProratear ? clasesRestantesTotal : null,
+      prorateado,
+      clasesDelMes: prorateado ? items.reduce((acc, i) => acc + (i.clasesDelMes ?? 0), 0) : null,
+      clasesRestantes: prorateado ? items.reduce((acc, i) => acc + (i.clasesRestantes ?? 0), 0) : null,
     };
   }
 
@@ -213,7 +149,7 @@ export async function listarEstadoCuotaAlumno(): Promise<CuotaSedeItem[]> {
       prorateado: esProrateado,
       clasesDelMes,
       clasesRestantes,
-    } = calcularPrecioDeSede(s.id, Boolean(cuota));
+    } = calcularPrecioDeSede(s.id);
     const transferenciaPendiente = pendientePorSede.get(s.id) ?? null;
     const ultimoRechazo = ultimoRechazoPorSede.get(s.id) ?? null;
 

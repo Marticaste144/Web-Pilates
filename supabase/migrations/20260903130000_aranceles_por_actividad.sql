@@ -21,13 +21,19 @@
 --
 -- Valores TODAVÍA sin confirmar (a propósito NO se inventan):
 --   - Funcional/Fuerza/Stretching/Ritmo, 4x semanales (pendiente $63k/$64k)
---   - "Combinado" 3x (mencionado por Laura, mecánica todavía sin definir)
+--   - "Combinado" (mencionado por Laura -- significado y precio todavía sin
+--     definir; NO es sinónimo de "3x" ni de "3 o más actividades", es un
+--     concepto aparte que no se automatiza hasta que lo confirme)
 -- Quedan sin fila -- Admin las carga desde /admin/aranceles en cuanto se
 -- confirmen, con el mismo formulario que ya existe.
 --
--- La regla de "dos actividades: la más cara al 20% off, la otra al 100%" es
--- un CÁLCULO (ver lib/cuota-calculo.ts), no una fila de precio -- no hace
--- falta ninguna tabla nueva para eso.
+-- La regla de "dos actividades: la MÁS CARA al 20% off, la otra al 100%"
+-- (confirmado por Laura, ej. Pilates 2x $61.000 -> $48.800 + Postural 1x
+-- $44.000 -> total $92.800) es un CÁLCULO por actividad, no por sede -- se
+-- compara entre las dos actividades del alumno aunque estén en sedes
+-- distintas (ver aplicarDescuentoDosActividades en lib/cuota-calculo.ts).
+-- Para 3 o más actividades no hay regla confirmada: se suman completas. No
+-- hace falta ninguna tabla nueva para nada de esto.
 -- ============================================================================
 
 alter table public.aranceles

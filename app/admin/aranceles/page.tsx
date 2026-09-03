@@ -18,9 +18,9 @@ const FRECUENCIA_LABEL: Record<number, string> = {
 
 // Modelo nuevo: precio por ACTIVIDAD (no por sede) -- una card por
 // actividad, con sus frecuencias reales debajo. Las combinaciones de dos
-// actividades (ej. Postural + Pilates) se calculan solas con el 20% de
-// descuento en la más cara -- no hay una fila de precio para eso, ver
-// lib/cuota-calculo.ts.
+// actividades (ej. Postural + Pilates, aunque estén en sedes distintas) se
+// calculan solas con el 20% de descuento en la más cara -- no hay una fila
+// de precio para eso, ver lib/cuota-calculo.ts.
 export default async function ArancelesPage() {
   const [aranceles, configPagos] = await Promise.all([listarArancelesPorActividad(), obtenerConfiguracionPagos()]);
 
@@ -41,14 +41,16 @@ export default async function ArancelesPage() {
 
       {hayPendientes && (
         <Alert variant="warning">
-          Hay frecuencias todavía sin precio confirmado (4x de Funcional/Fuerza/Stretching/Ritmo, y el eventual
-          &ldquo;Combinado&rdquo; 3x que mencionó Laura) -- cargalas acá abajo en cuanto las confirme.
+          Hay frecuencias todavía sin precio confirmado (4x de Funcional/Fuerza/Stretching/Ritmo) -- cargalas acá
+          abajo en cuanto Laura las confirme.
         </Alert>
       )}
 
       <Alert variant="info">
-        Si una alumna combina DOS actividades distintas, el sistema cobra la más cara con 20% de descuento y la otra
-        completa -- automático, no hace falta cargar un precio combinado.
+        Si una alumna combina DOS actividades distintas (en la misma sede o en sedes distintas), el sistema cobra la
+        más cara con 20% de descuento y la otra completa -- automático, no hace falta cargar un precio combinado.
+        &ldquo;Combinado&rdquo; (mencionado por Laura para 3 o más actividades) es otra cosa, todavía sin definir --
+        no se automatiza hasta que confirme qué significa y cuánto sale.
       </Alert>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
