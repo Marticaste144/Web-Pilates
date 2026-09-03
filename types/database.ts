@@ -451,7 +451,7 @@ export type Database = {
           tomado_en: string | null;
           /** true = la propia alumna confirmó que va, 1hs antes de la clase. */
           confirmado: boolean;
-          /** Tag preparado para la futura función de recuperación de turnos. */
+          /** true = recuperación de Pilates (ver recupera_ausencia_id). */
           es_recuperacion: boolean;
           /** true = la fila la creó el profesor a mano, no la propia alumna. */
           agregado_manualmente: boolean;
@@ -461,6 +461,8 @@ export type Database = {
           manual_apellido: string | null;
           manual_sede_habitual: string | null;
           manual_profesor_habitual: string | null;
+          /** Solo si es_recuperacion=true: id de la asistencia (ausente) de Pilates que se está reponiendo. */
+          recupera_ausencia_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -479,6 +481,7 @@ export type Database = {
           manual_apellido?: string | null;
           manual_sede_habitual?: string | null;
           manual_profesor_habitual?: string | null;
+          recupera_ausencia_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -497,6 +500,7 @@ export type Database = {
           manual_apellido?: string | null;
           manual_sede_habitual?: string | null;
           manual_profesor_habitual?: string | null;
+          recupera_ausencia_id?: string | null;
           created_at?: string;
         };
         Relationships: [];
@@ -1108,6 +1112,12 @@ export type Database = {
         };
         Relationships: [];
       };
+      v_profesores_pendientes_publicos: {
+        Row: {
+          nombre: string;
+        };
+        Relationships: [];
+      };
       v_galeria_publica: {
         Row: {
           id: string;
@@ -1118,7 +1128,12 @@ export type Database = {
         Relationships: [];
       };
     };
-    Functions: Record<string, never>;
+    Functions: {
+      fn_buscar_alumnas_pilates: {
+        Args: { p_query: string };
+        Returns: { alumno_id: string; nombre: string; apellido: string }[];
+      };
+    };
     Enums: {
       rol_usuario: RolUsuario;
       estado_inscripcion: EstadoInscripcion;

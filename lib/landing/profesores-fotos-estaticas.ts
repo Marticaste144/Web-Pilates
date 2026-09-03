@@ -9,9 +9,10 @@
 // Component como uno de cliente.
 //
 // Verificado contra la nómina real antes de escribir esto (no se inventó
-// ninguna asociación): de las 11 fotos subidas, todas menos Gabriela/
-// Mariel/Nicolás/Nacho/Analía/Richard coinciden por nombre con alguien de
-// la nómina real (con cuenta ya creada o pendiente de invitar).
+// ninguna asociación): las 11 fotos subidas coinciden por nombre con
+// alguien de la nómina real (con cuenta ya creada o pendiente de invitar).
+// Sin foto todavía: Rocío, Gabriela, Mariel, Nicolás, Analía, Richard --
+// listarProfesoresPublicos (landing) los deja afuera hasta que haya una.
 export const FOTOS_PROFESORES_ESTATICAS: Record<string, string> = {
   sabina: "/foto-sabina.jpeg", // Sabina Duarte (cuenta real)
   laura: "/foto-laura.jpeg", // Laura Pagola (cuenta real)
