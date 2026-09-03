@@ -39,3 +39,39 @@ export async function actualizarArancel(_prevState: FormState, formData: FormDat
   revalidatePath("/admin/aranceles");
   return { status: "success", message: "Arancel actualizado." };
 }
+
+// Mismo criterio que actualizarArancel (arriba) pero para el modelo nuevo
+// por actividad -- clasesPorSemana=0 es "Libre" (Funcional/Fuerza/
+// Stretching/Ritmo), no una frecuencia inválida.
+export async function actualizarArancelActividad(_prevState: FormState, formData: FormData): Promise<FormState> {
+  await requireAdminProfile();
+
+  const actividadId = String(formData.get("actividad_id") ?? "");
+  const clasesPorSemana = Number(formData.get("clases_por_semana"));
+  const valorMensual = Number(formData.get("valor_mensual"));
+
+  if (!actividadId || Number.isNaN(clasesPorSemana) || !valorMensual || valorMensual <= 0) {
+    return { status: "error", message: "Ingresá un valor válido." };
+  }
+
+  const supabase = await createClient();
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  const { error } = await supabase.from("aranceles").upsert(
+    {
+      actividad_id: actividadId,
+      clases_por_semana: clasesPorSemana,
+      valor_mensual: valorMensual,
+      vigente_desde: hoy,
+    },
+    { onConflict: "categoria_key,clases_por_semana,vigente_desde" },
+  );
+
+  if (error) {
+    return { status: "error", message: error.message };
+  }
+
+  revalidatePath("/admin/aranceles");
+  revalidatePath("/alumno/cuota");
+  return { status: "success", message: "Arancel actualizado." };
+}

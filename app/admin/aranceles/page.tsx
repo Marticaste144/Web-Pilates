@@ -1,59 +1,72 @@
-import { listarArancelesVigentes } from "@/lib/admin/aranceles-data";
+import { listarArancelesPorActividad } from "@/lib/admin/aranceles-data";
 import { obtenerConfiguracionPagos } from "@/lib/configuracion-pagos";
-import { ArancelCell } from "./arancel-cell";
+import { ArancelActividadCell } from "./arancel-actividad-cell";
 import { ConfiguracionPagosForm } from "./configuracion-pagos-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 
 export const dynamic = "force-dynamic";
 
-// Antes era una tabla ancha (sede x 4 frecuencias, cada celda con un
-// mini-formulario) dentro del contenedor de contenido de max-w-3xl -- no
-// entraba ni en desktop, así que quedaba con scroll horizontal. Un grid de
-// una card por sede, con las 4 frecuencias apiladas adentro, evita el
-// problema de raíz (nunca es más ancho que el contenedor) en vez de
-// pelearse con anchos de columna, y de paso se ve bien tanto en mobile
-// como en desktop sin tener que armar dos layouts distintos.
-export default async function ArancelesPage() {
-  const [aranceles, configPagos] = await Promise.all([listarArancelesVigentes(), obtenerConfiguracionPagos()]);
+const FRECUENCIA_LABEL: Record<number, string> = {
+  0: "Libre",
+  1: "1 vez / semana",
+  2: "2 veces / semana",
+  3: "3 veces / semana",
+  4: "4 veces / semana",
+};
 
-  const sedes = Array.from(new Map(aranceles.map((a) => [a.sedeId, a.sedeNombre])).entries());
-  const frecuencias = [1, 2, 3, 4];
+// Modelo nuevo: precio por ACTIVIDAD (no por sede) -- una card por
+// actividad, con sus frecuencias reales debajo. Las combinaciones de dos
+// actividades (ej. Postural + Pilates) se calculan solas con el 20% de
+// descuento en la más cara -- no hay una fila de precio para eso, ver
+// lib/cuota-calculo.ts.
+export default async function ArancelesPage() {
+  const [aranceles, configPagos] = await Promise.all([listarArancelesPorActividad(), obtenerConfiguracionPagos()]);
+
+  const actividades = Array.from(new Map(aranceles.map((a) => [a.actividadId, a.actividadNombre])).entries());
+  const hayPendientes = aranceles.some((a) => a.valorMensual === null);
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Aranceles" />
+      <PageHeader title="Aranceles" subtitle="Precio mensual por actividad -- septiembre 2026." />
 
       <ConfiguracionPagosForm
         aliasTransferencia={configPagos.aliasTransferencia}
         cbuTransferencia={configPagos.cbuTransferencia}
         titularTransferencia={configPagos.titularTransferencia}
         aliasMercadopago={configPagos.aliasMercadopago}
+        diasTolerancia={configPagos.diasTolerancia}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {sedes.map(([sedeId, sedeNombre]) => (
-          <Card key={sedeId}>
-            <h2 className="mb-3 font-semibold text-neutral-900">{sedeNombre}</h2>
+      {hayPendientes && (
+        <Alert variant="warning">
+          Hay frecuencias todavía sin precio confirmado (4x de Funcional/Fuerza/Stretching/Ritmo, y el eventual
+          &ldquo;Combinado&rdquo; 3x que mencionó Laura) -- cargalas acá abajo en cuanto las confirme.
+        </Alert>
+      )}
+
+      <Alert variant="info">
+        Si una alumna combina DOS actividades distintas, el sistema cobra la más cara con 20% de descuento y la otra
+        completa -- automático, no hace falta cargar un precio combinado.
+      </Alert>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {actividades.map(([actividadId, actividadNombre]) => (
+          <Card key={actividadId}>
+            <h2 className="mb-3 font-semibold text-neutral-900">{actividadNombre}</h2>
             <div className="flex flex-col gap-3">
-              {frecuencias.map((f) => {
-                const item = aranceles.find((a) => a.sedeId === sedeId && a.clasesPorSemana === f);
-                return (
+              {aranceles
+                .filter((a) => a.actividadId === actividadId)
+                .map((a) => (
                   <div
-                    key={f}
+                    key={a.clasesPorSemana}
                     className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-3 first:border-t-0 first:pt-0"
                   >
-                    <span className="shrink-0 text-sm text-neutral-600">
-                      {f} {f === 1 ? "vez" : "veces"} / semana
-                    </span>
-                    {item ? (
-                      <ArancelCell sedeId={sedeId} clasesPorSemana={f} valorMensual={item.valorMensual} />
-                    ) : (
-                      <span className="text-xs text-neutral-400">sin definir</span>
-                    )}
+                    <span className="shrink-0 text-sm text-neutral-600">{FRECUENCIA_LABEL[a.clasesPorSemana]}</span>
+                    <ArancelActividadCell actividadId={actividadId} clasesPorSemana={a.clasesPorSemana} valorMensual={a.valorMensual} />
                   </div>
-                );
-              })}
+                ))}
             </div>
           </Card>
         ))}

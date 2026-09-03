@@ -125,7 +125,13 @@ export type Database = {
       aranceles: {
         Row: {
           id: string;
-          sede_id: string;
+          /** Modelo viejo (histórico) -- mutuamente excluyente con actividad_id. */
+          sede_id: string | null;
+          /** Modelo nuevo (septiembre en adelante) -- mutuamente excluyente con sede_id. */
+          actividad_id: string | null;
+          /** Columna generada (sede_id o actividad_id combinados, nunca null) -- solo lectura, la calcula Postgres. */
+          categoria_key: string;
+          /** 1-4 = veces/semana. 0 = "Libre" (sin límite semanal). */
           clases_por_semana: number;
           valor_mensual: number;
           vigente_desde: string;
@@ -133,7 +139,8 @@ export type Database = {
         };
         Insert: {
           id?: string;
-          sede_id: string;
+          sede_id?: string | null;
+          actividad_id?: string | null;
           clases_por_semana: number;
           valor_mensual: number;
           vigente_desde?: string;
@@ -141,7 +148,8 @@ export type Database = {
         };
         Update: {
           id?: string;
-          sede_id?: string;
+          sede_id?: string | null;
+          actividad_id?: string | null;
           clases_por_semana?: number;
           valor_mensual?: number;
           vigente_desde?: string;
@@ -159,6 +167,8 @@ export type Database = {
           titular_transferencia: string | null;
           /** Otro alias/CBU de destino para transferir a mano (ej. cuenta de Mercado Pago) -- no es una integración. */
           alias_mercadopago: string | null;
+          /** Días de gracia después del día 10 antes de suspender por falta de pago. Null = sin confirmar todavía. */
+          dias_tolerancia: number | null;
           updated_at: string;
         };
         Insert: {
@@ -168,6 +178,7 @@ export type Database = {
           cbu_transferencia?: string | null;
           titular_transferencia?: string | null;
           alias_mercadopago?: string | null;
+          dias_tolerancia?: number | null;
           updated_at?: string;
         };
         Update: {
@@ -177,6 +188,7 @@ export type Database = {
           cbu_transferencia?: string | null;
           titular_transferencia?: string | null;
           alias_mercadopago?: string | null;
+          dias_tolerancia?: number | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -300,7 +312,8 @@ export type Database = {
         Row: {
           id: string;
           alumno_id: string;
-          sede_id: string;
+          /** Modelo viejo (histórico). Null en pagos nuevos por actividad -- ver actividades_ids. */
+          sede_id: string | null;
           frecuencia_semanal: number;
           monto: number;
           /** Solo para medio='mercadopago': extra cobrado sobre "monto" para compensar la comisión de MP. NULL para efectivo/transferencia. */
@@ -313,8 +326,12 @@ export type Database = {
           marcado_en: string | null;
           /** Calculado por trigger al aprobarse el pago; no se setea a mano. */
           aprobado_en: string | null;
-          /** Calculado por trigger = aprobado_en + 1 mes; no se setea a mano. */
+          /** Calculado por trigger = aprobado_en + 1 mes; no se setea a mano. Ciclo rodante viejo -- ver periodo_mes para el modelo nuevo. */
           vencimiento: string | null;
+          /** Actividad(es) que cubre este pago -- 1 o 2 (combo) en pagos nuevos, vacío en pagos viejos por sede. */
+          actividades_ids: string[];
+          /** Primer día del mes calendario que cubre este pago (modelo nuevo). Null en pagos viejos. */
+          periodo_mes: string | null;
           /** Cuándo se mandó el email de "por vencer" de este ciclo. Null = todavía no. */
           notificado_por_vencer_en: string | null;
           /** Cuándo se mandó el email de "vencida" de este ciclo. Null = todavía no. */
@@ -325,7 +342,7 @@ export type Database = {
         Insert: {
           id?: string;
           alumno_id: string;
-          sede_id: string;
+          sede_id?: string | null;
           frecuencia_semanal: number;
           monto: number;
           recargo_mercadopago?: number | null;
@@ -337,6 +354,8 @@ export type Database = {
           marcado_en?: string | null;
           aprobado_en?: string | null;
           vencimiento?: string | null;
+          actividades_ids?: string[];
+          periodo_mes?: string | null;
           notificado_por_vencer_en?: string | null;
           notificado_vencida_en?: string | null;
           created_at?: string;
@@ -345,7 +364,7 @@ export type Database = {
         Update: {
           id?: string;
           alumno_id?: string;
-          sede_id?: string;
+          sede_id?: string | null;
           frecuencia_semanal?: number;
           monto?: number;
           recargo_mercadopago?: number | null;
@@ -357,6 +376,8 @@ export type Database = {
           marcado_en?: string | null;
           aprobado_en?: string | null;
           vencimiento?: string | null;
+          actividades_ids?: string[];
+          periodo_mes?: string | null;
           notificado_por_vencer_en?: string | null;
           notificado_vencida_en?: string | null;
           created_at?: string;
