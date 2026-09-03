@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notificarCuotaPorVencer, notificarCuotaVencida } from "@/lib/email/notificaciones";
+import { suspenderInscripcionesPorMora } from "@/lib/admin/suspension-por-mora";
 import type { EstadoVisualCuota } from "@/types/database";
 
 // Vercel Cron llama acá una vez por día (ver vercel.json). Manda
@@ -61,8 +62,13 @@ export async function GET(request: NextRequest) {
     return true;
   });
 
-  const pendientes = ultimoPagoPorAlumnoSede.filter((p) => {
-    if (!p.vencimiento) return false;
+  // Recordatorio por email: solo tiene sentido para pagos del modelo VIEJO
+  // por sede (ciclo rodante) -- los nuevos por actividad (sede_id null) usan
+  // el mes calendario + tolerancia, ver suspenderInscripcionesPorMora más
+  // abajo. El trigger de vencimiento sigue corriendo para todos (no se
+  // tocó), pero acá se filtran explícitamente los que sí tienen sede.
+  const pendientes = ultimoPagoPorAlumnoSede.filter((p): p is typeof p & { sede_id: string } => {
+    if (!p.sede_id || !p.vencimiento) return false;
     const estado = estadoVisual(p.vencimiento);
     if (estado === "por_vencer" && !p.notificado_por_vencer_en) return true;
     if (estado === "vencida" && !p.notificado_vencida_en) return true;
@@ -141,5 +147,15 @@ export async function GET(request: NextRequest) {
     `${LOG} resumen final: porVencerEnviados=${porVencerEnviados} vencidaEnviados=${vencidaEnviados} errores=${errores.length}`,
   );
 
-  return NextResponse.json({ ok: true, porVencerEnviados, vencidaEnviados, errores });
+  // Suspensión automática por mora (mes calendario + tolerancia
+  // configurable, ver lib/admin/suspension-por-mora.ts) -- no toca a nadie
+  // si dias_tolerancia todavía no está confirmado, y nunca da de baja a
+  // quien tiene un comprobante en revisión.
+  const suspension = await suspenderInscripcionesPorMora();
+  console.log(
+    `${LOG} suspensión por mora: evaluadas=${suspension.evaluadas} suspendidas=${suspension.suspendidas} ` +
+      `conComprobanteEnRevision=${suspension.conComprobanteEnRevision} errores=${suspension.errores.length}`,
+  );
+
+  return NextResponse.json({ ok: true, porVencerEnviados, vencidaEnviados, errores, suspension });
 }

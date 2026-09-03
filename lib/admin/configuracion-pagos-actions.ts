@@ -16,6 +16,12 @@ export async function actualizarConfiguracionPagos(_prevState: FormState, formDa
   const cbu = String(formData.get("cbu_transferencia") ?? "").trim();
   const titular = String(formData.get("titular_transferencia") ?? "").trim();
   const aliasMercadopago = String(formData.get("alias_mercadopago") ?? "").trim();
+  const diasToleranciaRaw = String(formData.get("dias_tolerancia") ?? "").trim();
+  const diasTolerancia = diasToleranciaRaw ? Number(diasToleranciaRaw) : null;
+
+  if (diasTolerancia !== null && (Number.isNaN(diasTolerancia) || diasTolerancia < 0)) {
+    return { status: "error", message: "Los días de tolerancia tienen que ser 0 o más." };
+  }
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -25,6 +31,7 @@ export async function actualizarConfiguracionPagos(_prevState: FormState, formDa
       cbu_transferencia: cbu || null,
       titular_transferencia: titular || null,
       alias_mercadopago: aliasMercadopago || null,
+      dias_tolerancia: diasTolerancia,
     })
     .eq("id", true);
 

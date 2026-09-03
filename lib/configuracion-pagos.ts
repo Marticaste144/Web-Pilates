@@ -6,6 +6,8 @@ export type ConfiguracionPagos = {
   titularTransferencia: string | null;
   /** Otro alias/CBU de destino para transferir a mano (ej. cuenta de Mercado Pago) -- no es una integración. */
   aliasMercadopago: string | null;
+  /** Días de gracia después del día 10 antes de suspender por falta de pago. Null = todavía sin confirmar con Laura. */
+  diasTolerancia: number | null;
 };
 
 const DEFAULT_CONFIG: ConfiguracionPagos = {
@@ -13,6 +15,7 @@ const DEFAULT_CONFIG: ConfiguracionPagos = {
   cbuTransferencia: null,
   titularTransferencia: null,
   aliasMercadopago: null,
+  diasTolerancia: null,
 };
 
 // Fila única (id=true), legible por cualquier autenticado -- ver migración
@@ -27,7 +30,7 @@ export async function obtenerConfiguracionPagos(): Promise<ConfiguracionPagos> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("configuracion_pagos")
-    .select("alias_transferencia, cbu_transferencia, titular_transferencia, alias_mercadopago")
+    .select("alias_transferencia, cbu_transferencia, titular_transferencia, alias_mercadopago, dias_tolerancia")
     .eq("id", true)
     .maybeSingle();
 
@@ -42,5 +45,6 @@ export async function obtenerConfiguracionPagos(): Promise<ConfiguracionPagos> {
     cbuTransferencia: data.cbu_transferencia,
     titularTransferencia: data.titular_transferencia,
     aliasMercadopago: data.alias_mercadopago,
+    diasTolerancia: data.dias_tolerancia,
   };
 }

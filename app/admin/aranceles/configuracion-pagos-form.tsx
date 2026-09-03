@@ -17,11 +17,13 @@ export function ConfiguracionPagosForm({
   cbuTransferencia,
   titularTransferencia,
   aliasMercadopago,
+  diasTolerancia,
 }: {
   aliasTransferencia: string | null;
   cbuTransferencia: string | null;
   titularTransferencia: string | null;
   aliasMercadopago: string | null;
+  diasTolerancia: number | null;
 }) {
   const [state, formAction, pending] = useActionState(actualizarConfiguracionPagos, initialFormState);
 
@@ -81,6 +83,25 @@ export function ConfiguracionPagosForm({
         <p className="text-xs text-neutral-400">
           Es otro destino más al que el alumno puede transferir a mano -- no integra ni redirige a Mercado Pago.
         </p>
+
+        <div className="border-t border-neutral-100 pt-4">
+          <label className="flex max-w-xs flex-col gap-1.5 text-sm font-medium text-neutral-700">
+            Días de tolerancia después del día 10
+            <input
+              type="number"
+              name="dias_tolerancia"
+              min={0}
+              defaultValue={diasTolerancia ?? ""}
+              placeholder="Todavía sin confirmar"
+              className={inputClass}
+            />
+          </label>
+          <p className="mt-1.5 text-xs text-neutral-400">
+            Pasado el día 10 + estos días, si sigue impago y sin comprobante en revisión se suspende la inscripción y
+            se libera el cupo. Dejalo vacío hasta confirmar el número con Laura -- mientras esté vacío, nadie se
+            suspende automáticamente.
+          </p>
+        </div>
 
         <div className="flex items-center gap-3">
           <Button type="submit" size="sm" loading={pending} className="w-fit">
