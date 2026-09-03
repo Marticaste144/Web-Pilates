@@ -1,15 +1,17 @@
 import Link from "next/link";
-import { listarProfesores } from "@/lib/admin/profesores-data";
+import { listarProfesores, listarNombresPendientesDeCuenta } from "@/lib/admin/profesores-data";
 import { InvitarProfesorForm } from "./invitar-form";
 import { ToggleActivoButton } from "./toggle-activo-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 import { UserIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfesoresPage() {
-  const profesores = await listarProfesores();
+  const [profesores, pendientes] = await Promise.all([listarProfesores(), listarNombresPendientesDeCuenta()]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -18,6 +20,23 @@ export default async function ProfesoresPage() {
       <Card>
         <InvitarProfesorForm />
       </Card>
+
+      {pendientes.length > 0 && (
+        <Alert variant="info">
+          <p className="font-medium">Todavía sin cuenta (ya tienen clases cargadas):</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {pendientes.map((nombre) => (
+              <Badge key={nombre} variant="neutral">
+                {nombre}
+              </Badge>
+            ))}
+          </div>
+          <p className="mt-2 text-xs">
+            Invitalos con este mismo nombre (sin tildes cambia, mayúsculas no importan) y sus clases se vinculan solas,
+            sin duplicar nada.
+          </p>
+        </Alert>
+      )}
 
       <Card padded={false} className="overflow-x-auto">
         <table className="w-full text-left text-sm">

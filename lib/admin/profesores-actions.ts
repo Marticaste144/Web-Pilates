@@ -8,6 +8,12 @@ import { getSiteUrl } from "@/lib/site-url";
 import { notificarInvitacionProfesor } from "@/lib/email/notificaciones";
 import type { FormState } from "@/lib/form-state";
 
+const DIACRITICOS = new RegExp(`[${String.fromCharCode(0x0300)}-${String.fromCharCode(0x036f)}]`, "g");
+
+function normalizarNombre(nombre: string): string {
+  return nombre.trim().toLowerCase().normalize("NFD").replace(DIACRITICOS, "");
+}
+
 // Invita a un profesor por email. Antes esto usaba
 // auth.admin.inviteUserByEmail() (que manda el mail default de Supabase,
 // apuntando a su endpoint /auth/v1/verify?token=...&type=invite): ese
@@ -59,7 +65,7 @@ export async function invitarProfesor(
     },
   });
 
-  if (error || !data?.properties?.hashed_token) {
+  if (error || !data?.properties?.hashed_token || !data.user) {
     return { status: "error", message: error?.message ?? "No se pudo generar la invitación." };
   }
 
@@ -76,8 +82,50 @@ export async function invitarProfesor(
     };
   }
 
+  // Vincula clases que ya estaban cargadas para esta persona real SIN cuenta
+  // todavía (clases.profesor_pendiente_nombre, ver BLOQUE DATOS REALES) a la
+  // cuenta recién creada -- por nombre normalizado (sin tildes/mayúsculas),
+  // igual criterio que fotoEstaticaDeProfesor. Solo REASIGNA profesor_id en
+  // clases que ya existían: nunca crea ni duplica un profesor, y no toca
+  // clases inactivas/alumnos/asistencias/planificaciones de esas clases --
+  // siguen siendo las mismas filas, con el mismo id, solo cambian de
+  // "pendiente" a vinculadas.
+  const nuevoProfesorId = data.user.id;
+  const supabase = await createClient();
+  const { data: clasesPendientes } = await supabase
+    .from("clases")
+    .select("id, profesor_pendiente_nombre")
+    .not("profesor_pendiente_nombre", "is", null);
+
+  const nombreNormalizado = normalizarNombre(nombre);
+  const idsAVincular = (clasesPendientes ?? [])
+    .filter((c) => normalizarNombre(c.profesor_pendiente_nombre!) === nombreNormalizado)
+    .map((c) => c.id);
+
+  let clasesVinculadas = 0;
+  if (idsAVincular.length > 0) {
+    const { error: errorVinculo } = await supabase
+      .from("clases")
+      .update({ profesor_id: nuevoProfesorId, profesor_pendiente_nombre: null })
+      .in("id", idsAVincular);
+
+    if (errorVinculo) {
+      console.error("[profesores-actions] no se pudieron vincular las clases pendientes de este nombre", errorVinculo);
+    } else {
+      clasesVinculadas = idsAVincular.length;
+    }
+  }
+
   revalidatePath("/admin/profesores");
-  return { status: "success", message: `Invitación enviada a ${email}.` };
+  revalidatePath("/admin/clases");
+  revalidatePath("/");
+  return {
+    status: "success",
+    message:
+      clasesVinculadas > 0
+        ? `Invitación enviada a ${email} -- se vincularon ${clasesVinculadas} clase${clasesVinculadas === 1 ? "" : "s"} que ya estaban cargadas a nombre de "${nombre}".`
+        : `Invitación enviada a ${email}.`,
+  };
 }
 
 export async function actualizarProfesor(

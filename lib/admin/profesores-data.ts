@@ -53,6 +53,25 @@ export async function listarProfesores(): Promise<ProfesorListItem[]> {
   return items.sort((a, b) => a.apellido.localeCompare(b.apellido));
 }
 
+// Nombres de profesores reales que ya tienen clases cargadas (BLOQUE DATOS
+// REALES) pero todavía sin cuenta de acceso -- clases.profesor_pendiente_nombre.
+// Se muestran en /admin/profesores para que la admin sepa a quién le falta
+// invitar; invitarProfesor (profesores-actions.ts) vincula automáticamente
+// las clases de acá en cuanto el nombre invitado coincide (sin tildes/
+// mayúsculas) con uno de estos.
+export async function listarNombresPendientesDeCuenta(): Promise<string[]> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("clases")
+    .select("profesor_pendiente_nombre")
+    .eq("activa", true)
+    .not("profesor_pendiente_nombre", "is", null);
+
+  const nombres = [...new Set((data ?? []).map((c) => c.profesor_pendiente_nombre as string))];
+  return nombres.sort((a, b) => a.localeCompare(b, "es"));
+}
+
 export async function obtenerProfesor(profileId: string): Promise<ProfesorListItem | null> {
   const supabase = await createClient();
 
