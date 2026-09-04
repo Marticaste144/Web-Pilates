@@ -35,11 +35,14 @@ export function NotasEvolucion({
   notas,
   clases,
   readOnly = false,
+  mostrarLista = true,
 }: {
   alumnoId: string;
   notas: NotaEvolucion[];
   clases: ClaseOption[];
   readOnly?: boolean;
+  /** false = solo el formulario de carga, sin el historial propio abajo -- para cuando ese historial ya se muestra combinado en otro lado (ej. LineaDeTiempo en /admin/alumnos/[id]). */
+  mostrarLista?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(agregarNotaEvolucion, initialFormState);
 
@@ -77,25 +80,26 @@ export function NotasEvolucion({
         </form>
       )}
 
-      {notas.length === 0 ? (
-        <EmptyState title="Todavía no hay notas de evolución" />
-      ) : (
-        <div className="flex flex-col divide-y divide-neutral-100 rounded-card border border-neutral-100">
-          {notas.map((n) => (
-            <div key={n.id} className="flex flex-col gap-1 p-3.5">
-              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs font-medium text-neutral-500">{n.autorNombre}</p>
-                  <Badge variant={CATEGORIA_VARIANT[n.categoria]}>{CATEGORIA_EVOLUCION_LABELS[n.categoria]}</Badge>
+      {mostrarLista &&
+        (notas.length === 0 ? (
+          <EmptyState title="Todavía no hay notas de evolución" />
+        ) : (
+          <div className="flex flex-col divide-y divide-neutral-100 rounded-card border border-neutral-100">
+            {notas.map((n) => (
+              <div key={n.id} className="flex flex-col gap-1 p-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-medium text-neutral-500">{n.autorNombre}</p>
+                    <Badge variant={CATEGORIA_VARIANT[n.categoria]}>{CATEGORIA_EVOLUCION_LABELS[n.categoria]}</Badge>
+                  </div>
+                  <p className="text-xs text-neutral-400">{formatearFecha(n.fecha)}</p>
                 </div>
-                <p className="text-xs text-neutral-400">{formatearFecha(n.fecha)}</p>
+                <p className="whitespace-pre-wrap text-sm text-neutral-700">{n.contenido}</p>
+                {n.claseLabel && <p className="text-xs text-neutral-400">Clase: {n.claseLabel}</p>}
               </div>
-              <p className="whitespace-pre-wrap text-sm text-neutral-700">{n.contenido}</p>
-              {n.claseLabel && <p className="text-xs text-neutral-400">Clase: {n.claseLabel}</p>}
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        ))}
     </div>
   );
 }

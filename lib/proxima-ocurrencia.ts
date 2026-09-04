@@ -6,23 +6,32 @@
 // inscripciones) para calcular "la próxima vez que pasa esto".
 export type OcurrenciaSemanal = { diaSemana: number; horaInicio: string };
 
+function diasHastaProximaOcurrencia(item: OcurrenciaSemanal, ahora: Date): number {
+  const diaHoy = ahora.getDay() === 0 ? 7 : ahora.getDay(); // 1=lunes..7=domingo
+  const horaHoy = ahora.toTimeString().slice(0, 8); // "HH:MM:SS", comparable con hora_inicio
+  let dias = (item.diaSemana - diaHoy + 7) % 7;
+  if (dias === 0 && item.horaInicio <= horaHoy) dias = 7; // hoy, pero ya pasó -- la próxima es en una semana
+  return dias;
+}
+
 export function calcularProximaOcurrencia<T extends OcurrenciaSemanal>(
   items: T[],
   ahora: Date = new Date(),
 ): T | null {
   if (items.length === 0) return null;
 
-  const diaHoy = ahora.getDay() === 0 ? 7 : ahora.getDay(); // 1=lunes..7=domingo
-  const horaHoy = ahora.toTimeString().slice(0, 8); // "HH:MM:SS", comparable con hora_inicio
-
-  const diasHasta = (item: T): number => {
-    let dias = (item.diaSemana - diaHoy + 7) % 7;
-    if (dias === 0 && item.horaInicio <= horaHoy) dias = 7; // hoy, pero ya pasó -- la próxima es en una semana
-    return dias;
-  };
-
   return [...items].sort((a, b) => {
-    const diff = diasHasta(a) - diasHasta(b);
+    const diff = diasHastaProximaOcurrencia(a, ahora) - diasHastaProximaOcurrencia(b, ahora);
     return diff !== 0 ? diff : a.horaInicio.localeCompare(b.horaInicio);
   })[0];
+}
+
+// Fecha (YYYY-MM-DD) de la próxima vez que ocurre esto -- hoy mismo si el
+// horario de hoy todavía no pasó, si no la semana que viene. Complementa a
+// calcularProximaOcurrencia (que dice CUÁL es la próxima entre varias) con
+// LA FECHA concreta de esa ocurrencia, para mostrarla (ej. "Próxima clase").
+export function fechaProximaOcurrencia(item: OcurrenciaSemanal, ahora: Date = new Date()): string {
+  const fecha = new Date(ahora);
+  fecha.setDate(fecha.getDate() + diasHastaProximaOcurrencia(item, ahora));
+  return fecha.toISOString().slice(0, 10);
 }
