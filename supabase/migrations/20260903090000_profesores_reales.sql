@@ -2,9 +2,16 @@
 -- MUV Gimnasia Postural — Profesores reales: baja segura de profesores demo
 --
 -- Verificado antes de escribir esto (consulta de solo lectura en producción):
--- los únicos profesores reales ya bien cargados son Sabina Duarte, Laura
+-- los únicos profesores reales ya bien cargados son Sabina Bocca, Laura
 -- Pagola y Laila Casin. Bruno Álvarez, Carla Medina y Tomas Terruli no
 -- aparecen en ningún lado de la nómina real confirmada -- son demo.
+--
+-- CORRECCIÓN (post-intento fallido de 20260903110000): el apellido de
+-- Sabina se había anotado mal acá como "Duarte" -- es "Bocca". Esta
+-- migración en sí no depende de ese dato (no busca a Sabina, solo da de
+-- baja a Bruno/Carla/Tomas), pero el error se arrastró a la búsqueda de
+-- v_sabina en 20260903110000_horarios_reales_septiembre.sql, que sí la
+-- necesitaba -- ver la corrección en ese archivo.
 --
 -- "Sofi/Cami/Mati/Gonza" (a normalizar a Sofía/Camila/Matías/Gonzalo) y
 -- "Aye/Ayelén" (a excluir) NO existen todavía como profesores en la base

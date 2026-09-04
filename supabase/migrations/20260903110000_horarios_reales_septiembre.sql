@@ -17,8 +17,26 @@
 -- = false) -- NO se borran: conservan su historial real de inscripciones/
 -- asistencias/pagos. La única excepción es la clase que YA coincidía
 -- exactamente con la grilla real (Sede 55, jueves 19-20, Funcional, grupal)
--- -- esa se reasignó a "Matías" (pendiente) en la migración anterior, en
--- vez de desactivarse, para no perder su id/historial.
+-- -- la migración anterior (20260903090000) la dejó afuera del "desactivar"
+-- para no perder su id/historial, pero todavía apuntaba a Carla (demo,
+-- profesor_id viejo) -- se reasigna a "Matías" (pendiente) ACÁ ABAJO, antes
+-- del resto de la carga.
+--
+-- CORRECCIÓN (intento fallido -- ver informe): esta migración nunca llegó a
+-- aplicarse, falló en el primer INSERT (Sabina, Sede 56) por un
+-- 23514/chk_clases_profesor_identificado -- v_sabina buscaba apellido
+-- "Duarte" (dato mal anotado en 20260903090000) y el nombre real es
+-- "Bocca", así que la búsqueda daba NULL y el INSERT no traía
+-- profesor_pendiente_nombre para cubrirlo. Se corrige el apellido acá abajo
+-- y se agrega una guarda al principio del bloque (si ya hay alguna clase
+-- con profesor_pendiente_nombre, no se vuelve a correr) para que un
+-- reintento -- de este fallo o de cualquier corrida futura después de un
+-- éxito -- nunca duplique la grilla. El intento fallido en sí no dejó nada
+-- a medias: Postgres aborta todo el statement batch ante un error dentro de
+-- una misma transacción implícita, y se confirmó con una consulta de solo
+-- lectura que ni el UPDATE de desactivación ni ningún INSERT llegaron a
+-- commitear (34 clases totales, 27 activas, 0 con profesor_pendiente_nombre
+-- -- exactamente el estado previo a cualquier intento).
 --
 -- Actividad/modalidad: SOLO se clasifican como confirmadas (grupal) los
 -- horarios que ya estaban confirmados como reales en el bloque anterior de
@@ -33,11 +51,34 @@
 -- como grupal.
 -- ============================================================================
 
--- 1) Desactivar TODO el horario demo viejo, salvo la fila ya reasignada.
+-- 0) Guarda de re-ejecución, antes de tocar nada: si ya hay alguna clase
+-- con profesor_pendiente_nombre, esta migración ya se aplicó antes --
+-- cortar acá evita duplicar toda la grilla (los INSERT de más abajo no son
+-- idempotentes por sí solos). Puesta como primer statement del archivo
+-- para que, en un reintento después de un éxito previo, ni siquiera llegue
+-- a tocar el UPDATE de desactivación de abajo.
+do $$
+begin
+  if exists (select 1 from public.clases where profesor_pendiente_nombre is not null) then
+    raise exception 'Ya existen clases con profesor_pendiente_nombre -- esta migración ya se aplicó antes, no se vuelve a correr.';
+  end if;
+end $$;
+
+-- 1) Desactivar TODO el horario demo viejo, salvo la fila que se reasigna
+-- a Matías a continuación.
 update public.clases
 set activa = false
 where activa = true
   and id <> '57fa3538-46ee-47bc-bc3c-0be3a89a93d3';
+
+-- 2) Esa fila (Sede 55, jueves 19-20, Funcional/grupal -- ya venía con
+-- actividad_id/modalidad correctos, no se tocan) todavía apuntaba a Carla
+-- (demo). Se reasigna a Matías (pendiente de cuenta, como el resto de sus
+-- horarios en esta misma migración) para no perder su id/historial.
+update public.clases
+set profesor_id = null,
+    profesor_pendiente_nombre = 'Matías'
+where id = '57fa3538-46ee-47bc-bc3c-0be3a89a93d3';
 
 do $$
 declare
@@ -47,9 +88,16 @@ declare
   v_act_pilates uuid := (select id from public.actividades where nombre = 'Pilates');
   v_act_stretching uuid := (select id from public.actividades where nombre = 'Stretching');
   v_act_ritmo uuid := (select id from public.actividades where nombre = 'Ritmo');
-  v_sabina uuid := (select p.id from public.profiles p where p.nombre = 'Sabina' and p.apellido = 'Duarte');
+  v_sabina uuid := (select p.id from public.profiles p where p.nombre = 'Sabina' and p.apellido = 'Bocca');
   v_laila uuid := (select p.id from public.profiles p where p.nombre = 'Laila' and p.apellido = 'Casin');
 begin
+  if v_sabina is null then
+    raise exception 'No se encontró el profile de Sabina (nombre=Sabina, apellido=Bocca) -- revisar antes de continuar.';
+  end if;
+  if v_laila is null then
+    raise exception 'No se encontró el profile de Laila (nombre=Laila, apellido=Casin) -- revisar antes de continuar.';
+  end if;
+
   -- --------------------------------------------------------------------
   -- SEDE 56 (MUV PILATES) — cupo 6 — 100% Pilates, grupal.
   -- --------------------------------------------------------------------
