@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile, homePathForRole } from "@/lib/auth/session";
 import { Isotipo } from "@/components/ui/isotipo";
 import { Reveal } from "@/components/landing/reveal";
+import { MobileNav } from "@/components/landing/mobile-nav";
 import { ProfesoresSection } from "@/components/landing/profesores-section";
 import { GaleriaSection } from "@/components/landing/galeria-section";
 import {
@@ -96,6 +97,12 @@ export default async function Home() {
               Clases
             </a>
             <a
+              href="#galeria"
+              className="relative pb-1 transition-colors duration-300 after:absolute after:-bottom-0.5 after:left-0 after:h-0.5 after:w-0 after:rounded-full after:bg-secondary-500 after:transition-all after:duration-300 hover:text-neutral-900 hover:after:w-full"
+            >
+              Galería
+            </a>
+            <a
               href="#contacto"
               className="relative pb-1 transition-colors duration-300 after:absolute after:-bottom-0.5 after:left-0 after:h-0.5 after:w-0 after:rounded-full after:bg-secondary-500 after:transition-all after:duration-300 hover:text-neutral-900 hover:after:w-full"
             >
@@ -116,6 +123,7 @@ export default async function Home() {
             >
               Quiero empezar
             </Link>
+            <MobileNav />
           </div>
         </div>
       </header>

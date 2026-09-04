@@ -1109,12 +1109,16 @@ export type Database = {
           nombre: string;
           apellido: string;
           foto_url: string | null;
+          sede_nombre: string | null;
+          actividad_nombre: string | null;
         };
         Relationships: [];
       };
       v_profesores_pendientes_publicos: {
         Row: {
           nombre: string;
+          sede_nombre: string | null;
+          actividad_nombre: string | null;
         };
         Relationships: [];
       };

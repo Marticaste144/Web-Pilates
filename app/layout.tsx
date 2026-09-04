@@ -26,7 +26,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="es" className={`${manrope.variable} h-full antialiased`}>
+    <html lang="es" className={`${manrope.variable} h-full scroll-smooth antialiased motion-reduce:scroll-auto`}>
       <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>
   );
