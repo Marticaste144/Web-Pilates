@@ -3,9 +3,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerPlanificacionActualDeClase } from "@/lib/planificaciones-data";
 import { crearPlanificacionGrupal } from "@/lib/planificaciones-actions";
+import { cargarPlanificacionExcelGrupal } from "@/lib/planificaciones-excel-actions";
 import { MetadataPanel } from "./metadata-panel";
 import { PlanificacionView } from "./planificacion-view";
-import { CrearPlanificacionForm } from "./crear-planificacion-form";
+import { ExcelPlanificacionPanel } from "./excel-planificacion-panel";
+import { SinPlanificacion } from "./sin-planificacion";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ChevronRightIcon } from "@/components/ui/icons";
 import { Alert } from "@/components/ui/alert";
@@ -75,11 +77,29 @@ export async function GrupalPlanificacionPage({
       )}
 
       {!plan ? (
-        readOnly ? (
-          <EmptyState title="Todavía no hay una planificación cargada" description="El profesor titular todavía no cargó ninguna." />
+        readOnly || clase.modalidad !== "grupal" ? (
+          // No se ofrece crear una planificación grupal para una clase que
+          // no está marcada como tal -- no se "inventa" una clase grupal
+          // solo porque alguien quiso cargarle una planificación acá. Si
+          // más adelante la clase se marca grupal de verdad, el botón
+          // aparece solo, sin tocar nada de esto.
+          <EmptyState
+            title="Todavía no hay una planificación cargada"
+            description={
+              readOnly
+                ? "El profesor titular todavía no cargó ninguna."
+                : "Esta clase no está marcada como grupal -- no se puede cargar una planificación grupal acá."
+            }
+          />
         ) : (
-          <CrearPlanificacionForm crear={crearPlanificacionGrupal.bind(null, claseId)} tipoLabel="para esta clase" />
+          <SinPlanificacion
+            tipoLabel="para esta clase"
+            crearExcel={cargarPlanificacionExcelGrupal.bind(null, claseId)}
+            crearEstructurada={crearPlanificacionGrupal.bind(null, claseId)}
+          />
         )
+      ) : plan.formato === "excel" ? (
+        <ExcelPlanificacionPanel plan={plan} readOnly={readOnly} historialHref={historialHref} />
       ) : (
         <>
           <MetadataPanel plan={plan} readOnly={readOnly} historialHref={historialHref} />

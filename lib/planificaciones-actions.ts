@@ -10,7 +10,7 @@ export type PlanResult = { ok: boolean; message: string };
 // Las rutas de alumno (profesor/admin) y de clase revalidan distinto -- se
 // revalidan las 4 posibles de una (más barato que pasar la ruta exacta a
 // cada acción, y revalidatePath con una ruta que no existe no rompe nada).
-function revalidarPlanificacion(alumnoId: string | null, claseId: string | null) {
+export async function revalidarPlanificacion(alumnoId: string | null, claseId: string | null) {
   if (alumnoId) {
     revalidatePath(`/profesor/alumnas/${alumnoId}/planificacion`);
     revalidatePath(`/admin/alumnos/${alumnoId}/planificacion`);

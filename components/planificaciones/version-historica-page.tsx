@@ -3,6 +3,7 @@ import Link from "next/link";
 import { obtenerPlanificacionPorId } from "@/lib/planificaciones-data";
 import { MetadataPanel } from "./metadata-panel";
 import { PlanificacionView } from "./planificacion-view";
+import { ExcelPlanificacionPanel } from "./excel-planificacion-panel";
 import { ChevronRightIcon } from "@/components/ui/icons";
 
 // Ver una versión puntual del historial -- sirve tanto para individual como
@@ -27,8 +28,14 @@ export async function VersionHistoricaPage({ versionId, volverHref }: { versionI
         <h1 className="mt-2 text-xl font-bold text-neutral-900 sm:text-2xl">Versión histórica</h1>
       </div>
 
-      <MetadataPanel plan={plan} readOnly historialHref={null} />
-      <PlanificacionView plan={plan} readOnly />
+      {plan.formato === "excel" ? (
+        <ExcelPlanificacionPanel plan={plan} readOnly historialHref={null} />
+      ) : (
+        <>
+          <MetadataPanel plan={plan} readOnly historialHref={null} />
+          <PlanificacionView plan={plan} readOnly />
+        </>
+      )}
     </div>
   );
 }

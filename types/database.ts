@@ -22,6 +22,7 @@ export type EstadoVisualCuota = "al_dia" | "por_vencer" | "vencida";
 export type TipoGaleriaItem = "foto" | "video";
 export type ModalidadClase = "personalizada" | "grupal";
 export type TipoPlanificacion = "individual" | "grupal";
+export type FormatoPlanificacion = "estructurada" | "excel";
 export type CategoriaEvolucion =
   | "seguimiento_general"
   | "molestia_dolor"
@@ -651,6 +652,9 @@ export type Database = {
           creado_por: string;
           created_at: string;
           updated_at: string;
+          formato: FormatoPlanificacion;
+          archivo_storage_path: string | null;
+          archivo_nombre_original: string | null;
         };
         Insert: {
           id?: string;
@@ -666,6 +670,9 @@ export type Database = {
           creado_por: string;
           created_at?: string;
           updated_at?: string;
+          formato?: FormatoPlanificacion;
+          archivo_storage_path?: string | null;
+          archivo_nombre_original?: string | null;
         };
         Update: {
           id?: string;
@@ -681,6 +688,9 @@ export type Database = {
           creado_por?: string;
           created_at?: string;
           updated_at?: string;
+          formato?: FormatoPlanificacion;
+          archivo_storage_path?: string | null;
+          archivo_nombre_original?: string | null;
         };
         Relationships: [];
       };

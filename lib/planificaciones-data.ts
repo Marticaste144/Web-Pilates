@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { TipoPlanificacion } from "@/types/database";
+import type { TipoPlanificacion, FormatoPlanificacion } from "@/types/database";
 
 // Compartido entre /admin/alumnos/[id]/planificacion, /profesor/alumnas/[id]/planificacion
 // (individual) y las páginas de clase grupal -- la RLS (migración
@@ -55,6 +55,12 @@ export type PlanificacionResumen = {
   creadoPorNombre: string;
   createdAt: string;
   updatedAt: string;
+  /** "estructurada" (días/bloques/ejercicios/semanas de siempre) o "excel" (archivo subido -- ver planificaciones-excel.ts). Nunca las dos cosas en la misma versión. */
+  formato: FormatoPlanificacion;
+  /** Path en el bucket privado "planificaciones-excel" -- null si formato=estructurada. */
+  archivoStoragePath: string | null;
+  /** Nombre tal como lo subió el profesor (para "Descargar original"/historial) -- null si formato=estructurada. */
+  archivoNombreOriginal: string | null;
 };
 
 export type PlanificacionCompleta = PlanificacionResumen & {
@@ -85,6 +91,9 @@ function aResumen(
     creado_por: string;
     created_at: string;
     updated_at: string;
+    formato: FormatoPlanificacion;
+    archivo_storage_path: string | null;
+    archivo_nombre_original: string | null;
   },
   creadoPorNombre: string,
 ): PlanificacionResumen {
@@ -102,6 +111,9 @@ function aResumen(
     creadoPorNombre,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
+    formato: p.formato,
+    archivoStoragePath: p.archivo_storage_path,
+    archivoNombreOriginal: p.archivo_nombre_original,
   };
 }
 
@@ -113,6 +125,13 @@ async function armarCompleta(
   supabase: Awaited<ReturnType<typeof createClient>>,
   resumen: PlanificacionResumen,
 ): Promise<PlanificacionCompleta> {
+  // formato=excel no tiene días/bloques/ejercicios/semanas (esas tablas
+  // quedan vacías a propósito, ver migración de Excel) -- evita 4 queries
+  // que sabemos de antemano que no van a traer nada.
+  if (resumen.formato === "excel") {
+    return { ...resumen, dias: [], maxSemana: SEMANA_DEFAULT_MINIMA };
+  }
+
   const [{ data: diasRaw }, { data: bloquesRaw }, { data: ejerciciosRaw }, { data: semanasRaw }] = await Promise.all([
     supabase
       .from("planificacion_dias")

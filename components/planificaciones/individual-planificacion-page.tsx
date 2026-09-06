@@ -4,9 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { obtenerIdentidadAlumno } from "@/lib/alumnos-identidad";
 import { obtenerPlanificacionActualDeAlumno } from "@/lib/planificaciones-data";
 import { crearPlanificacionIndividual } from "@/lib/planificaciones-actions";
+import { cargarPlanificacionExcelIndividual } from "@/lib/planificaciones-excel-actions";
 import { MetadataPanel } from "./metadata-panel";
 import { PlanificacionView } from "./planificacion-view";
-import { CrearPlanificacionForm } from "./crear-planificacion-form";
+import { ExcelPlanificacionPanel } from "./excel-planificacion-panel";
+import { SinPlanificacion } from "./sin-planificacion";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { ChevronRightIcon } from "@/components/ui/icons";
@@ -65,8 +67,14 @@ export async function IndividualPlanificacionPage({
         readOnly ? (
           <EmptyState title="Todavía no hay una planificación cargada" description="El profesor titular todavía no cargó ninguna." />
         ) : (
-          <CrearPlanificacionForm crear={crearPlanificacionIndividual.bind(null, alumnoId)} tipoLabel="para este alumno" />
+          <SinPlanificacion
+            tipoLabel="para este alumno"
+            crearExcel={cargarPlanificacionExcelIndividual.bind(null, alumnoId)}
+            crearEstructurada={crearPlanificacionIndividual.bind(null, alumnoId)}
+          />
         )
+      ) : plan.formato === "excel" ? (
+        <ExcelPlanificacionPanel plan={plan} readOnly={readOnly} historialHref={historialHref} />
       ) : (
         <>
           <MetadataPanel plan={plan} readOnly={readOnly} historialHref={historialHref} />
