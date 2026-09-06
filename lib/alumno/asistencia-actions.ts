@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { obtenerMiAlumnoId } from "./identidad";
 
 export type ConfirmarAsistenciaResult = { ok: boolean; message: string };
 
@@ -12,18 +13,16 @@ export type ConfirmarAsistenciaResult = { ok: boolean; message: string };
 // llega en error.message ya está pensado para mostrarse tal cual.
 export async function confirmarAsistencia(claseId: string, fecha: string): Promise<ConfirmarAsistenciaResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const alumnoId = await obtenerMiAlumnoId(supabase);
 
-  if (!user) {
+  if (!alumnoId) {
     return { ok: false, message: "Iniciá sesión de nuevo." };
   }
 
   const { error } = await supabase
     .from("asistencias")
     .upsert(
-      { clase_id: claseId, alumno_id: user.id, fecha, confirmado: true },
+      { clase_id: claseId, alumno_id: alumnoId, fecha, confirmado: true },
       { onConflict: "clase_id,alumno_id,fecha" },
     );
 

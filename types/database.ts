@@ -109,15 +109,38 @@ export type Database = {
       };
       alumnos: {
         Row: {
-          profile_id: string;
+          id: string;
+          /** Null = todavía no tiene acceso a MUV (alumna cargada manualmente, sin cuenta). */
+          profile_id: string | null;
+          /** Solo se usa cuando profile_id es null -- si tiene cuenta, el dato real es profiles.nombre. */
+          nombre: string | null;
+          apellido: string | null;
+          email: string | null;
+          telefono: string | null;
+          activo: boolean;
+          creado_por: string | null;
           created_at: string;
         };
         Insert: {
-          profile_id: string;
+          id?: string;
+          profile_id?: string | null;
+          nombre?: string | null;
+          apellido?: string | null;
+          email?: string | null;
+          telefono?: string | null;
+          activo?: boolean;
+          creado_por?: string | null;
           created_at?: string;
         };
         Update: {
-          profile_id?: string;
+          id?: string;
+          profile_id?: string | null;
+          nombre?: string | null;
+          apellido?: string | null;
+          email?: string | null;
+          telefono?: string | null;
+          activo?: boolean;
+          creado_por?: string | null;
           created_at?: string;
         };
         Relationships: [];

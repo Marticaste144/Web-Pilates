@@ -11,6 +11,7 @@ import {
 import { obtenerLineaDeTiempo } from "@/lib/seguimiento-data";
 import { alumnoUsaPlanificacion } from "@/lib/planificaciones-data";
 import { obtenerClasesDeAlumnaParaResumen, esAlumnaPropiaDelProfesor } from "@/lib/profesor/alumnas-data";
+import { obtenerIdentidadAlumno } from "@/lib/alumnos-identidad";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { FichaForm } from "@/components/fichas-evaluacion/ficha-form";
 import { NotasEvolucion } from "@/components/fichas-evaluacion/notas-evolucion";
@@ -31,17 +32,19 @@ function diaLabel(dia: number): string {
   return DIAS_SEMANA.find((d) => d.value === dia)?.label ?? String(dia);
 }
 
-// Los datos personales (nombre/email/teléfono) se leen de profiles -- la
-// misma RLS que ya protege el roster ("profesor ve perfiles de sus alumnos
-// visibles") decide si esta alumna es visible para quien mira la página; si
-// no lo es, perfil viene null y se muestra 404 en vez de una ficha vacía
-// engañosa.
+// Los datos personales (nombre/email/teléfono) se leen vía
+// obtenerIdentidadAlumno -- profiles si la alumna tiene cuenta, alumnos si
+// no (ver migración 20260906090000_identidad_alumnas.sql: una alumna sin
+// Auth no tiene fila en profiles). La RLS de "alumnos" ("profesor ve sus
+// alumnos visibles") sigue decidiendo si esta alumna es visible para quien
+// mira la página -- si no lo es, la consulta no devuelve la fila y se
+// muestra 404 en vez de una ficha vacía engañosa, con o sin cuenta.
 export default async function FichaAlumnaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
 
   const [
-    { data: perfil },
+    identidad,
     ficha,
     pruebas,
     sedes,
@@ -52,7 +55,7 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
     mostrarPlanificacion,
     esPropia,
   ] = await Promise.all([
-    supabase.from("profiles").select("nombre, apellido, email, telefono").eq("id", id).eq("role", "alumno").single(),
+    obtenerIdentidadAlumno(supabase, id),
     obtenerFicha(id),
     obtenerPruebasFuncionalesIniciales(id),
     listarSedesParaFicha(),
@@ -64,7 +67,7 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
     esAlumnaPropiaDelProfesor(id),
   ]);
 
-  if (!perfil) {
+  if (!identidad) {
     notFound();
   }
 
@@ -79,16 +82,16 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
           <div>
             <dt className="text-xs text-neutral-500">Nombre</dt>
             <dd className="text-neutral-800">
-              {perfil.nombre} {perfil.apellido}
+              {identidad.nombre} {identidad.apellido}
             </dd>
           </div>
           <div>
             <dt className="text-xs text-neutral-500">Email</dt>
-            <dd className="text-neutral-800">{perfil.email}</dd>
+            <dd className="text-neutral-800">{identidad.email ?? "Sin registrar"}</dd>
           </div>
           <div>
             <dt className="text-xs text-neutral-500">Teléfono</dt>
-            <dd className="text-neutral-800">{perfil.telefono ?? "Sin registrar"}</dd>
+            <dd className="text-neutral-800">{identidad.telefono ?? "Sin registrar"}</dd>
           </div>
         </dl>
       </Card>
@@ -177,12 +180,13 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
           Volver
         </Link>
         <h1 className="mt-2 flex flex-wrap items-center gap-2 text-xl font-bold text-neutral-900 sm:text-2xl">
-          {perfil.nombre} {perfil.apellido}
+          {identidad.nombre} {identidad.apellido}
           {esSuplencia && <Badge variant="info">Suplencia</Badge>}
+          {!identidad.tieneCuenta && <Badge variant="neutral">Sin cuenta</Badge>}
         </h1>
         <p className="text-sm text-neutral-500">
-          {perfil.email}
-          {perfil.telefono ? ` · ${perfil.telefono}` : ""}
+          {identidad.email ?? "Sin email"}
+          {identidad.telefono ? ` · ${identidad.telefono}` : ""}
         </p>
       </div>
 

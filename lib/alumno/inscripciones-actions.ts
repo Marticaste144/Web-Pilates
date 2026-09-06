@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notificarLugarLiberado } from "@/lib/email/notificaciones";
+import { obtenerMiAlumnoId } from "./identidad";
+import { obtenerIdentidadAlumno } from "@/lib/alumnos-identidad";
 
 export type InscripcionResult = { ok: boolean; message: string };
 
@@ -15,11 +17,9 @@ export type InscripcionResult = { ok: boolean; message: string };
 // (ya en español, pensado para mostrarse tal cual) llega en error.message.
 export async function inscribirseAClase(claseId: string): Promise<InscripcionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const alumnoId = await obtenerMiAlumnoId(supabase);
 
-  if (!user) {
+  if (!alumnoId) {
     return { ok: false, message: "Iniciá sesión de nuevo." };
   }
 
@@ -40,7 +40,7 @@ export async function inscribirseAClase(claseId: string): Promise<InscripcionRes
   if (hayLugar) {
     const { error } = await supabase
       .from("inscripciones")
-      .insert({ alumno_id: user.id, clase_id: claseId, estado: "activa" });
+      .insert({ alumno_id: alumnoId, clase_id: claseId, estado: "activa" });
 
     if (!error) {
       revalidatePath("/alumno/clases");
@@ -62,7 +62,7 @@ export async function inscribirseAClase(claseId: string): Promise<InscripcionRes
   // (trigger, security definer) porque por RLS un alumno no puede contar
   // cuánta gente más hay en la lista de espera, solo ver sus propias filas.
   const { error: errorEspera } = await supabase.from("inscripciones").insert({
-    alumno_id: user.id,
+    alumno_id: alumnoId,
     clase_id: claseId,
     estado: "lista_espera",
   });
@@ -203,12 +203,12 @@ async function notificarPromocionSiCorresponde(
     return;
   }
 
-  const [{ data: perfil, error: errorPerfil }, { data: sede, error: errorSede }] = await Promise.all([
-    admin.from("profiles").select("email, nombre").eq("id", promovido.alumno_id).single(),
+  const [identidad, { data: sede, error: errorSede }] = await Promise.all([
+    obtenerIdentidadAlumno(admin, promovido.alumno_id),
     admin.from("sedes").select("nombre").eq("id", clase.sede_id).single(),
   ]);
-  if (errorPerfil || !perfil) {
-    console.error(`${LOG} no se pudo leer el perfil del alumno promovido ${promovido.alumno_id}`, errorPerfil);
+  if (!identidad) {
+    console.error(`${LOG} no se pudo resolver la identidad del alumno promovido ${promovido.alumno_id}`);
     return;
   }
   if (errorSede || !sede) {
@@ -216,11 +216,20 @@ async function notificarPromocionSiCorresponde(
     return;
   }
 
-  console.log(`${LOG} alumno promovido: ${promovido.alumno_id} (${perfil.email}) -- mandando email...`);
+  // Una alumna sin cuenta (o sin email cargado) puede quedar en lista de
+  // espera por una asignación manual de la admin -- no tiene a dónde
+  // mandarle nada, así que se avisa por log en vez de fallar/inventar un
+  // destinatario. La promoción en sí ya se aplicó igual (más arriba).
+  if (!identidad.email) {
+    console.log(`${LOG} alumno promovido ${promovido.alumno_id} no tiene email cargado -- no se manda notificación.`);
+    return;
+  }
+
+  console.log(`${LOG} alumno promovido: ${promovido.alumno_id} (${identidad.email}) -- mandando email...`);
 
   await notificarLugarLiberado({
-    alumnoEmail: perfil.email,
-    alumnoNombre: perfil.nombre,
+    alumnoEmail: identidad.email,
+    alumnoNombre: identidad.nombre,
     sedeNombre: sede.nombre,
     diaSemana: clase.dia_semana,
     horaInicio: clase.hora_inicio,

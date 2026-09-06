@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listarAlumnos, type OrdenAlumnos } from "@/lib/admin/alumnos-data";
+import { listarAlumnos, type OrdenAlumnos, type EstadoAccesoAlumno } from "@/lib/admin/alumnos-data";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,12 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LinkButton } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
+
+const ACCESO_BADGE: Record<EstadoAccesoAlumno, { texto: string; variant: "success" | "neutral" }> = {
+  activo: { texto: "Con acceso", variant: "success" },
+  invitado: { texto: "Invitación pendiente", variant: "neutral" },
+  sin_acceso: { texto: "Sin acceso", variant: "neutral" },
+};
 
 export default async function AlumnosPage({
   searchParams,
@@ -34,9 +40,14 @@ export default async function AlumnosPage({
           <input type="hidden" name="orden" value={orden} />
         </form>
 
-        <LinkButton href="/api/admin/exportar/alumnos" variant="secondary" size="sm">
-          Exportar Excel
-        </LinkButton>
+        <div className="flex items-center gap-2">
+          <LinkButton href="/api/admin/exportar/alumnos" variant="secondary" size="sm">
+            Exportar Excel
+          </LinkButton>
+          <LinkButton href="/admin/alumnos/nueva" size="sm">
+            + Agregar alumna
+          </LinkButton>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 text-sm">
@@ -69,26 +80,31 @@ export default async function AlumnosPage({
               profesor/alumnas/alumnas-table.tsx, nunca fuerza scroll
               horizontal como una <table> angosta con muchas columnas. */}
           <div className="hidden sm:block">
-            <div className="grid grid-cols-[1.4fr_1.6fr_1fr_auto_auto] gap-4 px-4 py-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
+            <div className="grid grid-cols-[1.3fr_1.4fr_1fr_auto_auto_auto] gap-4 px-4 py-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
               <span>Nombre</span>
               <span>Email</span>
               <span>Teléfono</span>
+              <span>Acceso</span>
               <span>Clases activas</span>
               <span />
             </div>
             <div className="flex flex-col divide-y divide-neutral-100 border-t border-neutral-100">
               {alumnos.map((a) => (
                 <div
-                  key={a.profileId}
-                  className="grid grid-cols-[1.4fr_1.6fr_1fr_auto_auto] items-center gap-4 px-4 py-3"
+                  key={a.alumnoId}
+                  className="grid grid-cols-[1.3fr_1.4fr_1fr_auto_auto_auto] items-center gap-4 px-4 py-3"
                 >
-                  <span className="min-w-0 truncate font-medium text-neutral-900">
-                    {a.nombre} {a.apellido}
+                  <span className="flex min-w-0 items-center gap-1.5 truncate font-medium text-neutral-900">
+                    <span className="truncate">
+                      {a.nombre} {a.apellido}
+                    </span>
+                    {!a.activo && <Badge variant="neutral">Inactiva</Badge>}
                   </span>
-                  <span className="min-w-0 truncate text-neutral-600">{a.email}</span>
+                  <span className="min-w-0 truncate text-neutral-600">{a.email ?? "-"}</span>
                   <span className="min-w-0 truncate text-neutral-600">{a.telefono ?? "-"}</span>
+                  <Badge variant={ACCESO_BADGE[a.estadoAcceso].variant}>{ACCESO_BADGE[a.estadoAcceso].texto}</Badge>
                   <Badge variant={a.inscripcionesActivas > 0 ? "info" : "neutral"}>{a.inscripcionesActivas}</Badge>
-                  <Link href={`/admin/alumnos/${a.profileId}`} className="font-medium text-primary-600 hover:underline">
+                  <Link href={`/admin/alumnos/${a.alumnoId}`} className="font-medium text-primary-600 hover:underline">
                     Ver
                   </Link>
                 </div>
@@ -100,8 +116,8 @@ export default async function AlumnosPage({
           <div className="flex flex-col divide-y divide-neutral-100 sm:hidden">
             {alumnos.map((a) => (
               <Link
-                key={a.profileId}
-                href={`/admin/alumnos/${a.profileId}`}
+                key={a.alumnoId}
+                href={`/admin/alumnos/${a.alumnoId}`}
                 className="flex flex-col gap-1.5 p-4"
               >
                 <div className="flex items-center justify-between gap-3">
@@ -112,8 +128,12 @@ export default async function AlumnosPage({
                     {a.inscripcionesActivas} clase{a.inscripcionesActivas === 1 ? "" : "s"}
                   </Badge>
                 </div>
-                <p className="text-sm text-neutral-600">{a.email}</p>
+                <p className="text-sm text-neutral-600">{a.email ?? "Sin email"}</p>
                 <p className="text-sm text-neutral-600">{a.telefono ?? "Sin teléfono"}</p>
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  <Badge variant={ACCESO_BADGE[a.estadoAcceso].variant}>{ACCESO_BADGE[a.estadoAcceso].texto}</Badge>
+                  {!a.activo && <Badge variant="neutral">Inactiva</Badge>}
+                </div>
               </Link>
             ))}
           </div>

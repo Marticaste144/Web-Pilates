@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { AlumnoInscripcionItem } from "@/lib/admin/alumnos-data";
 import { Badge } from "@/components/ui/badge";
 import { ChevronRightIcon } from "@/components/ui/icons";
+import { ToggleActivoAlumnaButton } from "../toggle-activo-alumna-button";
 
 function formatearFecha(fechaIso: string): string {
   return new Date(fechaIso).toLocaleDateString("es-AR");
@@ -14,17 +15,21 @@ function formatearFecha(fechaIso: string): string {
 // fecha), y sede/actividad son listas ÚNICAS derivadas de las inscripciones
 // vigentes, no texto fijo.
 export function AlumnoHeader({
+  alumnoId,
   nombre,
   apellido,
   email,
   telefono,
+  activo,
   alumnoDesde,
   inscripciones,
 }: {
+  alumnoId: string;
   nombre: string;
   apellido: string;
-  email: string;
+  email: string | null;
   telefono: string | null;
+  activo: boolean;
   alumnoDesde: string | null;
   inscripciones: AlumnoInscripcionItem[];
 }) {
@@ -39,16 +44,19 @@ export function AlumnoHeader({
         Volver
       </Link>
 
-      <h1 className="mt-2 text-xl font-bold text-neutral-900 sm:text-2xl">
-        {nombre} {apellido}
-      </h1>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <h1 className="text-xl font-bold text-neutral-900 sm:text-2xl">
+          {nombre} {apellido}
+        </h1>
+        <ToggleActivoAlumnaButton alumnoId={alumnoId} activo={activo} />
+      </div>
       <p className="text-sm text-neutral-500">
-        {email}
+        {email ?? "Sin email"}
         {telefono ? ` · ${telefono}` : ""}
       </p>
 
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-        <Badge variant={tieneActiva ? "success" : "neutral"}>{tieneActiva ? "Activo" : "Sin clases activas"}</Badge>
+        <Badge variant={tieneActiva ? "success" : "neutral"}>{tieneActiva ? "Con clases activas" : "Sin clases activas"}</Badge>
         {sedes.map((s) => (
           <Badge key={s} variant="info">
             {s}
@@ -59,7 +67,7 @@ export function AlumnoHeader({
             {a}
           </Badge>
         ))}
-        {alumnoDesde && <Badge variant="neutral">Alumno/a desde {formatearFecha(alumnoDesde)}</Badge>}
+        {alumnoDesde && <Badge variant="neutral">Alumna desde {formatearFecha(alumnoDesde)}</Badge>}
       </div>
     </div>
   );

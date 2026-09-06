@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { calcularMontoCuotaSede } from "@/lib/pagos-calculo-server";
+import { obtenerMiAlumnoId } from "./identidad";
 import type { FormState } from "@/lib/form-state";
 
 const TIPOS_PERMITIDOS = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
@@ -46,6 +47,11 @@ export async function subirComprobantePago(_prevState: FormState, formData: Form
     return { status: "error", message: "Iniciá sesión de nuevo." };
   }
 
+  const alumnoId = await obtenerMiAlumnoId(supabase);
+  if (!alumnoId) {
+    return { status: "error", message: "Iniciá sesión de nuevo." };
+  }
+
   const sedeId = String(formData.get("sede_id") ?? "");
   const archivo = formData.get("comprobante");
 
@@ -59,7 +65,7 @@ export async function subirComprobantePago(_prevState: FormState, formData: Form
     return { status: "error", message: "El archivo pesa más de 10 MB." };
   }
 
-  const calculo = await calcularMontoCuotaSede(supabase, user.id, sedeId);
+  const calculo = await calcularMontoCuotaSede(supabase, alumnoId, sedeId);
   if (!calculo.ok) {
     return { status: "error", message: calculo.message };
   }
@@ -78,7 +84,7 @@ export async function subirComprobantePago(_prevState: FormState, formData: Form
 
   const { error: errorInsert } = await supabase.from("pagos").insert({
     id: pagoId,
-    alumno_id: user.id,
+    alumno_id: alumnoId,
     sede_id: sedeId,
     actividades_ids: actividadesIds,
     periodo_mes: periodoMes,

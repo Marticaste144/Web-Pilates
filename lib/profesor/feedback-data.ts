@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { mapaIdentidadAlumnos } from "@/lib/alumnos-identidad";
 
 export type FeedbackClaseItem = {
   id: string;
@@ -28,14 +29,16 @@ export async function listarFeedbackDeClase(claseId: string): Promise<FeedbackCl
   if (!feedbacks || feedbacks.length === 0) return [];
 
   const alumnoIds = [...new Set(feedbacks.map((f) => f.alumno_id))];
-  const { data: perfiles } = await supabase.from("profiles").select("id, nombre, apellido").in("id", alumnoIds);
-  const perfilPorId = new Map((perfiles ?? []).map((p) => [p.id, `${p.nombre} ${p.apellido}`]));
+  const identidadPorId = await mapaIdentidadAlumnos(supabase, alumnoIds);
 
-  return feedbacks.map((f): FeedbackClaseItem => ({
-    id: f.id,
-    alumnoNombre: perfilPorId.get(f.alumno_id) ?? "?",
-    fecha: f.fecha,
-    comentario: f.comentario,
-    createdAt: f.created_at,
-  }));
+  return feedbacks.map((f): FeedbackClaseItem => {
+    const identidad = identidadPorId.get(f.alumno_id);
+    return {
+      id: f.id,
+      alumnoNombre: identidad ? `${identidad.nombre} ${identidad.apellido}` : "?",
+      fecha: f.fecha,
+      comentario: f.comentario,
+      createdAt: f.created_at,
+    };
+  });
 }

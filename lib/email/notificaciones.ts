@@ -228,6 +228,69 @@ export async function notificarReenvioInvitacionProfesor(params: {
   });
 }
 
+// Invitación a una alumna YA existente (creada manualmente por la admin,
+// sin cuenta hasta ahora -- "Dar acceso a MUV", lib/admin/alumnos-actions.ts).
+// Mismo criterio que notificarInvitacionProfesor: el link apunta directo a
+// /auth/confirm-invite con token_hash (nunca el mail default de Supabase),
+// para no perder el token con el pre-visitado de un escáner de seguridad.
+export async function notificarInvitacionAlumna(params: {
+  email: string;
+  nombre: string;
+  confirmUrl: string;
+}): Promise<void> {
+  const html = plantillaBase(
+    "Invitación",
+    `
+      <h1 style="font-size: 18px; margin: 0 0 12px;">Hola ${params.nombre},</h1>
+      <p style="font-size: 14px; line-height: 1.5; margin: 0 0 12px;">
+        Ya sos alumna de MUV Gimnasia Postural -- te habilitamos el acceso a la página para que puedas ver tus
+        clases, tu cuota y anotarte vos misma. Confirmá tu cuenta para elegir tu contraseña.
+      </p>
+      ${boton(params.confirmUrl, "Confirmar cuenta")}
+      <p style="font-size: 12px; color: #94a3b8; margin: 16px 0 0; word-break: break-all;">
+        Si el botón no funciona, copiá y pegá este link en el navegador:<br />${params.confirmUrl}
+      </p>
+    `,
+  );
+
+  await enviarEmail({
+    contexto: "invitacion-alumna",
+    to: params.email,
+    subject: "Ya tenés acceso a MUV Gimnasia Postural",
+    html,
+  });
+}
+
+// Reenvío de invitación de alumna (mismo criterio que
+// notificarReenvioInvitacionProfesor): la misma alumna de siempre, nunca
+// crea otra cuenta.
+export async function notificarReenvioInvitacionAlumna(params: {
+  email: string;
+  nombre: string;
+  confirmUrl: string;
+}): Promise<void> {
+  const html = plantillaBase(
+    "Invitación",
+    `
+      <h1 style="font-size: 18px; margin: 0 0 12px;">Hola ${params.nombre},</h1>
+      <p style="font-size: 14px; line-height: 1.5; margin: 0 0 12px;">
+        Te reenviamos el acceso a MUV Gimnasia Postural. Confirmá para elegir tu contraseña y empezar a usarla.
+      </p>
+      ${boton(params.confirmUrl, "Confirmar cuenta")}
+      <p style="font-size: 12px; color: #94a3b8; margin: 16px 0 0; word-break: break-all;">
+        Si el botón no funciona, copiá y pegá este link en el navegador:<br />${params.confirmUrl}
+      </p>
+    `,
+  );
+
+  await enviarEmail({
+    contexto: "reenvio-invitacion-alumna",
+    to: params.email,
+    subject: "Te reenviamos tu acceso a MUV Gimnasia Postural",
+    html,
+  });
+}
+
 // Caso 3: la admin publica un aviso -- se manda a todos los alumnos y
 // profesores afectados de una sola vez. Se manda con resend.batch.send
 // (hasta 100 emails por llamada, cada uno con su propio "to" -- nadie ve la

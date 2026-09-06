@@ -4,6 +4,7 @@ import {
   listarClasesAnterioresAlumno,
   listarAsistenciasDelMesAlumno,
 } from "@/lib/admin/alumnos-data";
+import { listarClasesParaAsignar } from "@/lib/admin/clases-data";
 import {
   obtenerFicha,
   obtenerPruebasFuncionalesIniciales,
@@ -15,6 +16,7 @@ import { obtenerLineaDeTiempo } from "@/lib/seguimiento-data";
 import { alumnoUsaPlanificacion } from "@/lib/planificaciones-data";
 import { IndividualPlanificacionPage } from "@/components/planificaciones/individual-planificacion-page";
 import { AlumnoHeader } from "./alumno-header";
+import { AccesoCard } from "./acceso-card";
 import { AlumnoTabs } from "./alumno-tabs";
 import { ResumenTab } from "./resumen-tab";
 import { ClasesTab } from "./clases-tab";
@@ -45,6 +47,7 @@ export default async function AlumnoDetallePage({
     clasesAnteriores,
     asistenciasDelMes,
     mostrarPlanificacion,
+    clasesDisponibles,
   ] = await Promise.all([
     obtenerAlumno(id),
     obtenerFicha(id),
@@ -56,6 +59,7 @@ export default async function AlumnoDetallePage({
     listarClasesAnterioresAlumno(id),
     listarAsistenciasDelMesAlumno(id),
     alumnoUsaPlanificacion(id),
+    listarClasesParaAsignar(),
   ]);
 
   if (!alumno) {
@@ -65,13 +69,17 @@ export default async function AlumnoDetallePage({
   return (
     <div className="flex flex-col gap-4">
       <AlumnoHeader
+        alumnoId={alumno.alumnoId}
         nombre={alumno.nombre}
         apellido={alumno.apellido}
         email={alumno.email}
         telefono={alumno.telefono}
+        activo={alumno.activo}
         alumnoDesde={alumno.alumnoDesde}
         inscripciones={alumno.inscripciones}
       />
+
+      <AccesoCard alumnoId={alumno.alumnoId} email={alumno.email} estadoAcceso={alumno.estadoAcceso} />
 
       <AlumnoTabs
         mostrarPlanificacion={mostrarPlanificacion}
@@ -84,27 +92,29 @@ export default async function AlumnoDetallePage({
             cuotas={alumno.cuotas}
             ficha={ficha}
             ultimaEvolucion={notas[0] ?? null}
-            alumnoId={alumno.profileId}
+            alumnoId={alumno.alumnoId}
           />
         }
         clases={
           <ClasesTab
+            alumnoId={alumno.alumnoId}
             inscripciones={alumno.inscripciones}
             asistenciasDelMes={asistenciasDelMes}
             clasesAnteriores={clasesAnteriores}
+            clasesDisponibles={clasesDisponibles}
           />
         }
-        cuota={<CuotaPagosTab alumnoId={alumno.profileId} cuotas={alumno.cuotas} pagos={alumno.pagos} />}
+        cuota={<CuotaPagosTab alumnoId={alumno.alumnoId} cuotas={alumno.cuotas} pagos={alumno.pagos} />}
         ficha={<FichaTab ficha={ficha} pruebas={pruebas} sedes={sedes} />}
         evolucion={
-          <EvolucionTab alumnoId={alumno.profileId} notas={notas} clases={clasesParaEvolucion} lineaDeTiempo={lineaDeTiempo} />
+          <EvolucionTab alumnoId={alumno.alumnoId} notas={notas} clases={clasesParaEvolucion} lineaDeTiempo={lineaDeTiempo} />
         }
         planificacion={
           mostrarPlanificacion ? (
             <IndividualPlanificacionPage
-              alumnoId={alumno.profileId}
-              volverHref={`/admin/alumnos/${alumno.profileId}`}
-              historialHref={`/admin/alumnos/${alumno.profileId}/planificacion/historial`}
+              alumnoId={alumno.alumnoId}
+              volverHref={`/admin/alumnos/${alumno.alumnoId}`}
+              historialHref={`/admin/alumnos/${alumno.alumnoId}/planificacion/historial`}
               embedded
             />
           ) : null

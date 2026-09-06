@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { mapaIdentidadAlumnos } from "@/lib/alumnos-identidad";
 import type { MedioPago } from "@/types/database";
 
 export type ComprobantePendienteItem = {
@@ -20,7 +21,6 @@ export async function listarComprobantesPendientes(): Promise<ComprobantePendien
 
   const [
     { data: pagos, error: errorPagos },
-    { data: alumnos, error: errorAlumnos },
     { data: sedes, error: errorSedes },
   ] = await Promise.all([
     supabase
@@ -29,23 +29,22 @@ export async function listarComprobantesPendientes(): Promise<ComprobantePendien
       .eq("estado", "pendiente")
       .not("comprobante_url", "is", null)
       .order("created_at", { ascending: true }),
-    supabase.from("profiles").select("id, nombre, apellido"),
     supabase.from("sedes").select("id, nombre"),
   ]);
 
   if (errorPagos) console.error("[comprobantes-data] error leyendo pagos pendientes", errorPagos);
-  if (errorAlumnos) console.error("[comprobantes-data] error leyendo profiles", errorAlumnos);
   if (errorSedes) console.error("[comprobantes-data] error leyendo sedes", errorSedes);
 
-  const alumnoPorId = new Map((alumnos ?? []).map((a) => [a.id, a]));
+  const alumnoIds = [...new Set((pagos ?? []).map((p) => p.alumno_id))];
+  const identidadPorId = await mapaIdentidadAlumnos(supabase, alumnoIds);
   const sedeNombrePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
 
   return (pagos ?? []).map((p): ComprobantePendienteItem => {
-    const alumno = alumnoPorId.get(p.alumno_id);
+    const identidad = identidadPorId.get(p.alumno_id);
     return {
       pagoId: p.id,
       alumnoId: p.alumno_id,
-      alumnoNombre: alumno ? `${alumno.nombre} ${alumno.apellido}` : "?",
+      alumnoNombre: identidad ? `${identidad.nombre} ${identidad.apellido}` : "?",
       sedeNombre: (p.sede_id && sedeNombrePorId.get(p.sede_id)) || "?",
       monto: p.monto,
       medio: p.medio,

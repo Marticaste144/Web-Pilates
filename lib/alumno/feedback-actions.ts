@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { obtenerMiAlumnoId } from "./identidad";
 import type { FormState } from "@/lib/form-state";
 
 // Comentario corto que la alumna deja sobre una sesión puntual de su clase
@@ -26,17 +27,15 @@ export async function dejarFeedback(_prevState: FormState, formData: FormData): 
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const alumnoId = await obtenerMiAlumnoId(supabase);
 
-  if (!user) {
+  if (!alumnoId) {
     return { status: "error", message: "Iniciá sesión de nuevo." };
   }
 
   const { error } = await supabase
     .from("feedback_clases")
-    .insert({ clase_id: claseId, alumno_id: user.id, fecha, comentario });
+    .insert({ clase_id: claseId, alumno_id: alumnoId, fecha, comentario });
 
   if (error) {
     return { status: "error", message: error.message };

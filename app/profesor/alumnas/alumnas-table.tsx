@@ -21,7 +21,7 @@ export function AlumnasTable({ alumnas, sedes }: { alumnas: AlumnaListItem[]; se
       return (
         a.nombre.toLowerCase().includes(texto) ||
         a.apellido.toLowerCase().includes(texto) ||
-        a.email.toLowerCase().includes(texto) ||
+        (a.email ?? "").toLowerCase().includes(texto) ||
         (a.telefono ?? "").toLowerCase().includes(texto)
       );
     });
@@ -87,9 +87,10 @@ export function AlumnasTable({ alumnas, sedes }: { alumnas: AlumnaListItem[]; se
                   <span className="flex min-w-0 items-center gap-2 truncate font-medium text-neutral-900">
                     {a.nombre} {a.apellido}
                     {a.esSuplencia && <Badge variant="info">Suplencia</Badge>}
+                    {!a.tieneCuenta && <Badge variant="neutral">Sin cuenta</Badge>}
                   </span>
                   <span className="min-w-0 truncate text-neutral-600">{a.telefono ?? "-"}</span>
-                  <span className="min-w-0 truncate text-neutral-600">{a.email}</span>
+                  <span className="min-w-0 truncate text-neutral-600">{a.email ?? "-"}</span>
                   <span className="min-w-0 truncate text-neutral-600">{a.sedes.join(", ")}</span>
                   <ChevronRightIcon className="h-4 w-4 shrink-0 text-neutral-300 group-hover:text-primary-500" />
                 </Link>
@@ -104,10 +105,11 @@ export function AlumnasTable({ alumnas, sedes }: { alumnas: AlumnaListItem[]; se
                 <p className="flex items-center gap-2 font-semibold text-neutral-900">
                   {a.nombre} {a.apellido}
                   {a.esSuplencia && <Badge variant="info">Suplencia</Badge>}
+                  {!a.tieneCuenta && <Badge variant="neutral">Sin cuenta</Badge>}
                 </p>
                 <p className="text-sm text-secondary-600">{a.sedes.join(", ")}</p>
                 <p className="mt-1 text-sm text-neutral-600">{a.telefono ?? "Sin teléfono"}</p>
-                <p className="text-sm text-neutral-600">{a.email}</p>
+                <p className="text-sm text-neutral-600">{a.email ?? "Sin email"}</p>
               </Link>
             ))}
           </div>

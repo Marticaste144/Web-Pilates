@@ -1,15 +1,43 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { nombreProfesorClase } from "@/lib/clases-profesor-nombre";
 import type { EstadoInscripcion, EstadoPago, EstadoVisualCuota, MedioPago } from "@/types/database";
 
+// "Alumna de MUV" ya no implica tener cuenta de Auth (ver migración
+// 20260906090000_identidad_alumnas.sql) -- una alumna cargada a mano por la
+// admin no tiene profiles/auth.users hasta que se le da acceso. Estado real,
+// derivable de forma segura (nunca se inventa un estado que no podamos
+// verificar):
+//   - "sin_acceso": alumnos.profile_id es null -- nunca fue invitada.
+//   - "invitado": tiene profile_id pero auth.users.email_confirmed_at es
+//     null -- se generó el link pero todavía no confirmó ni eligió
+//     contraseña (mismo criterio que profesores, ver profesores-data.ts).
+//   - "activo": ya confirmó.
+export type EstadoAccesoAlumno = "sin_acceso" | "invitado" | "activo";
+
 export type AlumnoListItem = {
-  profileId: string;
+  alumnoId: string;
   nombre: string;
   apellido: string;
-  email: string;
+  email: string | null;
   telefono: string | null;
+  activo: boolean;
+  estadoAcceso: EstadoAccesoAlumno;
   inscripcionesActivas: number;
 };
+
+async function mapaEstadoAcceso(profileIds: string[]): Promise<Map<string, EstadoAccesoAlumno>> {
+  if (profileIds.length === 0) return new Map();
+
+  const admin = createAdminClient();
+  const entradas = await Promise.all(
+    profileIds.map(async (id): Promise<[string, EstadoAccesoAlumno]> => {
+      const { data } = await admin.auth.admin.getUserById(id);
+      return [id, data?.user?.email_confirmed_at ? "activo" : "invitado"];
+    }),
+  );
+  return new Map(entradas);
+}
 
 // A diferencia del roster del profesor, acá no hay restricción de
 // visibilidad por cuota -- la admin ve a todos los alumnos siempre (RLS:
@@ -30,28 +58,52 @@ export type AlumnoListItem = {
 // sueltos sin depender de Supabase.
 export type OrdenAlumnos = "apellido" | "nombre";
 
+// Base: "alumnos" (existe con o sin cuenta), con "profiles" superpuesto
+// cuando profile_id está presente -- mismo criterio que mapaIdentidadAlumnos,
+// repetido acá en vez de reutilizarla directamente porque acá además hace
+// falta ordenar/filtrar por nombre/apellido/email ya resueltos.
 export async function listarAlumnos(query?: string, orden: OrdenAlumnos = "apellido"): Promise<AlumnoListItem[]> {
   const supabase = await createClient();
 
-  const { data: todos } = await supabase
-    .from("profiles")
-    .select("id, nombre, apellido, email, telefono")
-    .eq("role", "alumno")
-    .order(orden);
+  const { data: alumnosRaw } = await supabase.from("alumnos").select("id, profile_id, nombre, apellido, email, telefono, activo");
+  if (!alumnosRaw || alumnosRaw.length === 0) return [];
+
+  const idsConCuenta = alumnosRaw.map((a) => a.profile_id).filter((id): id is string => id !== null);
+  const [{ data: perfiles }, estadoPorProfileId] = await Promise.all([
+    idsConCuenta.length > 0
+      ? supabase.from("profiles").select("id, nombre, apellido, email, telefono").in("id", idsConCuenta)
+      : Promise.resolve({ data: [] as { id: string; nombre: string; apellido: string; email: string; telefono: string | null }[] }),
+    mapaEstadoAcceso(idsConCuenta),
+  ]);
+  const perfilPorId = new Map((perfiles ?? []).map((p) => [p.id, p]));
+
+  const todos = alumnosRaw.map((a) => {
+    const perfil = a.profile_id ? perfilPorId.get(a.profile_id) : null;
+    const estadoAcceso: EstadoAccesoAlumno = !a.profile_id ? "sin_acceso" : (estadoPorProfileId.get(a.profile_id) ?? "invitado");
+    return {
+      alumnoId: a.id,
+      nombre: perfil?.nombre ?? a.nombre ?? "?",
+      apellido: perfil?.apellido ?? a.apellido ?? "",
+      email: perfil?.email ?? a.email ?? null,
+      telefono: perfil?.telefono ?? a.telefono ?? null,
+      activo: a.activo,
+      estadoAcceso,
+    };
+  });
 
   const texto = query?.trim().toLowerCase();
-  const perfiles = texto
-    ? (todos ?? []).filter(
+  const filtrados = texto
+    ? todos.filter(
         (p) =>
           p.nombre.toLowerCase().includes(texto) ||
           p.apellido.toLowerCase().includes(texto) ||
-          p.email.toLowerCase().includes(texto),
+          (p.email ?? "").toLowerCase().includes(texto),
       )
-    : (todos ?? []);
+    : todos;
 
-  if (perfiles.length === 0) return [];
+  if (filtrados.length === 0) return [];
 
-  const alumnoIds = perfiles.map((p) => p.id);
+  const alumnoIds = filtrados.map((p) => p.alumnoId);
   const { data: inscripciones } = await supabase
     .from("inscripciones")
     .select("alumno_id")
@@ -63,14 +115,9 @@ export async function listarAlumnos(query?: string, orden: OrdenAlumnos = "apell
     countPorAlumno.set(i.alumno_id, (countPorAlumno.get(i.alumno_id) ?? 0) + 1);
   }
 
-  return perfiles.map((p) => ({
-    profileId: p.id,
-    nombre: p.nombre,
-    apellido: p.apellido,
-    email: p.email,
-    telefono: p.telefono,
-    inscripcionesActivas: countPorAlumno.get(p.id) ?? 0,
-  }));
+  return filtrados
+    .map((p): AlumnoListItem => ({ ...p, inscripcionesActivas: countPorAlumno.get(p.alumnoId) ?? 0 }))
+    .sort((a, b) => a[orden].localeCompare(b[orden], "es"));
 }
 
 export type AlumnoInscripcionItem = {
@@ -127,27 +174,44 @@ export type AlumnoPagoItem = {
 };
 
 export type AlumnoDetalle = {
-  profileId: string;
+  alumnoId: string;
   nombre: string;
   apellido: string;
-  email: string;
+  email: string | null;
   telefono: string | null;
-  /** alumnos.created_at -- normalmente siempre existe (se crea junto con la cuenta). Null solo si esa fila faltara por algún motivo -- nunca se inventa una fecha. */
+  activo: boolean;
+  estadoAcceso: EstadoAccesoAlumno;
+  /** alumnos.created_at -- siempre existe (la fila se crea junto con la alumna, con o sin cuenta). */
   alumnoDesde: string | null;
   inscripciones: AlumnoInscripcionItem[];
   cuotas: AlumnoCuotaItem[];
   pagos: AlumnoPagoItem[];
 };
 
-export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | null> {
+export async function obtenerAlumno(alumnoId: string): Promise<AlumnoDetalle | null> {
   const supabase = await createClient();
 
-  const [{ data: perfil }, { data: alumnoRow }] = await Promise.all([
-    supabase.from("profiles").select("id, nombre, apellido, email, telefono").eq("id", profileId).eq("role", "alumno").single(),
-    supabase.from("alumnos").select("created_at").eq("profile_id", profileId).maybeSingle(),
+  const { data: alumnoRow } = await supabase
+    .from("alumnos")
+    .select("id, profile_id, nombre, apellido, email, telefono, activo, created_at")
+    .eq("id", alumnoId)
+    .maybeSingle();
+  if (!alumnoRow) return null;
+
+  const [{ data: perfil }, estadoPorProfileId] = await Promise.all([
+    alumnoRow.profile_id
+      ? supabase.from("profiles").select("nombre, apellido, email, telefono").eq("id", alumnoRow.profile_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    alumnoRow.profile_id ? mapaEstadoAcceso([alumnoRow.profile_id]) : Promise.resolve(new Map<string, EstadoAccesoAlumno>()),
   ]);
 
-  if (!perfil) return null;
+  const nombre = perfil?.nombre ?? alumnoRow.nombre ?? "?";
+  const apellido = perfil?.apellido ?? alumnoRow.apellido ?? "";
+  const email = perfil?.email ?? alumnoRow.email ?? null;
+  const telefono = perfil?.telefono ?? alumnoRow.telefono ?? null;
+  const estadoAcceso: EstadoAccesoAlumno = !alumnoRow.profile_id
+    ? "sin_acceso"
+    : (estadoPorProfileId.get(alumnoRow.profile_id) ?? "invitado");
 
   const [
     { data: inscripcionesRaw, error: errorInscripciones },
@@ -159,20 +223,20 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
     supabase
       .from("inscripciones")
       .select("id, clase_id, estado, posicion_espera")
-      .eq("alumno_id", profileId)
+      .eq("alumno_id", alumnoId)
       .in("estado", ["activa", "lista_espera"]),
     supabase.from("sedes").select("id, nombre"),
     supabase.from("actividades").select("id, nombre"),
     supabase
       .from("v_estado_cuota_alumno_sede")
       .select("sede_id, estado_visual, vencimiento, monto, medio")
-      .eq("alumno_id", profileId),
+      .eq("alumno_id", alumnoId),
     // Historial completo (no solo los últimos 10): ahora es la única fuente
     // del tab "Cuota y pagos" -- necesita verse todo, no un recorte.
     supabase
       .from("pagos")
       .select("id, sede_id, actividades_ids, monto, medio, estado, created_at, comprobante_url, marcado_por")
-      .eq("alumno_id", profileId)
+      .eq("alumno_id", alumnoId)
       .order("created_at", { ascending: false }),
   ]);
 
@@ -185,11 +249,11 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
   // no persiste" (el pago sí se insertaba bien, pero esta lectura fallaba
   // sola y silenciosamente). Ahora cualquier error de estas queries queda
   // en los logs del servidor en vez de disfrazarse de "no hay datos".
-  if (errorInscripciones) console.error(`[alumnos-data] obtenerAlumno(${profileId}): error leyendo inscripciones`, errorInscripciones);
-  if (errorSedes) console.error(`[alumnos-data] obtenerAlumno(${profileId}): error leyendo sedes`, errorSedes);
-  if (errorActividades) console.error(`[alumnos-data] obtenerAlumno(${profileId}): error leyendo actividades`, errorActividades);
-  if (errorCuotas) console.error(`[alumnos-data] obtenerAlumno(${profileId}): error leyendo v_estado_cuota_alumno_sede -- ¿falta aplicar una migración? (medio se agregó en 20260813160000_vista_cuota_medio.sql)`, errorCuotas);
-  if (errorPagos) console.error(`[alumnos-data] obtenerAlumno(${profileId}): error leyendo pagos`, errorPagos);
+  if (errorInscripciones) console.error(`[alumnos-data] obtenerAlumno(${alumnoId}): error leyendo inscripciones`, errorInscripciones);
+  if (errorSedes) console.error(`[alumnos-data] obtenerAlumno(${alumnoId}): error leyendo sedes`, errorSedes);
+  if (errorActividades) console.error(`[alumnos-data] obtenerAlumno(${alumnoId}): error leyendo actividades`, errorActividades);
+  if (errorCuotas) console.error(`[alumnos-data] obtenerAlumno(${alumnoId}): error leyendo v_estado_cuota_alumno_sede -- ¿falta aplicar una migración? (medio se agregó en 20260813160000_vista_cuota_medio.sql)`, errorCuotas);
+  if (errorPagos) console.error(`[alumnos-data] obtenerAlumno(${alumnoId}): error leyendo pagos`, errorPagos);
 
   const sedeNombrePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
   const actividadNombrePorId = new Map((actividades ?? []).map((a) => [a.id, a.nombre]));
@@ -289,12 +353,14 @@ export async function obtenerAlumno(profileId: string): Promise<AlumnoDetalle | 
   });
 
   return {
-    profileId: perfil.id,
-    nombre: perfil.nombre,
-    apellido: perfil.apellido,
-    email: perfil.email,
-    telefono: perfil.telefono,
-    alumnoDesde: alumnoRow?.created_at ?? null,
+    alumnoId: alumnoRow.id,
+    nombre,
+    apellido,
+    email,
+    telefono,
+    activo: alumnoRow.activo,
+    estadoAcceso,
+    alumnoDesde: alumnoRow.created_at,
     inscripciones,
     cuotas,
     pagos,

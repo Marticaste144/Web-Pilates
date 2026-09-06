@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { fechaUltimaOcurrencia } from "@/lib/dias-semana";
+import { mapaIdentidadAlumnos } from "@/lib/alumnos-identidad";
 import type { EstadoAsistencia, EstadoVisualCuota, ModalidadClase } from "@/types/database";
 
 export type MiClaseItem = {
@@ -174,27 +175,24 @@ export async function obtenerClaseDetalle(claseId: string, fecha?: string): Prom
   }
 
   const idsAResolver = [...new Set([...rosterIds, ...recuperacionesRaw.map((a) => a.alumno_id)])];
-  const [{ data: perfiles }, { data: cuotas }] = await Promise.all([
-    idsAResolver.length > 0
-      ? supabase.from("profiles").select("id, nombre, apellido, telefono").in("id", idsAResolver)
-      : Promise.resolve({ data: [] as { id: string; nombre: string; apellido: string; telefono: string | null }[] }),
+  const [identidadPorId, { data: cuotas }] = await Promise.all([
+    mapaIdentidadAlumnos(supabase, idsAResolver),
     supabase.from("v_estado_cuota_alumno_sede").select("alumno_id, estado_visual").eq("sede_id", clase.sede_id),
   ]);
 
-  const perfilPorId = new Map((perfiles ?? []).map((p) => [p.id, p]));
   const cuotaPorAlumno = new Map((cuotas ?? []).map((c) => [c.alumno_id, c.estado_visual]));
-  const rosterVisibleIds = rosterIds.filter((id) => perfilPorId.has(id));
+  const rosterVisibleIds = rosterIds.filter((id) => identidadPorId.has(id));
 
   const rosterItems: AlumnoAsistenciaItem[] = rosterVisibleIds
     .map((id): AlumnoAsistenciaItem => {
-      const perfil = perfilPorId.get(id)!;
+      const identidad = identidadPorId.get(id)!;
       const a = asistenciaPorAlumno.get(id);
       return {
         asistenciaId: a?.id ?? null,
         alumnoId: id,
-        nombre: perfil.nombre,
-        apellido: perfil.apellido,
-        telefono: perfil.telefono,
+        nombre: identidad.nombre,
+        apellido: identidad.apellido,
+        telefono: identidad.telefono,
         cuotaEstado: cuotaPorAlumno.get(id) ?? "sin_pagos",
         asistenciaEstado: a?.estado ?? null,
         noRegistrado: false,
@@ -206,15 +204,15 @@ export async function obtenerClaseDetalle(claseId: string, fecha?: string): Prom
     .sort((a, b) => a.apellido.localeCompare(b.apellido));
 
   const recuperacionesItems: AlumnoAsistenciaItem[] = recuperacionesRaw
-    .filter((a) => perfilPorId.has(a.alumno_id))
+    .filter((a) => identidadPorId.has(a.alumno_id))
     .map((a): AlumnoAsistenciaItem => {
-      const perfil = perfilPorId.get(a.alumno_id)!;
+      const identidad = identidadPorId.get(a.alumno_id)!;
       return {
         asistenciaId: a.id,
         alumnoId: a.alumno_id,
-        nombre: perfil.nombre,
-        apellido: perfil.apellido,
-        telefono: perfil.telefono,
+        nombre: identidad.nombre,
+        apellido: identidad.apellido,
+        telefono: identidad.telefono,
         cuotaEstado: cuotaPorAlumno.get(a.alumno_id) ?? "sin_pagos",
         asistenciaEstado: a.estado,
         noRegistrado: false,

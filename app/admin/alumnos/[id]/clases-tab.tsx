@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import type { AlumnoInscripcionItem, AlumnoClaseAnteriorItem, AsistenciaClaseMes } from "@/lib/admin/alumnos-data";
+import type { ClaseParaAsignar } from "@/lib/admin/clases-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AsignarClaseForm } from "./asignar-clase-form";
+import { QuitarClaseButton } from "./quitar-clase-button";
 
 function diaLabel(dia: number): string {
   return DIAS_SEMANA.find((d) => d.value === dia)?.label ?? String(dia);
@@ -34,13 +37,17 @@ function CeldaAsistencia({ estado }: { estado: "presente" | "ausente" | "sin_mar
 }
 
 export function ClasesTab({
+  alumnoId,
   inscripciones,
   asistenciasDelMes,
   clasesAnteriores,
+  clasesDisponibles,
 }: {
+  alumnoId: string;
   inscripciones: AlumnoInscripcionItem[];
   asistenciasDelMes: AsistenciaClaseMes[];
   clasesAnteriores: AlumnoClaseAnteriorItem[];
+  clasesDisponibles: ClaseParaAsignar[];
 }) {
   const [mostrarHistorial, setMostrarHistorial] = useState(false);
 
@@ -51,6 +58,11 @@ export function ClasesTab({
 
   return (
     <div className="flex flex-col gap-4">
+      <Card>
+        <h2 className="mb-3 font-semibold text-neutral-900">Agregar a una clase</h2>
+        <AsignarClaseForm alumnoId={alumnoId} clases={clasesDisponibles} />
+      </Card>
+
       <Card padded={false}>
         <h2 className="p-4 pb-3 font-semibold text-neutral-900">Clases actuales</h2>
         {inscripciones.length === 0 ? (
@@ -67,6 +79,7 @@ export function ClasesTab({
                     <th className="px-4 py-2.5 font-medium">Horario</th>
                     <th className="px-4 py-2.5 font-medium">Profesor</th>
                     <th className="px-4 py-2.5 font-medium">Estado</th>
+                    <th className="px-4 py-2.5" />
                   </tr>
                 </thead>
                 <tbody>
@@ -85,6 +98,9 @@ export function ClasesTab({
                         ) : (
                           <Badge variant="warning">Lista de espera · #{i.posicionEspera}</Badge>
                         )}
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <QuitarClaseButton alumnoId={alumnoId} inscripcionId={i.inscripcionId} />
                       </td>
                     </tr>
                   ))}
@@ -107,6 +123,9 @@ export function ClasesTab({
                     {i.sedeNombre} · {diaLabel(i.diaSemana)} {i.horaInicio.slice(0, 5)}-{i.horaFin.slice(0, 5)}
                   </p>
                   <p className="text-sm text-neutral-600">Prof. {i.profesorNombre}</p>
+                  <div className="pt-1">
+                    <QuitarClaseButton alumnoId={alumnoId} inscripcionId={i.inscripcionId} />
+                  </div>
                 </div>
               ))}
             </div>

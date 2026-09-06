@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { calcularItemsCuotaAlumno } from "@/lib/pagos-calculo-server";
+import { obtenerMiAlumnoId } from "./identidad";
 import type { EstadoVisualCuota } from "@/types/database";
 
 export type CuotaSedeItem = {
@@ -48,10 +49,8 @@ export type CuotaSedeItem = {
 // nunca pagó también vea "sin_pagos" en vez de simplemente no aparecer.
 export async function listarEstadoCuotaAlumno(): Promise<CuotaSedeItem[]> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
+  const alumnoId = await obtenerMiAlumnoId(supabase);
+  if (!alumnoId) return [];
 
   const { data: inscripciones } = await supabase
     .from("inscripciones")
@@ -82,9 +81,9 @@ export async function listarEstadoCuotaAlumno(): Promise<CuotaSedeItem[]> {
     supabase
       .from("pagos")
       .select("sede_id, monto, estado, medio, created_at")
-      .eq("alumno_id", user.id)
+      .eq("alumno_id", alumnoId)
       .order("created_at", { ascending: false }),
-    calcularItemsCuotaAlumno(supabase, user.id, ["activa", "lista_espera"]),
+    calcularItemsCuotaAlumno(supabase, alumnoId, ["activa", "lista_espera"]),
   ]);
 
   const cuotaPorSede = new Map((cuotas ?? []).map((c) => [c.sede_id, c]));

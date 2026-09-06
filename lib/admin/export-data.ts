@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { mapaIdentidadAlumnos } from "@/lib/alumnos-identidad";
 import type { EstadoPago, MedioPago, EstadoVisualCuota } from "@/types/database";
 
 // Mismos textos que ya se usan en las pantallas (app/admin/alumnos/[id]/page.tsx,
@@ -27,7 +28,7 @@ const MEDIO_TEXTO: Record<MedioPago, string> = {
 export type AlumnoExportRow = {
   nombre: string;
   apellido: string;
-  email: string;
+  email: string | null;
   telefono: string | null;
   sedeNombre: string;
   estadoCuota: string;
@@ -45,24 +46,30 @@ export async function listarAlumnosParaExportar(): Promise<AlumnoExportRow[]> {
   const supabase = await createClient();
 
   const [
-    { data: alumnos, error: errorAlumnos },
+    { data: alumnosRaw, error: errorAlumnos },
     { data: sedes, error: errorSedes },
     { data: cuotas, error: errorCuotas },
     { data: inscripciones, error: errorInscripciones },
     { data: clases, error: errorClases },
   ] = await Promise.all([
-    supabase.from("profiles").select("id, nombre, apellido, email, telefono").eq("role", "alumno").order("apellido"),
+    supabase.from("alumnos").select("id"),
     supabase.from("sedes").select("id, nombre"),
     supabase.from("v_estado_cuota_alumno_sede").select("alumno_id, sede_id, estado_visual, vencimiento, monto"),
     supabase.from("inscripciones").select("alumno_id, clase_id").in("estado", ["activa", "lista_espera"]),
     supabase.from("clases").select("id, sede_id"),
   ]);
 
-  if (errorAlumnos) console.error("[export-data] listarAlumnosParaExportar: error leyendo profiles", errorAlumnos);
+  if (errorAlumnos) console.error("[export-data] listarAlumnosParaExportar: error leyendo alumnos", errorAlumnos);
   if (errorSedes) console.error("[export-data] listarAlumnosParaExportar: error leyendo sedes", errorSedes);
   if (errorCuotas) console.error("[export-data] listarAlumnosParaExportar: error leyendo v_estado_cuota_alumno_sede", errorCuotas);
   if (errorInscripciones) console.error("[export-data] listarAlumnosParaExportar: error leyendo inscripciones", errorInscripciones);
   if (errorClases) console.error("[export-data] listarAlumnosParaExportar: error leyendo clases", errorClases);
+
+  const alumnoIds = (alumnosRaw ?? []).map((a) => a.id);
+  const identidadPorId = await mapaIdentidadAlumnos(supabase, alumnoIds);
+  const alumnos = alumnoIds
+    .map((id) => ({ id, ...identidadPorId.get(id)! }))
+    .sort((a, b) => a.apellido.localeCompare(b.apellido, "es"));
 
   const sedeNombrePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
   const sedeIdPorClaseId = new Map((clases ?? []).map((c) => [c.id, c.sede_id]));
@@ -140,32 +147,27 @@ export type PagoExportRow = {
 export async function listarPagosParaExportar(): Promise<PagoExportRow[]> {
   const supabase = await createClient();
 
-  const [
-    { data: pagos, error: errorPagos },
-    { data: alumnos, error: errorAlumnos },
-    { data: sedes, error: errorSedes },
-  ] = await Promise.all([
+  const [{ data: pagos, error: errorPagos }, { data: sedes, error: errorSedes }] = await Promise.all([
     supabase
       .from("pagos")
       .select("created_at, alumno_id, sede_id, monto, medio, estado")
       .order("created_at", { ascending: false }),
-    supabase.from("profiles").select("id, nombre, apellido, email"),
     supabase.from("sedes").select("id, nombre"),
   ]);
 
   if (errorPagos) console.error("[export-data] listarPagosParaExportar: error leyendo pagos", errorPagos);
-  if (errorAlumnos) console.error("[export-data] listarPagosParaExportar: error leyendo profiles", errorAlumnos);
   if (errorSedes) console.error("[export-data] listarPagosParaExportar: error leyendo sedes", errorSedes);
 
-  const alumnoPorId = new Map((alumnos ?? []).map((a) => [a.id, a]));
+  const alumnoIds = [...new Set((pagos ?? []).map((p) => p.alumno_id))];
+  const identidadPorId = await mapaIdentidadAlumnos(supabase, alumnoIds);
   const sedeNombrePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
 
   return (pagos ?? []).map((p): PagoExportRow => {
-    const alumno = alumnoPorId.get(p.alumno_id);
+    const identidad = identidadPorId.get(p.alumno_id);
     return {
       fecha: p.created_at,
-      alumnoNombre: alumno ? `${alumno.nombre} ${alumno.apellido}` : "?",
-      alumnoEmail: alumno?.email ?? "?",
+      alumnoNombre: identidad ? `${identidad.nombre} ${identidad.apellido}` : "?",
+      alumnoEmail: identidad?.email ?? "?",
       sedeNombre: (p.sede_id && sedeNombrePorId.get(p.sede_id)) || "?",
       monto: p.monto,
       medio: MEDIO_TEXTO[p.medio],

@@ -108,7 +108,7 @@ export default async function EditarClasePage({
                           {a.nombre} {a.apellido}
                         </td>
                         <td className="px-4 py-3 text-neutral-600">
-                          {a.email}
+                          {a.email ?? "Sin email"}
                           {a.telefono ? ` · ${a.telefono}` : ""}
                         </td>
                         <td className="px-4 py-3">

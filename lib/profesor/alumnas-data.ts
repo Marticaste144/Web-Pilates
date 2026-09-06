@@ -1,13 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { listarMisClases } from "./clases-data";
 import { listarClasesDeSuplencia } from "./suplencias-data";
+import { mapaIdentidadAlumnos } from "@/lib/alumnos-identidad";
 
 export type AlumnaListItem = {
   alumnoId: string;
   nombre: string;
   apellido: string;
   telefono: string | null;
-  email: string;
+  email: string | null;
+  tieneCuenta: boolean;
   sedes: string[];
   // true si esta alumna solo aparece acá por una suplencia activa (no es
   // alumna "propia" de ninguna clase del profesor logueado).
@@ -70,21 +72,25 @@ export async function listarMisAlumnas(): Promise<MisAlumnas> {
     }
   }
 
-  const { data: perfiles } = await supabase
-    .from("profiles")
-    .select("id, nombre, apellido, telefono, email")
-    .in("id", [...sedesPorAlumno.keys()]);
+  const alumnoIds = [...sedesPorAlumno.keys()];
+  const identidadPorId = await mapaIdentidadAlumnos(supabase, alumnoIds);
 
-  const alumnas: AlumnaListItem[] = (perfiles ?? [])
-    .map((p) => ({
-      alumnoId: p.id,
-      nombre: p.nombre,
-      apellido: p.apellido,
-      telefono: p.telefono,
-      email: p.email,
-      sedes: [...(sedesPorAlumno.get(p.id) ?? [])].sort(),
-      esSuplencia: esSuplenciaPorAlumno.get(p.id) ?? false,
-    }))
+  const alumnas: AlumnaListItem[] = alumnoIds
+    .map((id) => {
+      const identidad = identidadPorId.get(id);
+      if (!identidad) return null;
+      return {
+        alumnoId: id,
+        nombre: identidad.nombre,
+        apellido: identidad.apellido,
+        telefono: identidad.telefono,
+        email: identidad.email,
+        tieneCuenta: identidad.tieneCuenta,
+        sedes: [...(sedesPorAlumno.get(id) ?? [])].sort(),
+        esSuplencia: esSuplenciaPorAlumno.get(id) ?? false,
+      };
+    })
+    .filter((a): a is AlumnaListItem => a !== null)
     .sort((a, b) => a.apellido.localeCompare(b.apellido));
 
   return { alumnas, sedes };

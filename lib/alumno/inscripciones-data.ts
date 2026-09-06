@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { hoyISO, diaSemanaHoy, horaAhoraISO } from "@/lib/fecha";
 import { fechaUltimaOcurrencia } from "@/lib/dias-semana";
 import { nombreProfesorClase } from "@/lib/clases-profesor-nombre";
+import { obtenerMiAlumnoId } from "./identidad";
 import type { EstadoInscripcion } from "@/types/database";
 
 export type MiInscripcion = {
@@ -86,14 +87,12 @@ export async function listarMisInscripciones(): Promise<MiInscripcion[]> {
   // falta traer ese historial.
   const confirmadasHoy = new Set<string>();
   if (claseIdsDeHoy.length > 0) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
+    const alumnoId = await obtenerMiAlumnoId(supabase);
+    if (alumnoId) {
       const { data: asistenciasHoy } = await supabase
         .from("asistencias")
         .select("clase_id")
-        .eq("alumno_id", user.id)
+        .eq("alumno_id", alumnoId)
         .eq("fecha", fechaHoy)
         .eq("confirmado", true)
         .in("clase_id", claseIdsDeHoy);

@@ -40,7 +40,7 @@ export function ResumenTab({
   alumnoId,
 }: {
   telefono: string | null;
-  email: string;
+  email: string | null;
   inscripciones: AlumnoInscripcionItem[];
   cuotas: AlumnoCuotaItem[];
   ficha: FichaEvaluacion;
@@ -65,7 +65,7 @@ export function ResumenTab({
           </div>
           <div className="flex justify-between gap-3">
             <dt className="text-neutral-500">Email</dt>
-            <dd className="min-w-0 truncate text-neutral-800">{email}</dd>
+            <dd className="min-w-0 truncate text-neutral-800">{email ?? "Sin registrar"}</dd>
           </div>
           {sedes.length > 0 && (
             <div className="flex justify-between gap-3">

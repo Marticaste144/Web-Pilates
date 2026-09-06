@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { obtenerIdentidadAlumno } from "@/lib/alumnos-identidad";
 import { obtenerPlanificacionActualDeAlumno } from "@/lib/planificaciones-data";
 import { crearPlanificacionIndividual } from "@/lib/planificaciones-actions";
 import { MetadataPanel } from "./metadata-panel";
@@ -33,12 +34,12 @@ export async function IndividualPlanificacionPage({
   readOnly?: boolean;
 }) {
   const supabase = await createClient();
-  const [{ data: perfil }, plan] = await Promise.all([
-    supabase.from("profiles").select("nombre, apellido").eq("id", alumnoId).eq("role", "alumno").single(),
+  const [identidad, plan] = await Promise.all([
+    obtenerIdentidadAlumno(supabase, alumnoId),
     obtenerPlanificacionActualDeAlumno(alumnoId),
   ]);
 
-  if (!perfil) {
+  if (!identidad) {
     notFound();
   }
 
@@ -51,7 +52,7 @@ export async function IndividualPlanificacionPage({
             Volver
           </Link>
           <h1 className="mt-2 text-xl font-bold text-neutral-900 sm:text-2xl">
-            Planificación de {perfil.nombre} {perfil.apellido}
+            Planificación de {identidad.nombre} {identidad.apellido}
           </h1>
         </div>
       )}

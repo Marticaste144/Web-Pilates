@@ -4,9 +4,16 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { FormState } from "@/lib/form-state";
 
-// El profesor puede editar datos personales del alumno, pero no su rol ni
+// El profesor puede editar datos personales de la alumna, pero no su rol ni
 // email -- eso lo bloquea trg_restringir_columnas_profile (paso 3) sin
 // importar qué mande este formulario.
+//
+// alumnoId es siempre el id de "alumnos" (nunca auth.uid()/profile_id -- ver
+// migración 20260906090000_identidad_alumnas.sql). Si la alumna ya tiene
+// cuenta, el dato real sigue viviendo en "profiles" (RLS: "profesor
+// actualiza datos de sus alumnos", resuelve el puente alumnos.id -> profiles
+// vía profile_id); si no tiene cuenta, se edita directo en "alumnos" (RLS:
+// "profesor actualiza datos de alumnas sin cuenta").
 export async function actualizarDatosAlumno(
   _prevState: FormState,
   formData: FormData,
@@ -22,10 +29,11 @@ export async function actualizarDatosAlumno(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("profiles")
-    .update({ nombre, apellido, telefono: telefono || null })
-    .eq("id", alumnoId);
+  const { data: alumno } = await supabase.from("alumnos").select("profile_id").eq("id", alumnoId).single();
+
+  const { error } = alumno?.profile_id
+    ? await supabase.from("profiles").update({ nombre, apellido, telefono: telefono || null }).eq("id", alumno.profile_id)
+    : await supabase.from("alumnos").update({ nombre, apellido, telefono: telefono || null }).eq("id", alumnoId);
 
   if (error) {
     return { status: "error", message: error.message };

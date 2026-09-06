@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { nombreProfesorClase } from "@/lib/clases-profesor-nombre";
+import { mapaIdentidadAlumnos } from "@/lib/alumnos-identidad";
 import type { EstadoInscripcion, EstadoVisualCuota, ModalidadClase } from "@/types/database";
 
 export type SedeItem = { id: string; nombre: string };
@@ -210,12 +211,31 @@ export async function listarClasesDeProfesor(profesorId: string): Promise<ClaseL
     .sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio));
 }
 
+export type ClaseParaAsignar = ClaseListItem & { inscriptosActivos: number };
+
+// Mismas clases que listarClases(), con la cantidad de inscriptos activos --
+// para el selector de "Agregar a una clase" (asignación manual de Admin),
+// que necesita mostrar cupo actual/máximo antes de elegir.
+export async function listarClasesParaAsignar(): Promise<ClaseParaAsignar[]> {
+  const supabase = await createClient();
+  const [clases, { data: cupos }] = await Promise.all([
+    listarClases(),
+    supabase.from("v_cupo_clases").select("clase_id, inscriptos_activos"),
+  ]);
+
+  const cupoPorClase = new Map((cupos ?? []).map((c) => [c.clase_id, c.inscriptos_activos]));
+  return clases
+    .filter((c) => c.activa)
+    .map((c) => ({ ...c, inscriptosActivos: cupoPorClase.get(c.id) ?? 0 }));
+}
+
 export type InscriptoClaseItem = {
   alumnoId: string;
   nombre: string;
   apellido: string;
-  email: string;
+  email: string | null;
   telefono: string | null;
+  tieneCuenta: boolean;
   estado: EstadoInscripcion;
   posicionEspera: number | null;
   cuotaEstado: EstadoVisualCuota | "sin_pagos";
@@ -240,8 +260,8 @@ export async function listarInscriptosDeClase(
   if (!inscripciones || inscripciones.length === 0) return [];
 
   const alumnoIds = [...new Set(inscripciones.map((i) => i.alumno_id))];
-  const [{ data: perfiles }, { data: cuotas }] = await Promise.all([
-    supabase.from("profiles").select("id, nombre, apellido, email, telefono").in("id", alumnoIds),
+  const [identidadPorId, { data: cuotas }] = await Promise.all([
+    mapaIdentidadAlumnos(supabase, alumnoIds),
     supabase
       .from("v_estado_cuota_alumno_sede")
       .select("alumno_id, estado_visual")
@@ -249,19 +269,19 @@ export async function listarInscriptosDeClase(
       .in("alumno_id", alumnoIds),
   ]);
 
-  const perfilPorId = new Map((perfiles ?? []).map((p) => [p.id, p]));
   const cuotaPorAlumno = new Map((cuotas ?? []).map((c) => [c.alumno_id, c.estado_visual]));
 
   return inscripciones
     .map((i): InscriptoClaseItem | null => {
-      const perfil = perfilPorId.get(i.alumno_id);
-      if (!perfil) return null;
+      const identidad = identidadPorId.get(i.alumno_id);
+      if (!identidad) return null;
       return {
         alumnoId: i.alumno_id,
-        nombre: perfil.nombre,
-        apellido: perfil.apellido,
-        email: perfil.email,
-        telefono: perfil.telefono,
+        nombre: identidad.nombre,
+        apellido: identidad.apellido,
+        email: identidad.email,
+        telefono: identidad.telefono,
+        tieneCuenta: identidad.tieneCuenta,
         estado: i.estado,
         posicionEspera: i.posicion_espera,
         cuotaEstado: cuotaPorAlumno.get(i.alumno_id) ?? "sin_pagos",
