@@ -8,6 +8,7 @@ import { EditarProfesorForm } from "./editar-form";
 import { FotoProfesorForm } from "./foto-form";
 import { EditarEmailForm } from "./editar-email-form";
 import { EliminarProfesorButton } from "./eliminar-button";
+import { ReenviarInvitacionButton } from "../reenviar-invitacion-button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -66,8 +67,23 @@ export default async function EditarProfesorPage({
       </Card>
 
       <Card className="max-w-md">
-        <h2 className="mb-3 font-semibold text-neutral-900">Acceso</h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="font-semibold text-neutral-900">Acceso</h2>
+          {profesor.estadoAcceso === "activo" ? (
+            <Badge variant="success">Acceso activo</Badge>
+          ) : (
+            <Badge variant="neutral">Invitado, sin confirmar</Badge>
+          )}
+        </div>
         <EditarEmailForm profileId={profesor.profileId} email={profesor.email} />
+        {profesor.estadoAcceso === "invitado" && (
+          <div className="mt-3 border-t border-neutral-100 pt-3">
+            <p className="mb-2 text-sm text-neutral-500">
+              Todavía no confirmó su cuenta ni eligió contraseña.
+            </p>
+            <ReenviarInvitacionButton profileId={profesor.profileId} />
+          </div>
+        )}
       </Card>
 
       <Card>

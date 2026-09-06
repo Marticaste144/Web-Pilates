@@ -82,8 +82,11 @@ export default async function AdminHomePage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        <Card className="flex flex-col items-center gap-2 text-center">
+      {/* items-stretch explícito (CORRECCIÓN, auditoría general): las 6
+          cards deben quedar a la misma altura entre sí -- ver el comentario
+          de metric-card.tsx sobre por qué antes no coincidían. */}
+      <div className="grid grid-cols-2 items-stretch gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <Card className="flex h-full flex-col items-center justify-center gap-2 text-center">
           <p className="self-start text-sm text-neutral-500">Ocupación promedio</p>
           <OccupancyRing value={m.ocupacionPromedio} max={100} size={72} centerValue={`${m.ocupacionPromedio}%`} centerLabel="" />
           <p className="text-xs text-neutral-500">de las clases activas</p>
@@ -100,7 +103,10 @@ export default async function AdminHomePage() {
           sub={m.cuotasVencidas > 0 ? "conviene revisar" : "todo al día"}
         />
 
-        <Link href="/admin/comprobantes">
+        {/* block h-full (CORRECCIÓN): un <a> es inline por default y no
+            respeta altura -- sin esto, el <Card> de adentro no se estiraba
+            igual que las demás cards del grid. */}
+        <Link href="/admin/comprobantes" className="block h-full">
           <MetricCard
             icon={FileIcon}
             label="Comprobantes pendientes"

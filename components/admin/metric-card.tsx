@@ -25,7 +25,16 @@ export function MetricCard({
   tone?: "neutral" | "warning" | "error";
 }) {
   return (
-    <Card className="flex flex-col gap-2">
+    // h-full + justify-between (CORRECCIÓN, auditoría general): el grid que
+    // las contiene (grid-cols-6) ya estira cada ITEM a la altura de la fila
+    // por defecto, pero el <Card> de adentro no llenaba ese alto -- cuando
+    // un label más largo ("Comprobantes pendientes") envolvía a dos líneas
+    // y otro no ("Cupo"), cada Card terminaba con su propio alto de
+    // contenido, visiblemente distinto. Con h-full todas ocupan el alto
+    // completo de la fila (igual entre sí) y justify-between deja el ícono
+    // arriba y el label/número/sub siempre en el mismo lugar relativo,
+    // envuelva o no envuelva el texto.
+    <Card className="flex h-full flex-col justify-between gap-2">
       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary-50 text-secondary-600">
         <Icon className="h-4 w-4" />
       </span>

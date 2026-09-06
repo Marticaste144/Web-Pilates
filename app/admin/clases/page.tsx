@@ -23,13 +23,17 @@ export default async function ClasesPage() {
   ]);
 
   return (
-    // Debajo de md la página fluye normal (como pedido, el "sin scroll" es
-    // un requisito de desktop). En md+ el alto queda acotado al viewport
-    // (topbar ~76px + el md:pb-10 del AdminShell) para que "Nueva clase" + el
-    // listado entren en una sola pantalla -- ClasesTable mide el alto real
-    // que le queda dentro de esa franja y decide cuántas filas entran (ver
-    // clases-table.tsx).
-    <div className="flex flex-col gap-3 md:h-[calc(100dvh-7.25rem)] md:gap-4 md:overflow-hidden">
+    // CORRECCIÓN (auditoría general): antes esta página forzaba un alto fijo
+    // (calc(100dvh-7.25rem)) + overflow-hidden para que "todo entrara en una
+    // sola pantalla sin scroll", y ClasesTable medía cuántas filas entraban
+    // ahí adentro -- cualquier desajuste entre lo medido y el alto real
+    // (fuente sin cargar, zoom, alto real del header) recortaba filas y
+    // tapaba el paginador en vez de mostrarlos. Ahora la página fluye
+    // normal en todos los tamaños (scroll de página si hace falta, como
+    // cualquier página larga) y ClasesTable pagina con un tamaño fijo por
+    // breakpoint -- sin medir nada, sin overflow-hidden, sin riesgo de
+    // recorte.
+    <div className="flex flex-col gap-4">
       <PageHeader title="Clases" subtitle="Asigná día, horario, sede y profesor/a de cada clase." />
 
       <Card className="!p-3 shrink-0 sm:!p-4">

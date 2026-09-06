@@ -1,5 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { fotoEstaticaDeProfesor } from "@/lib/landing/profesores-fotos-estaticas";
+
+// "Perfil de profesor" (esta tabla + profiles: nombre/apellido/email/foto)
+// y "acceso al sistema" (auth.users: haber aceptado la invitación y puesto
+// contraseña) son dos cosas DISTINTAS -- un profesor puede tener el perfil
+// cargado sin haber entrado nunca. estadoAcceso sale de auth.users.
+// email_confirmed_at (vía admin API, la única fuente real de esto: no es un
+// dato que RLS/profiles pueda exponer) -- "invitado" mientras sea null
+// (existe el usuario porque se le generó un link, pero todavía no confirmó
+// ni eligió contraseña) y "activo" en cuanto lo confirma. No se inventa un
+// tercer estado tipo "en línea"/"últimca vez": last_sign_in_at existe pero
+// no lo pidió nadie y agregaría un estado no verificado con certeza.
+export type EstadoAcceso = "invitado" | "activo";
 
 export type ProfesorListItem = {
   profileId: string;
@@ -9,7 +22,21 @@ export type ProfesorListItem = {
   email: string;
   telefono: string | null;
   fotoUrl: string | null;
+  estadoAcceso: EstadoAcceso;
 };
+
+async function mapaEstadoAcceso(ids: string[]): Promise<Map<string, EstadoAcceso>> {
+  if (ids.length === 0) return new Map();
+
+  const admin = createAdminClient();
+  const entradas = await Promise.all(
+    ids.map(async (id): Promise<[string, EstadoAcceso]> => {
+      const { data } = await admin.auth.admin.getUserById(id);
+      return [id, data?.user?.email_confirmed_at ? "activo" : "invitado"];
+    }),
+  );
+  return new Map(entradas);
+}
 
 // Dos queries + merge en vez de un select anidado: como types/database.ts
 // está escrito a mano (sin metadata de "Relationships"), el join tipado de
@@ -31,6 +58,7 @@ export async function listarProfesores(): Promise<ProfesorListItem[]> {
     .in("id", ids);
 
   const perfilPorId = new Map((perfiles ?? []).map((p) => [p.id, p]));
+  const estadoPorId = await mapaEstadoAcceso(ids);
 
   const items = profesores
     .map((p): ProfesorListItem | null => {
@@ -46,6 +74,7 @@ export async function listarProfesores(): Promise<ProfesorListItem[]> {
         fotoUrl: p.foto_url
           ? supabase.storage.from("profesores").getPublicUrl(p.foto_url).data.publicUrl
           : fotoEstaticaDeProfesor(perfil.nombre),
+        estadoAcceso: estadoPorId.get(p.profile_id) ?? "invitado",
       };
     })
     .filter((item): item is ProfesorListItem => item !== null);
@@ -91,6 +120,8 @@ export async function obtenerProfesor(profileId: string): Promise<ProfesorListIt
 
   if (!perfil) return null;
 
+  const estado = (await mapaEstadoAcceso([profileId])).get(profileId) ?? "invitado";
+
   return {
     profileId: profesor.profile_id,
     activo: profesor.activo,
@@ -101,5 +132,6 @@ export async function obtenerProfesor(profileId: string): Promise<ProfesorListIt
     fotoUrl: profesor.foto_url
       ? supabase.storage.from("profesores").getPublicUrl(profesor.foto_url).data.publicUrl
       : fotoEstaticaDeProfesor(perfil.nombre),
+    estadoAcceso: estado,
   };
 }

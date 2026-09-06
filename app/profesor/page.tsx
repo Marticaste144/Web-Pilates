@@ -3,6 +3,7 @@ import Image from "next/image";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { obtenerResumenDiaProfesor } from "@/lib/profesor/dashboard-data";
 import { hoyISO, formatearFechaLarga } from "@/lib/fecha";
+import { fechaProximaOcurrencia } from "@/lib/proxima-ocurrencia";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { OccupancyRing } from "@/components/ui/occupancy-ring";
@@ -17,6 +18,17 @@ export default async function ProfesorHomePage() {
 
   const hayClases = clasesHoy.length > 0 || proximaClase !== null;
   const fechaHoyLarga = formatearFechaLarga(hoyISO());
+
+  // CORRECCIÓN (auditoría general): antes "Próxima clase" solo mostraba el
+  // horario (ej. "16:00 - 17:00"), sin día ni fecha -- con varias clases en
+  // la semana no quedaba claro CUÁNDO es "próxima" (¿hoy? ¿el lunes que
+  // viene?). fechaProximaOcurrencia ya calculaba la fecha real (ya
+  // contempla si la de hoy pasó, fin de semana, cambio de mes) -- solo
+  // faltaba mostrarla.
+  const fechaProximaClaseLarga = proximaClase ? formatearFechaLarga(fechaProximaOcurrencia(proximaClase)) : null;
+  const fechaProximaClaseCapitalizada = fechaProximaClaseLarga
+    ? fechaProximaClaseLarga.charAt(0).toUpperCase() + fechaProximaClaseLarga.slice(1)
+    : null;
 
   return (
     <div className="flex flex-col gap-2.5 py-2.5 sm:gap-3.5 sm:py-3.5">
@@ -74,7 +86,8 @@ export default async function ProfesorHomePage() {
               <div className="relative z-10 flex min-h-[240px] flex-col justify-between gap-4 p-5 sm:h-48 sm:min-h-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-6 lg:h-52 lg:p-6">
                 <div className="max-w-[200px] sm:max-w-[220px] lg:max-w-xs">
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Próxima clase</p>
-                  <h2 className="mt-2 text-2xl font-bold text-neutral-900 sm:text-3xl">
+                  <p className="mt-1.5 text-sm font-medium text-neutral-700">{fechaProximaClaseCapitalizada}</p>
+                  <h2 className="mt-0.5 text-2xl font-bold text-neutral-900 sm:text-3xl">
                     {proximaClase.horaInicio.slice(0, 5)} - {proximaClase.horaFin.slice(0, 5)}
                   </h2>
                   <p className="mt-1 text-lg font-semibold text-secondary-700">

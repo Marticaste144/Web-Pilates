@@ -17,6 +17,19 @@ import { Isotipo } from "@/components/ui/isotipo";
 // siempre fallaría con "no es válido o ya expiró". Un bot no hace click en
 // un botón ni ejecuta el verifyOtp() de acá abajo, así que el token
 // sobrevive hasta que la persona real lo confirma.
+//
+// Acepta type=invite (primera invitación) o type=recovery (reenviarInvitacion,
+// profesores-actions.ts -- Supabase no permite generar otro type=invite para
+// un email que ya existe, así que un reenvío usa recovery con el MISMO
+// usuario). Ambos casos terminan igual: verifyOtp abre sesión y se manda a
+// /reset-password a elegir contraseña, sea la primera vez o no.
+const TIPOS_VALIDOS = ["invite", "recovery"] as const;
+type TipoValido = (typeof TIPOS_VALIDOS)[number];
+
+function esTipoValido(type: string | null): type is TipoValido {
+  return TIPOS_VALIDOS.includes(type as TipoValido);
+}
+
 export function ConfirmInviteClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -25,9 +38,10 @@ export function ConfirmInviteClient() {
 
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type");
+  const linkInvalido = !tokenHash || !esTipoValido(type);
 
   const confirmar = async () => {
-    if (!tokenHash || type !== "invite") {
+    if (!tokenHash || !esTipoValido(type)) {
       setError("El link no es válido o ya expiró.");
       return;
     }
@@ -36,7 +50,7 @@ export function ConfirmInviteClient() {
     const supabase = createClient();
     const { error: verifyError } = await supabase.auth.verifyOtp({
       token_hash: tokenHash,
-      type: "invite",
+      type,
     });
 
     if (verifyError) {
@@ -47,8 +61,6 @@ export function ConfirmInviteClient() {
 
     router.replace("/reset-password");
   };
-
-  const linkInvalido = !tokenHash || type !== "invite";
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-4 bg-neutral-50 p-8 text-center">

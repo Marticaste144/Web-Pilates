@@ -6,17 +6,30 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { LinkButton } from "@/components/ui/button";
 import { ChevronRightIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
 
+// CORRECCIÓN (auditoría general): faltaba un acceso visible para agregar un
+// horario propio -- /profesor/clases/nueva ya existía (crearMiClase, con
+// las mismas validaciones de superposición/cupo/etc. que ya corren para
+// cualquier clase) pero no había ningún botón ni link que llevara ahí.
 export default async function MisClasesPage() {
   const clases = await listarMisClases();
   const diaLabel = (dia: number) => DIAS_SEMANA.find((d) => d.value === dia)?.label ?? dia;
 
   return (
     <div className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Mis clases" subtitle="Entrá a una clase para ver alumnos y tomar asistencia." />
+      <PageHeader
+        title="Mis clases"
+        subtitle="Entrá a una clase para ver alumnos y tomar asistencia."
+        action={
+          <LinkButton href="/profesor/clases/nueva" size="sm" className="shrink-0">
+            Agregar horario
+          </LinkButton>
+        }
+      />
 
       {clases.length > 0 && <DescargarAsistenciasPdf />}
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType, SVGProps } from "react";
 import { Isotipo } from "@/components/ui/isotipo";
-import { HomeIcon, UsersIcon, UserIcon } from "@/components/ui/icons";
+import { HomeIcon, UsersIcon, UserIcon, CalendarIcon } from "@/components/ui/icons";
 
 type NavLink = {
   href: string;
@@ -12,11 +12,15 @@ type NavLink = {
   icon: ComponentType<SVGProps<SVGSVGElement>>;
 };
 
-// Inicio, Alumnas y Equipo -- a la asistencia se entra desde una clase (card
-// de "Próxima clase" o fila de "Mis clases de hoy" en Inicio), no hace falta
-// un ítem de nav propio para eso.
+// CORRECCIÓN (auditoría general): "Mis clases" (/profesor/clases) ya
+// existía como página -- lista de horarios propios, con acceso a
+// agregar/editar (ver clases-actions.ts, EditarHorario) -- pero no estaba
+// en ningún nav, así que en la práctica el profesor no tenía forma de
+// llegar ahí (ni de "Inicio" ni de acá) salvo escribiendo la URL a mano.
+// Equipo se deja tal cual.
 const LINKS: NavLink[] = [
   { href: "/profesor", label: "Inicio", icon: HomeIcon },
+  { href: "/profesor/clases", label: "Mis clases", icon: CalendarIcon },
   { href: "/profesor/alumnas", label: "Alumnas", icon: UsersIcon },
   { href: "/profesor/equipo", label: "Equipo", icon: UserIcon },
 ];

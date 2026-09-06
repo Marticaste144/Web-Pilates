@@ -5,7 +5,7 @@ import { requireAdminProfile } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSiteUrl } from "@/lib/site-url";
-import { notificarInvitacionProfesor } from "@/lib/email/notificaciones";
+import { notificarInvitacionProfesor, notificarReenvioInvitacionProfesor } from "@/lib/email/notificaciones";
 import type { FormState } from "@/lib/form-state";
 
 const DIACRITICOS = new RegExp(`[${String.fromCharCode(0x0300)}-${String.fromCharCode(0x036f)}]`, "g");
@@ -126,6 +126,67 @@ export async function invitarProfesor(
         ? `Invitación enviada a ${email} -- se vincularon ${clasesVinculadas} clase${clasesVinculadas === 1 ? "" : "s"} que ya estaban cargadas a nombre de "${nombre}".`
         : `Invitación enviada a ${email}.`,
   };
+}
+
+// Reenvía el acceso a un profesor que YA existe (mismo id de siempre en
+// auth.users/profiles/profesores) pero perdió, no vio o dejó vencer el link
+// de invitación original -- nunca crea un usuario nuevo ni duplica nada.
+//
+// Supabase no deja generar otro type:"invite" para un email que ya está
+// registrado (devuelve error). El mecanismo nativo correcto para "esta
+// persona ya existe pero todavía no tiene contraseña, mandale otro link"
+// es generateLink({type:"recovery"}) -- mismo usuario, mismo id, solo un
+// token nuevo. Aterriza en la MISMA pantalla con click explícito que el
+// invite original (confirm-invite-client.tsx acepta type=invite o
+// type=recovery) y termina en /reset-password para elegir contraseña, sea
+// la primera vez o no -- no hace falta un flujo ni una pantalla aparte.
+export async function reenviarInvitacion(profileId: string): Promise<{ ok: boolean; message: string }> {
+  await requireAdminProfile();
+
+  const supabase = await createClient();
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("email, nombre")
+    .eq("id", profileId)
+    .single();
+
+  if (!perfil) {
+    return { ok: false, message: "No se encontró el profesor." };
+  }
+
+  const admin = createAdminClient();
+  const { data: usuario } = await admin.auth.admin.getUserById(profileId);
+
+  if (usuario?.user?.email_confirmed_at) {
+    return { ok: false, message: "Ya tiene acceso activo -- no hace falta reenviar la invitación." };
+  }
+
+  let siteUrl: string;
+  try {
+    siteUrl = getSiteUrl();
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Falta configurar la URL del sitio." };
+  }
+
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "recovery",
+    email: perfil.email,
+  });
+
+  if (error || !data?.properties?.hashed_token) {
+    return { ok: false, message: error?.message ?? "No se pudo generar el link de invitación." };
+  }
+
+  const confirmUrl = `${siteUrl}/auth/confirm-invite?token_hash=${data.properties.hashed_token}&type=recovery`;
+
+  try {
+    await notificarReenvioInvitacionProfesor({ email: perfil.email, nombre: perfil.nombre, confirmUrl });
+  } catch (err) {
+    console.error("No se pudo mandar el email de reenvío de invitación", err);
+    return { ok: false, message: "No se pudo mandar el email -- revisá la configuración de Resend." };
+  }
+
+  return { ok: true, message: `Invitación reenviada a ${perfil.email}.` };
 }
 
 export async function actualizarProfesor(

@@ -194,6 +194,40 @@ export async function notificarInvitacionProfesor(params: {
   });
 }
 
+// Reenvío de invitación (lib/admin/profesores-actions.ts, reenviarInvitacion):
+// para un profesor que ya existe (mismo profesor_id/profiles/profesores de
+// siempre) pero perdió, no vio o dejó vencer el link original -- nunca crea
+// otra cuenta. El link usa type=recovery (Supabase no permite generar un
+// nuevo type=invite para un usuario que ya existe) pero llega a la MISMA
+// página con click explícito que el invite original (ver confirm-invite-
+// client.tsx) y termina en el mismo /reset-password para elegir contraseña.
+export async function notificarReenvioInvitacionProfesor(params: {
+  email: string;
+  nombre: string;
+  confirmUrl: string;
+}): Promise<void> {
+  const html = plantillaBase(
+    "Invitación",
+    `
+      <h1 style="font-size: 18px; margin: 0 0 12px;">Hola ${params.nombre},</h1>
+      <p style="font-size: 14px; line-height: 1.5; margin: 0 0 12px;">
+        Te reenviamos tu invitación a MUV Gimnasia Postural. Confirmá para elegir tu contraseña y empezar a usarla.
+      </p>
+      ${boton(params.confirmUrl, "Confirmar cuenta")}
+      <p style="font-size: 12px; color: #94a3b8; margin: 16px 0 0; word-break: break-all;">
+        Si el botón no funciona, copiá y pegá este link en el navegador:<br />${params.confirmUrl}
+      </p>
+    `,
+  );
+
+  await enviarEmail({
+    contexto: "reenvio-invitacion-profesor",
+    to: params.email,
+    subject: "Te reenviamos tu invitación a MUV Gimnasia Postural",
+    html,
+  });
+}
+
 // Caso 3: la admin publica un aviso -- se manda a todos los alumnos y
 // profesores afectados de una sola vez. Se manda con resend.batch.send
 // (hasta 100 emails por llamada, cada uno con su propio "to" -- nadie ve la

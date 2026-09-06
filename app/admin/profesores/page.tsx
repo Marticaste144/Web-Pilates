@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listarProfesores, listarNombresPendientesDeCuenta } from "@/lib/admin/profesores-data";
 import { InvitarProfesorForm } from "./invitar-form";
 import { ToggleActivoButton } from "./toggle-activo-button";
+import { ReenviarInvitacionButton } from "./reenviar-invitacion-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,13 +47,14 @@ export default async function ProfesoresPage() {
               <th className="px-4 py-3 font-medium">Email</th>
               <th className="px-4 py-3 font-medium">Teléfono</th>
               <th className="px-4 py-3 font-medium">Estado</th>
+              <th className="px-4 py-3 font-medium">Acceso</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
             {profesores.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-neutral-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-neutral-400">
                   Todavía no hay profesores invitados.
                 </td>
               </tr>
@@ -78,6 +80,16 @@ export default async function ProfesoresPage() {
                 <td className="px-4 py-3 text-neutral-600">{p.telefono ?? "-"}</td>
                 <td className="px-4 py-3">
                   <ToggleActivoButton profileId={p.profileId} activo={p.activo} />
+                </td>
+                <td className="px-4 py-3">
+                  {p.estadoAcceso === "activo" ? (
+                    <Badge variant="success">Acceso activo</Badge>
+                  ) : (
+                    <div className="flex flex-col items-start gap-1">
+                      <Badge variant="neutral">Invitado, sin confirmar</Badge>
+                      <ReenviarInvitacionButton profileId={p.profileId} />
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Link
