@@ -11,8 +11,22 @@ import { UserIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProfesoresPage() {
-  const [profesores, pendientes] = await Promise.all([listarProfesores(), listarNombresPendientesDeCuenta()]);
+type FiltroEstado = "activos" | "inactivos" | "todos";
+
+export default async function ProfesoresPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ estado?: string }>;
+}) {
+  const { estado: estadoParam } = await searchParams;
+  const filtro: FiltroEstado =
+    estadoParam === "inactivos" ? "inactivos" : estadoParam === "todos" ? "todos" : "activos";
+
+  const [todosLosProfesores, pendientes] = await Promise.all([listarProfesores(), listarNombresPendientesDeCuenta()]);
+
+  const profesores =
+    filtro === "todos" ? todosLosProfesores : todosLosProfesores.filter((p) => p.activo === (filtro === "activos"));
+  const cantidadInactivos = todosLosProfesores.filter((p) => !p.activo).length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -22,7 +36,20 @@ export default async function ProfesoresPage() {
         <InvitarProfesorForm />
       </Card>
 
-      {pendientes.length > 0 && (
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-neutral-500">Mostrar</span>
+        {(["activos", "todos", "inactivos"] as const).map((f) => (
+          <Link
+            key={f}
+            href={f === "activos" ? "/admin/profesores" : `/admin/profesores?estado=${f}`}
+            className={`font-medium ${filtro === f ? "text-primary-600" : "text-neutral-400 hover:text-primary-600"}`}
+          >
+            {f === "activos" ? "Activos" : f === "inactivos" ? `Inactivos${cantidadInactivos > 0 ? ` (${cantidadInactivos})` : ""}` : "Todos"}
+          </Link>
+        ))}
+      </div>
+
+      {pendientes.length > 0 && filtro !== "inactivos" && (
         <Alert variant="info">
           <p className="font-medium">Todavía sin cuenta (ya tienen clases cargadas):</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -41,7 +68,13 @@ export default async function ProfesoresPage() {
 
       {profesores.length === 0 ? (
         <Card>
-          <p className="py-4 text-center text-neutral-400">Todavía no hay profesores invitados.</p>
+          <p className="py-4 text-center text-neutral-400">
+            {filtro === "inactivos"
+              ? "No hay profesores inactivos."
+              : filtro === "activos" && todosLosProfesores.length > 0
+                ? "No hay profesores activos -- probá con \"Todos\" o \"Inactivos\" arriba."
+                : "Todavía no hay profesores invitados."}
+          </p>
         </Card>
       ) : (
         <Card padded={false}>

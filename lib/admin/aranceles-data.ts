@@ -1,15 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 
-export type ArancelItem = {
-  sedeId: string;
-  sedeNombre: string;
-  clasesPorSemana: number;
-  valorMensual: number;
-  vigenteDesde: string;
-};
-
-const FRECUENCIAS = [1, 2, 3, 4];
-
 export type ArancelActividadItem = {
   actividadId: string;
   actividadNombre: string;
@@ -29,12 +19,14 @@ const FRECUENCIAS_FITNESS = [1, 2, 3, 4, 0];
 const FRECUENCIAS_ESTANDAR = [1, 2, 3, 4];
 const ACTIVIDADES_FITNESS = new Set(["Funcional", "Fuerza", "Stretching", "Ritmo"]);
 
-// Precio vigente por actividad -- modelo nuevo (septiembre en adelante),
-// reemplaza a listarArancelesVigentes (sede) como la fuente de precios que
-// se usa de verdad para cobrar (ver lib/alumno/cuota-data.ts). Esa función
-// vieja no se borra: los aranceles viejos por sede se preservan para el
-// historial de pagos ya aprobados, simplemente esta pantalla ya no los
-// muestra como editables.
+// Precio vigente por actividad -- modelo actual (septiembre en adelante),
+// la única fuente de precios que se usa de verdad para cobrar (ver
+// lib/alumno/cuota-data.ts). El modelo viejo por sede (sin actividad_id)
+// quedó reemplazado por este -- limpieza final: se sacó de acá la función
+// que todavía lo leía (listarArancelesVigentes, sin ningún uso real en la
+// app) porque esas filas viejas incluían valores de prueba ($600, $10)
+// además de los reales de agosto -- la tabla "aranceles" en sí no se tocó,
+// solo se dejó de leer ese modelo desde el código.
 export async function listarArancelesPorActividad(): Promise<ArancelActividadItem[]> {
   const supabase = await createClient();
   const hoy = new Date().toISOString().slice(0, 10);
@@ -59,47 +51,6 @@ export async function listarArancelesPorActividad(): Promise<ArancelActividadIte
         valorMensual: vigente?.valor_mensual ?? null,
         vigenteDesde: vigente?.vigente_desde ?? null,
       });
-    }
-  }
-
-  return result;
-}
-
-// Para cada combinación sede + clases/semana, se queda con la fila de
-// mayor vigente_desde que ya empezó a regir (aranceles.vigente_desde puede
-// tener fechas futuras cargadas de antemano, pero todavía no aplican).
-export async function listarArancelesVigentes(): Promise<ArancelItem[]> {
-  const supabase = await createClient();
-  const hoy = new Date().toISOString().slice(0, 10);
-
-  const [{ data: sedes }, { data: aranceles }] = await Promise.all([
-    supabase.from("sedes").select("id, nombre").order("nombre"),
-    supabase
-      .from("aranceles")
-      .select("sede_id, clases_por_semana, valor_mensual, vigente_desde"),
-  ]);
-
-  const sedeList = sedes ?? [];
-  const arancelRows = aranceles ?? [];
-
-  const result: ArancelItem[] = [];
-  for (const sede of sedeList) {
-    for (const freq of FRECUENCIAS) {
-      const vigente = arancelRows
-        .filter(
-          (a) => a.sede_id === sede.id && a.clases_por_semana === freq && a.vigente_desde <= hoy,
-        )
-        .sort((a, b) => b.vigente_desde.localeCompare(a.vigente_desde))[0];
-
-      if (vigente) {
-        result.push({
-          sedeId: sede.id,
-          sedeNombre: sede.nombre,
-          clasesPorSemana: freq,
-          valorMensual: vigente.valor_mensual,
-          vigenteDesde: vigente.vigente_desde,
-        });
-      }
     }
   }
 
