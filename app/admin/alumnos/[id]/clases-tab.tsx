@@ -51,43 +51,66 @@ export function ClasesTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <Card padded={false} className="overflow-x-auto">
+      <Card padded={false}>
         <h2 className="p-4 pb-3 font-semibold text-neutral-900">Clases actuales</h2>
         {inscripciones.length === 0 ? (
           <p className="px-4 pb-4 text-sm text-neutral-400">No está anotado/a en ninguna clase.</p>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-neutral-50 text-neutral-500">
-              <tr>
-                <th className="px-4 py-2.5 font-medium">Actividad</th>
-                <th className="px-4 py-2.5 font-medium">Sede</th>
-                <th className="px-4 py-2.5 font-medium">Día</th>
-                <th className="px-4 py-2.5 font-medium">Horario</th>
-                <th className="px-4 py-2.5 font-medium">Profesor</th>
-                <th className="px-4 py-2.5 font-medium">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-neutral-50 text-neutral-500">
+                  <tr>
+                    <th className="px-4 py-2.5 font-medium">Actividad</th>
+                    <th className="px-4 py-2.5 font-medium">Sede</th>
+                    <th className="px-4 py-2.5 font-medium">Día</th>
+                    <th className="px-4 py-2.5 font-medium">Horario</th>
+                    <th className="px-4 py-2.5 font-medium">Profesor</th>
+                    <th className="px-4 py-2.5 font-medium">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inscripciones.map((i) => (
+                    <tr key={i.inscripcionId} className="border-t border-neutral-100">
+                      <td className="px-4 py-2.5 font-medium text-neutral-900">{i.actividadNombre ?? "Sin clasificar"}</td>
+                      <td className="px-4 py-2.5 text-neutral-600">{i.sedeNombre}</td>
+                      <td className="px-4 py-2.5 text-neutral-600">{diaLabel(i.diaSemana)}</td>
+                      <td className="px-4 py-2.5 text-neutral-600">
+                        {i.horaInicio.slice(0, 5)} - {i.horaFin.slice(0, 5)}
+                      </td>
+                      <td className="px-4 py-2.5 text-neutral-600">{i.profesorNombre}</td>
+                      <td className="px-4 py-2.5">
+                        {i.estado === "activa" ? (
+                          <Badge variant="success">Activa</Badge>
+                        ) : (
+                          <Badge variant="warning">Lista de espera · #{i.posicionEspera}</Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex flex-col divide-y divide-neutral-100 border-t border-neutral-100 sm:hidden">
               {inscripciones.map((i) => (
-                <tr key={i.inscripcionId} className="border-t border-neutral-100">
-                  <td className="px-4 py-2.5 font-medium text-neutral-900">{i.actividadNombre ?? "Sin clasificar"}</td>
-                  <td className="px-4 py-2.5 text-neutral-600">{i.sedeNombre}</td>
-                  <td className="px-4 py-2.5 text-neutral-600">{diaLabel(i.diaSemana)}</td>
-                  <td className="px-4 py-2.5 text-neutral-600">
-                    {i.horaInicio.slice(0, 5)} - {i.horaFin.slice(0, 5)}
-                  </td>
-                  <td className="px-4 py-2.5 text-neutral-600">{i.profesorNombre}</td>
-                  <td className="px-4 py-2.5">
+                <div key={i.inscripcionId} className="flex flex-col gap-1 p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-neutral-900">{i.actividadNombre ?? "Sin clasificar"}</p>
                     {i.estado === "activa" ? (
                       <Badge variant="success">Activa</Badge>
                     ) : (
-                      <Badge variant="warning">Lista de espera · #{i.posicionEspera}</Badge>
+                      <Badge variant="warning">Espera · #{i.posicionEspera}</Badge>
                     )}
-                  </td>
-                </tr>
+                  </div>
+                  <p className="text-sm text-neutral-600">
+                    {i.sedeNombre} · {diaLabel(i.diaSemana)} {i.horaInicio.slice(0, 5)}-{i.horaFin.slice(0, 5)}
+                  </p>
+                  <p className="text-sm text-neutral-600">Prof. {i.profesorNombre}</p>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </Card>
 

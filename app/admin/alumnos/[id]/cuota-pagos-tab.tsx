@@ -136,71 +136,124 @@ export function CuotaPagosTab({
 
       {msg && <p className="text-sm text-neutral-500">{msg}</p>}
 
-      <Card padded={false} className="overflow-x-auto">
+      <Card padded={false}>
         <h2 className="p-4 pb-3 font-semibold text-neutral-900">Historial de pagos</h2>
         {pagos.length === 0 ? (
           <p className="px-4 pb-4 text-sm text-neutral-400">Todavía no hay pagos registrados.</p>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-neutral-50 text-neutral-500">
-              <tr>
-                <th className="px-4 py-2.5 font-medium">Fecha</th>
-                <th className="px-4 py-2.5 font-medium">Actividad/Concepto</th>
-                <th className="px-4 py-2.5 font-medium">Monto</th>
-                <th className="px-4 py-2.5 font-medium">Método</th>
-                <th className="px-4 py-2.5 font-medium">Estado</th>
-                <th className="px-4 py-2.5 font-medium">Registrado por</th>
-                <th className="px-4 py-2.5" />
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-neutral-50 text-neutral-500">
+                  <tr>
+                    <th className="px-4 py-2.5 font-medium">Fecha</th>
+                    <th className="px-4 py-2.5 font-medium">Actividad/Concepto</th>
+                    <th className="px-4 py-2.5 font-medium">Monto</th>
+                    <th className="px-4 py-2.5 font-medium">Método</th>
+                    <th className="px-4 py-2.5 font-medium">Estado</th>
+                    <th className="px-4 py-2.5 font-medium">Registrado por</th>
+                    <th className="px-4 py-2.5" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagos.map((p) => {
+                    const estado = ESTADO_VARIANT[p.estado];
+                    const estaOcupado = pending && pendingId === p.id;
+                    return (
+                      <tr key={p.id} className="border-t border-neutral-100">
+                        <td className="px-4 py-2.5 whitespace-nowrap text-neutral-600">{formatearFechaHora(p.createdAt)}</td>
+                        <td className="px-4 py-2.5 font-medium text-neutral-900">{p.conceptoLabel}</td>
+                        <td className="px-4 py-2.5 text-neutral-600">${p.monto.toLocaleString("es-AR")}</td>
+                        <td className="px-4 py-2.5 text-neutral-600">{MEDIO_LABEL[p.medio]}</td>
+                        <td className="px-4 py-2.5">
+                          <Badge variant={estado.variant}>{estado.texto}</Badge>
+                        </td>
+                        <td className="px-4 py-2.5 text-neutral-600">{p.marcadoPorNombre ?? "—"}</td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            {p.comprobanteUrl && (
+                              <a
+                                href={`/admin/comprobantes/${p.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-medium text-primary-600 hover:underline"
+                              >
+                                Ver comprobante
+                              </a>
+                            )}
+                            {p.estado === "pendiente" && p.comprobanteUrl && (
+                              <>
+                                <Button size="sm" variant="secondary" loading={estaOcupado} onClick={() => aprobarConComprobante(p.id)}>
+                                  Aprobar
+                                </Button>
+                                <Button size="sm" variant="destructive" loading={estaOcupado} onClick={() => rechazar(p.id)}>
+                                  Rechazar
+                                </Button>
+                              </>
+                            )}
+                            {(p.estado === "pendiente" || p.estado === "procesando") && !p.comprobanteUrl && (
+                              <Button size="sm" variant="secondary" loading={estaOcupado} onClick={() => aprobarGenerico(p.id)}>
+                                Aprobar
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex flex-col divide-y divide-neutral-100 border-t border-neutral-100 sm:hidden">
               {pagos.map((p) => {
                 const estado = ESTADO_VARIANT[p.estado];
                 const estaOcupado = pending && pendingId === p.id;
                 return (
-                  <tr key={p.id} className="border-t border-neutral-100">
-                    <td className="px-4 py-2.5 whitespace-nowrap text-neutral-600">{formatearFechaHora(p.createdAt)}</td>
-                    <td className="px-4 py-2.5 font-medium text-neutral-900">{p.conceptoLabel}</td>
-                    <td className="px-4 py-2.5 text-neutral-600">${p.monto.toLocaleString("es-AR")}</td>
-                    <td className="px-4 py-2.5 text-neutral-600">{MEDIO_LABEL[p.medio]}</td>
-                    <td className="px-4 py-2.5">
+                  <div key={p.id} className="flex flex-col gap-2 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-neutral-900">{p.conceptoLabel}</p>
+                        <p className="text-xs text-neutral-500">{formatearFechaHora(p.createdAt)}</p>
+                      </div>
                       <Badge variant={estado.variant}>{estado.texto}</Badge>
-                    </td>
-                    <td className="px-4 py-2.5 text-neutral-600">{p.marcadoPorNombre ?? "—"}</td>
-                    <td className="px-4 py-2.5">
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        {p.comprobanteUrl && (
-                          <a
-                            href={`/admin/comprobantes/${p.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs font-medium text-primary-600 hover:underline"
-                          >
-                            Ver comprobante
-                          </a>
-                        )}
-                        {p.estado === "pendiente" && p.comprobanteUrl && (
-                          <>
-                            <Button size="sm" variant="secondary" loading={estaOcupado} onClick={() => aprobarConComprobante(p.id)}>
-                              Aprobar
-                            </Button>
-                            <Button size="sm" variant="destructive" loading={estaOcupado} onClick={() => rechazar(p.id)}>
-                              Rechazar
-                            </Button>
-                          </>
-                        )}
-                        {(p.estado === "pendiente" || p.estado === "procesando") && !p.comprobanteUrl && (
-                          <Button size="sm" variant="secondary" loading={estaOcupado} onClick={() => aprobarGenerico(p.id)}>
+                    </div>
+                    <p className="text-sm text-neutral-600">
+                      ${p.monto.toLocaleString("es-AR")} · {MEDIO_LABEL[p.medio]}
+                    </p>
+                    <p className="text-xs text-neutral-500">Registrado por {p.marcadoPorNombre ?? "—"}</p>
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      {p.comprobanteUrl && (
+                        <a
+                          href={`/admin/comprobantes/${p.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-medium text-primary-600 hover:underline"
+                        >
+                          Ver comprobante
+                        </a>
+                      )}
+                      {p.estado === "pendiente" && p.comprobanteUrl && (
+                        <>
+                          <Button size="sm" variant="secondary" loading={estaOcupado} onClick={() => aprobarConComprobante(p.id)}>
                             Aprobar
                           </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+                          <Button size="sm" variant="destructive" loading={estaOcupado} onClick={() => rechazar(p.id)}>
+                            Rechazar
+                          </Button>
+                        </>
+                      )}
+                      {(p.estado === "pendiente" || p.estado === "procesando") && !p.comprobanteUrl && (
+                        <Button size="sm" variant="secondary" loading={estaOcupado} onClick={() => aprobarGenerico(p.id)}>
+                          Aprobar
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </Card>
     </div>

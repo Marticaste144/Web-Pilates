@@ -7,6 +7,7 @@ export type ProximaClaseAlumno = {
   claseId: string;
   sedeNombre: string;
   profesorNombre: string;
+  actividadNombre: string | null;
   diaSemana: number;
   horaInicio: string;
   horaFin: string;
@@ -39,6 +40,7 @@ export async function obtenerMetricasAlumno(): Promise<AlumnoMetricas> {
           claseId: proxima.claseId,
           sedeNombre: proxima.sedeNombre,
           profesorNombre: proxima.profesorNombre,
+          actividadNombre: proxima.actividadNombre,
           diaSemana: proxima.diaSemana,
           horaInicio: proxima.horaInicio,
           horaFin: proxima.horaFin,

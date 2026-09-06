@@ -59,7 +59,10 @@ export default async function AlumnoHomePage() {
                 {diaLabel(m.proximaClase.diaSemana)} {m.proximaClase.horaInicio.slice(0, 5)} -{" "}
                 {m.proximaClase.horaFin.slice(0, 5)}
               </p>
-              <p className="text-sm font-semibold text-secondary-600">{m.proximaClase.sedeNombre}</p>
+              <p className="text-sm font-semibold text-secondary-600">
+                {m.proximaClase.sedeNombre}
+                {m.proximaClase.actividadNombre ? ` -- ${m.proximaClase.actividadNombre}` : ""}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-neutral-500">Prof. {m.proximaClase.profesorNombre}</span>

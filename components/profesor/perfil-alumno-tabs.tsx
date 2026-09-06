@@ -39,9 +39,11 @@ export function PerfilAlumnoTabs({
         {tabs.map((t) => (
           <button
             key={t.key}
+            id={`tab-${t.key}`}
             type="button"
             role="tab"
             aria-selected={activa === t.key}
+            aria-controls={`panel-${t.key}`}
             onClick={() => setActiva(t.key)}
             className={`shrink-0 border-b-2 px-3.5 py-2.5 text-sm font-medium transition-colors ${
               activa === t.key
@@ -54,7 +56,9 @@ export function PerfilAlumnoTabs({
         ))}
       </div>
 
-      <div>{contenido[activa]}</div>
+      <div id={`panel-${activa}`} role="tabpanel" aria-labelledby={`tab-${activa}`}>
+        {contenido[activa]}
+      </div>
     </div>
   );
 }

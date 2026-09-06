@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode, Ref } from "react";
 
 type Variant = "primary" | "secondary" | "destructive" | "ghost";
 type Size = "sm" | "md";
@@ -42,15 +42,18 @@ export function Button({
   disabled,
   className = "",
   children,
+  ref,
   ...rest
 }: {
   variant?: Variant;
   size?: Size;
   loading?: boolean;
   children: ReactNode;
+  ref?: Ref<HTMLButtonElement>;
 } & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
+      ref={ref}
       disabled={disabled || loading}
       className={`${BASE} ${VARIANT[variant]} ${SIZE[size]} ${className}`}
       {...rest}

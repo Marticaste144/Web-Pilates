@@ -33,6 +33,7 @@ export function SubirComprobanteForm({ sedeId }: { sedeId: string }) {
           key={inputKey}
           type="file"
           name="comprobante"
+          aria-label="Comprobante de pago"
           accept="image/jpeg,image/png,image/webp,application/pdf"
           required
           className="max-w-[200px] text-xs text-neutral-600 file:mr-2 file:rounded-lg file:border-0 file:bg-neutral-100 file:px-2.5 file:py-1.5 file:text-xs file:font-medium file:text-neutral-700 hover:file:bg-neutral-200"

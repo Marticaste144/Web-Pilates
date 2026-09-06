@@ -1,4 +1,5 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { Children, cloneElement, isValidElement, useId } from "react";
+import type { InputHTMLAttributes, ReactElement, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
 const CONTROL_CLASS =
   "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 " +
@@ -39,6 +40,14 @@ export function Textarea({ className = "", ...rest }: TextareaHTMLAttributes<HTM
 // simple (una sola línea de formulario). Para layouts más armados (varios
 // campos por fila, como clase-form.tsx) se puede seguir usando Label +
 // Input/Select sueltos.
+// La gran mayoría de los ~70 usos de Field en la app no pasaban `htmlFor` --
+// el <label> quedaba puesto al lado del control pero sin asociación real
+// (el screen reader no sabía a qué input correspondía). En vez de salir a
+// tocar cada formulario a mano, se resuelve acá una sola vez: useId()
+// genera un id estable (server/cliente coinciden, es justo para esto que
+// existe) y se lo clona al único hijo si todavía no tiene uno propio. Si
+// children no es exactamente un elemento (raro, no se vio ningún caso así)
+// se deja tal cual -- mismo comportamiento que antes, nunca rompe nada.
 export function Field({
   label,
   htmlFor,
@@ -54,10 +63,15 @@ export function Field({
   children: ReactNode;
   className?: string;
 }) {
+  const generatedId = useId();
+  const soloHijo = Children.count(children) === 1 && isValidElement(children) ? (children as ReactElement<{ id?: string }>) : null;
+  const controlId = htmlFor ?? soloHijo?.props.id ?? generatedId;
+  const control = soloHijo ? cloneElement(soloHijo, { id: controlId }) : children;
+
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
-      <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
+      <Label htmlFor={controlId}>{label}</Label>
+      {control}
       <FieldError>{error}</FieldError>
       {!error && <FieldHint>{hint}</FieldHint>}
     </div>

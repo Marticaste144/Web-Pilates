@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { Button } from "./button";
 
 type ActionResult = { ok: boolean; message: string };
@@ -40,6 +40,22 @@ export function ConfirmButton({
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  // Foco en "Cancelar" al abrir (default no destructivo) y Escape para
+  // cerrar -- el click en el backdrop ya cerraba, pero un teclado sin mouse
+  // no tenía forma de salir del diálogo.
+  useEffect(() => {
+    if (!open) return;
+    cancelRef.current?.focus();
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   const confirmar = () => {
     setOpen(false);
@@ -79,6 +95,8 @@ export function ConfirmButton({
         <div
           role="dialog"
           aria-modal="true"
+          aria-labelledby={titleId}
+          aria-describedby={descriptionId}
           className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-900/40 p-4 sm:items-center"
           onClick={() => setOpen(false)}
         >
@@ -86,10 +104,14 @@ export function ConfirmButton({
             className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="font-semibold text-neutral-900">{confirmTitle}</p>
-            <p className="mt-1 text-sm text-neutral-500">{confirmDescription}</p>
+            <p id={titleId} className="font-semibold text-neutral-900">
+              {confirmTitle}
+            </p>
+            <p id={descriptionId} className="mt-1 text-sm text-neutral-500">
+              {confirmDescription}
+            </p>
             <div className="mt-4 flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
+              <Button ref={cancelRef} variant="ghost" size="sm" onClick={() => setOpen(false)}>
                 Cancelar
               </Button>
               <Button variant={tone === "destructive" ? "destructive" : "primary"} size="sm" onClick={confirmar}>

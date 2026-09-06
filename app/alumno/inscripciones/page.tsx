@@ -40,6 +40,11 @@ export default async function MisInscripcionesPage() {
                   <div className="min-w-0">
                     <p className="font-semibold text-neutral-900">
                       {i.sedeNombre} · {diaLabel(i.diaSemana)} {i.horaInicio.slice(0, 5)} - {i.horaFin.slice(0, 5)}
+                      {i.actividadNombre && (
+                        <span className="ml-2 text-xs font-semibold uppercase tracking-wide text-secondary-600">
+                          {i.actividadNombre}
+                        </span>
+                      )}
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-neutral-500">
                       <span>Prof. {i.profesorNombre}</span>

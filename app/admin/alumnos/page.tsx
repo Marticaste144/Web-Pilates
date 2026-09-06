@@ -63,45 +63,62 @@ export default async function AlumnosPage({
         />
       )}
 
-      <Card padded={false} className="overflow-x-auto">
-        {alumnos.length > 0 && (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-neutral-50 text-neutral-500">
-              <tr>
-                <th className="px-4 py-3 font-medium">Nombre</th>
-                <th className="px-4 py-3 font-medium">Email</th>
-                <th className="px-4 py-3 font-medium">Teléfono</th>
-                <th className="px-4 py-3 font-medium">Clases activas</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
+      {alumnos.length > 0 && (
+        <Card padded={false}>
+          {/* Desktop/tablet: columnas fijas en grid -- mismo criterio que
+              profesor/alumnas/alumnas-table.tsx, nunca fuerza scroll
+              horizontal como una <table> angosta con muchas columnas. */}
+          <div className="hidden sm:block">
+            <div className="grid grid-cols-[1.4fr_1.6fr_1fr_auto_auto] gap-4 px-4 py-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
+              <span>Nombre</span>
+              <span>Email</span>
+              <span>Teléfono</span>
+              <span>Clases activas</span>
+              <span />
+            </div>
+            <div className="flex flex-col divide-y divide-neutral-100 border-t border-neutral-100">
               {alumnos.map((a) => (
-                <tr key={a.profileId} className="border-t border-neutral-100">
-                  <td className="px-4 py-3 font-medium text-neutral-900">
+                <div
+                  key={a.profileId}
+                  className="grid grid-cols-[1.4fr_1.6fr_1fr_auto_auto] items-center gap-4 px-4 py-3"
+                >
+                  <span className="min-w-0 truncate font-medium text-neutral-900">
                     {a.nombre} {a.apellido}
-                  </td>
-                  <td className="px-4 py-3 text-neutral-600">{a.email}</td>
-                  <td className="px-4 py-3 text-neutral-600">{a.telefono ?? "-"}</td>
-                  <td className="px-4 py-3">
-                    <Badge variant={a.inscripcionesActivas > 0 ? "info" : "neutral"}>
-                      {a.inscripcionesActivas}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/admin/alumnos/${a.profileId}`}
-                      className="font-medium text-primary-600 hover:underline"
-                    >
-                      Ver
-                    </Link>
-                  </td>
-                </tr>
+                  </span>
+                  <span className="min-w-0 truncate text-neutral-600">{a.email}</span>
+                  <span className="min-w-0 truncate text-neutral-600">{a.telefono ?? "-"}</span>
+                  <Badge variant={a.inscripcionesActivas > 0 ? "info" : "neutral"}>{a.inscripcionesActivas}</Badge>
+                  <Link href={`/admin/alumnos/${a.profileId}`} className="font-medium text-primary-600 hover:underline">
+                    Ver
+                  </Link>
+                </div>
               ))}
-            </tbody>
-          </table>
-        )}
-      </Card>
+            </div>
+          </div>
+
+          {/* Mobile: una card por alumno, todo el dato visible sin achicar. */}
+          <div className="flex flex-col divide-y divide-neutral-100 sm:hidden">
+            {alumnos.map((a) => (
+              <Link
+                key={a.profileId}
+                href={`/admin/alumnos/${a.profileId}`}
+                className="flex flex-col gap-1.5 p-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-semibold text-neutral-900">
+                    {a.nombre} {a.apellido}
+                  </p>
+                  <Badge variant={a.inscripcionesActivas > 0 ? "info" : "neutral"}>
+                    {a.inscripcionesActivas} clase{a.inscripcionesActivas === 1 ? "" : "s"}
+                  </Badge>
+                </div>
+                <p className="text-sm text-neutral-600">{a.email}</p>
+                <p className="text-sm text-neutral-600">{a.telefono ?? "Sin teléfono"}</p>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

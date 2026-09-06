@@ -9,6 +9,8 @@ export type MiInscripcion = {
   claseId: string;
   sedeNombre: string;
   profesorNombre: string;
+  /** Null si la clase todavía no tiene actividad asignada (ver migración 20260901160000). */
+  actividadNombre: string | null;
   diaSemana: number;
   horaInicio: string;
   horaFin: string;
@@ -56,18 +58,20 @@ export async function listarMisInscripciones(): Promise<MiInscripcion[]> {
   const claseIds = [...new Set(inscripciones.map((i) => i.clase_id))];
   const { data: clases } = await supabase
     .from("clases")
-    .select("id, sede_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin")
+    .select("id, sede_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin, actividad_id")
     .in("id", claseIds);
 
   const sedeIds = [...new Set((clases ?? []).map((c) => c.sede_id))];
   const profesorIds = [...new Set((clases ?? []).map((c) => c.profesor_id).filter((id): id is string => id !== null))];
 
-  const [{ data: sedes }, { data: perfiles }] = await Promise.all([
+  const [{ data: sedes }, { data: perfiles }, { data: actividades }] = await Promise.all([
     supabase.from("sedes").select("id, nombre").in("id", sedeIds),
     supabase.from("profiles").select("id, nombre").in("id", profesorIds),
+    supabase.from("actividades").select("id, nombre"),
   ]);
 
   const sedePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
+  const actividadPorId = new Map((actividades ?? []).map((a) => [a.id, a.nombre]));
   // Solo nombre, sin apellido -- pedido explícito de este bloque.
   const nombrePorId = new Map((perfiles ?? []).map((p) => [p.id, p.nombre]));
   const clasePorId = new Map((clases ?? []).map((c) => [c.id, c]));
@@ -107,6 +111,7 @@ export async function listarMisInscripciones(): Promise<MiInscripcion[]> {
         claseId: i.clase_id,
         sedeNombre: sedePorId.get(clase.sede_id) ?? "?",
         profesorNombre: nombreProfesorClase(clase.profesor_id ? nombrePorId.get(clase.profesor_id) : null, clase.profesor_pendiente_nombre),
+        actividadNombre: clase.actividad_id ? actividadPorId.get(clase.actividad_id) ?? null : null,
         diaSemana: clase.dia_semana,
         horaInicio: clase.hora_inicio,
         horaFin: clase.hora_fin,
