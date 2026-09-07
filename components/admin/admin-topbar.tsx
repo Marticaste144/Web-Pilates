@@ -21,14 +21,16 @@ export function AdminTopbar({ nombre, apellido }: { nombre: string; apellido: st
 
   return (
     <header className="flex items-center justify-end px-4 py-4 sm:px-6 sm:py-5">
-      <div className="relative" ref={ref}>
+      <div className="relative min-w-0 max-w-full" ref={ref}>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-sm font-medium text-neutral-800 shadow-sm transition-colors hover:bg-neutral-50"
+          className="flex min-w-0 max-w-full items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-sm font-medium text-neutral-800 shadow-sm transition-colors hover:bg-neutral-50"
         >
-          {nombre} {apellido}
-          <ChevronDownIcon className={`h-4 w-4 text-neutral-400 transition-transform ${open ? "rotate-180" : ""}`} />
+          <span className="min-w-0 truncate">
+            {nombre} {apellido}
+          </span>
+          <ChevronDownIcon className={`h-4 w-4 shrink-0 text-neutral-400 transition-transform ${open ? "rotate-180" : ""}`} />
         </button>
 
         {open && (
