@@ -23,6 +23,8 @@ import { ClasesTab } from "./clases-tab";
 import { CuotaPagosTab } from "./cuota-pagos-tab";
 import { FichaTab } from "./ficha-tab";
 import { EvolucionTab } from "./evolucion-tab";
+import { EliminarAlumnoButton } from "./eliminar-alumno-button";
+import { Card } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
@@ -120,6 +122,15 @@ export default async function AlumnoDetallePage({
           ) : null
         }
       />
+
+      <Card className="max-w-md">
+        <h2 className="mb-1 font-semibold text-neutral-900">Zona peligrosa</h2>
+        <p className="mb-3 text-sm text-neutral-500">
+          Elimina a la alumna por completo (clases, pagos, asistencias, ficha, evolución, planificaciones y, si tenía
+          cuenta, su acceso a MUV). No se puede deshacer -- para uso normal, usá &quot;Activa/Inactiva&quot; en vez de esto.
+        </p>
+        <EliminarAlumnoButton alumnoId={alumno.alumnoId} />
+      </Card>
     </div>
   );
 }

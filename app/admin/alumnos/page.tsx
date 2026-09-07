@@ -15,22 +15,19 @@ const ACCESO_BADGE: Record<EstadoAccesoAlumno, { texto: string; variant: "succes
   sin_acceso: { texto: "Sin acceso", variant: "neutral" },
 };
 
-type FiltroEstado = "activos" | "inactivos" | "todos";
-
 export default async function AlumnosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; orden?: string; estado?: string }>;
+  searchParams: Promise<{ q?: string; orden?: string }>;
 }) {
-  const { q, orden: ordenParam, estado: estadoParam } = await searchParams;
+  const { q, orden: ordenParam } = await searchParams;
   const orden: OrdenAlumnos = ordenParam === "nombre" ? "nombre" : "apellido";
-  const filtro: FiltroEstado =
-    estadoParam === "inactivos" ? "inactivos" : estadoParam === "todos" ? "todos" : "activos";
 
-  const todasLasAlumnas = await listarAlumnos(q, orden);
-  const alumnos =
-    filtro === "todos" ? todasLasAlumnas : todasLasAlumnas.filter((a) => a.activo === (filtro === "activos"));
-  const cantidadInactivas = todasLasAlumnas.filter((a) => !a.activo).length;
+  // Sin filtro de estado a propósito: acá van TODAS las alumnas que existen,
+  // sin distinguir activas/inactivas -- esa distinción sigue disponible por
+  // alumna (badge "Inactiva" + el toggle en su ficha), pero no como un
+  // sistema de pestañas en el listado.
+  const alumnos = await listarAlumnos(q, orden);
 
   return (
     <div className="flex flex-col gap-6">
@@ -73,42 +70,17 @@ export default async function AlumnosPage({
         >
           Nombre
         </Link>
-        <span className="mx-1 text-neutral-300">|</span>
-        <span className="text-neutral-500">Mostrar</span>
-        {(["activos", "todos", "inactivos"] as const).map((f) => (
-          <Link
-            key={f}
-            href={`/admin/alumnos?${new URLSearchParams({ ...(q ? { q } : {}), orden, ...(f === "activos" ? {} : { estado: f }) })}`}
-            className={`font-medium ${filtro === f ? "text-primary-600" : "text-neutral-400 hover:text-primary-600"}`}
-          >
-            {f === "activos" ? "Activas" : f === "inactivos" ? `Inactivas${cantidadInactivas > 0 ? ` (${cantidadInactivas})` : ""}` : "Todas"}
-          </Link>
-        ))}
       </div>
 
       {alumnos.length === 0 && (
         <EmptyState
-          title={
-            q
-              ? "No encontramos alumnas con esa búsqueda"
-              : filtro === "inactivos"
-                ? "No hay alumnas inactivas"
-                : filtro === "activos" && todasLasAlumnas.length > 0
-                  ? "No hay alumnas activas"
-                  : "Todavía no hay alumnas cargadas"
-          }
+          title={q ? "No encontramos alumnas con esa búsqueda" : "Todavía no hay alumnas cargadas"}
           description={
             q
               ? "Probá con otro nombre, apellido o email."
-              : filtro === "activos" && todasLasAlumnas.length > 0
-                ? 'Probá con "Todas" o "Inactivas" arriba.'
-                : "Cargá manualmente a las alumnas reales de MUV -- no hace falta que tengan email ni cuenta todavía."
+              : "Cargá manualmente a las alumnas reales de MUV -- no hace falta que tengan email ni cuenta todavía."
           }
-          action={
-            !q && filtro !== "inactivos" && todasLasAlumnas.length === 0 ? (
-              <LinkButton href="/admin/alumnos/nueva">+ Agregar alumna</LinkButton>
-            ) : undefined
-          }
+          action={!q ? <LinkButton href="/admin/alumnos/nueva">+ Agregar alumna</LinkButton> : undefined}
         />
       )}
 

@@ -280,3 +280,95 @@ export async function reenviarInvitacionAlumna(alumnoId: string): Promise<Asigna
 
   return { ok: true, message: `Invitación reenviada a ${perfil.email}.` };
 }
+
+// ---------------------------------------------------------------------------
+// Eliminar alumna DEFINITIVAMENTE (a diferencia de "activar/desactivar",
+// que es lo que se usa normalmente -- esto es para depurar cuentas de
+// prueba/demo, no para el uso diario). Dos pasos, en este orden exacto:
+//
+//   1) DELETE de la fila de "alumnos". Todas las tablas hijas (inscripciones,
+//      pagos, asistencias, feedback_clases, fichas_evaluacion, ficha_
+//      evaluacion_notas, ficha_evaluacion_pruebas_funcionales,
+//      planificaciones -- y sus propias hijas dias/bloques/ejercicios/
+//      semanas) ya referencian alumnos(id) con "on delete cascade" (ver
+//      migración 20260906090000_identidad_alumnas.sql), así que se borran
+//      solas: no hay que borrarlas a mano ni se puede dejar nada huérfano
+//      en la base. Antes de este DELETE se borran también los archivos
+//      reales en Storage (comprobantes + Excel de planificaciones) leyendo
+//      sus paths guardados -- eso NO lo hace ningún cascade de Postgres.
+//
+//   2) Si la alumna tenía cuenta (profile_id), se borra el usuario de Auth
+//      con admin.auth.admin.deleteUser() -- el mismo mecanismo que ya usa
+//      eliminarProfesor() para profesores, la forma oficial/soportada de
+//      borrar un usuario de Supabase (no un DELETE de auth.users a mano:
+//      esa tabla tiene bookkeeping interno de Supabase Auth que solo la
+//      Admin API mantiene consistente). Se hace DESPUÉS del paso 1 a
+//      propósito: alumnos.profile_id referencia profiles(id) con "on
+//      delete SET NULL" (no cascade -- ver migración de identidad, es la
+//      protección para que sacarle el acceso a una alumna real nunca borre
+//      su historial). Si se borrara el usuario de Auth primero, esa regla
+//      pondría profile_id en null y la fila de "alumnos" (con todo su
+//      historial) quedaría viva en vez de eliminarse -- borrando primero
+//      "alumnos" se evita ese efecto no buscado y se llega al resultado
+//      pedido: nada de esta alumna queda en ningún lado.
+//
+// Nunca se llama sola ni automáticamente -- solo desde este botón, con
+// confirmación explícita del admin en el perfil de la alumna.
+// ---------------------------------------------------------------------------
+export async function eliminarAlumno(alumnoId: string): Promise<AsignacionResult> {
+  await requireAdminProfile();
+
+  const supabase = await createClient();
+  const admin = createAdminClient();
+
+  const { data: alumno } = await supabase.from("alumnos").select("profile_id").eq("id", alumnoId).maybeSingle();
+  if (!alumno) {
+    return { ok: false, message: "No se encontró la alumna." };
+  }
+
+  const [{ data: pagos }, { data: planes }] = await Promise.all([
+    supabase.from("pagos").select("comprobante_url").eq("alumno_id", alumnoId).not("comprobante_url", "is", null),
+    supabase
+      .from("planificaciones")
+      .select("archivo_storage_path")
+      .eq("alumno_id", alumnoId)
+      .not("archivo_storage_path", "is", null),
+  ]);
+
+  const comprobantePaths = (pagos ?? []).map((p) => p.comprobante_url).filter((p): p is string => Boolean(p));
+  const excelPaths = (planes ?? []).map((p) => p.archivo_storage_path).filter((p): p is string => Boolean(p));
+
+  // Best-effort: si falla borrar algún archivo, se loguea pero NO se
+  // aborta la eliminación de la alumna por eso (mismo criterio laxo que ya
+  // usa el resto de la app para archivos huérfanos, ej. fotos viejas de
+  // profesores) -- lo que nunca puede quedar inconsistente es la base.
+  if (comprobantePaths.length > 0) {
+    const { error } = await supabase.storage.from("comprobantes").remove(comprobantePaths);
+    if (error) console.error("[eliminarAlumno] no se pudieron borrar comprobantes de Storage", error);
+  }
+  if (excelPaths.length > 0) {
+    const { error } = await supabase.storage.from("planificaciones-excel").remove(excelPaths);
+    if (error) console.error("[eliminarAlumno] no se pudieron borrar archivos de planificación de Storage", error);
+  }
+
+  const { error: errorDelete } = await supabase.from("alumnos").delete().eq("id", alumnoId);
+  if (errorDelete) {
+    return { ok: false, message: errorDelete.message };
+  }
+
+  if (alumno.profile_id) {
+    const { error: errorAuth } = await admin.auth.admin.deleteUser(alumno.profile_id);
+    if (errorAuth) {
+      // Los datos de MUV (alumnos + todo lo relacionado) ya se borraron
+      // igual -- si esto falla, avisa para que se borre la cuenta de Auth
+      // a mano desde el dashboard, pero no revierte lo anterior.
+      return {
+        ok: false,
+        message: `Se eliminaron los datos de la alumna, pero no se pudo borrar su cuenta de Auth: ${errorAuth.message}. Podés borrarla a mano desde el dashboard de Supabase.`,
+      };
+    }
+  }
+
+  revalidatePath("/admin/alumnos");
+  return { ok: true, message: "Alumna eliminada definitivamente." };
+}
