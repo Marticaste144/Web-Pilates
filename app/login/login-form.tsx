@@ -9,7 +9,7 @@ import { Alert } from "@/components/ui/alert";
 import { EyeIcon, EyeOffIcon } from "@/components/ui/icons";
 
 const inputClass =
-  "w-full rounded-xl border border-transparent bg-neutral-100 px-4 py-3 text-neutral-900 placeholder:text-neutral-400 focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100";
+  "w-full rounded-xl border border-transparent bg-neutral-100 px-4 py-3 md:py-2 text-neutral-900 placeholder:text-neutral-400 focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100";
 
 export function LoginForm() {
   const [state, formAction, pending] = useActionState(signIn, initialAuthState);
@@ -17,12 +17,12 @@ export function LoginForm() {
 
   return (
     <>
-      <div className="mb-6 text-center md:text-left">
+      <div className="mb-6 text-center md:mb-4 md:text-left">
         <h1 className="text-2xl font-bold text-neutral-900">Iniciar sesión</h1>
         <p className="mt-1 text-neutral-500">Ingresá para ver tus clases</p>
       </div>
 
-      <form action={formAction} className="flex flex-col gap-4">
+      <form action={formAction} className="flex flex-col gap-4 md:gap-3">
         <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
           Email
           <input

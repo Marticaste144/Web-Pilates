@@ -13,7 +13,7 @@ export function ForgotPasswordForm() {
   if (state.status === "check_email") {
     return (
       <>
-        <div className="mb-6 text-center md:text-left">
+        <div className="mb-6 text-center md:mb-4 md:text-left">
           <h1 className="text-2xl font-bold text-neutral-900">Revisá tu email</h1>
         </div>
         <Alert variant="success">{state.message}</Alert>
@@ -23,12 +23,12 @@ export function ForgotPasswordForm() {
 
   return (
     <>
-      <div className="mb-6 text-center md:text-left">
+      <div className="mb-6 text-center md:mb-4 md:text-left">
         <h1 className="text-2xl font-bold text-neutral-900">Recuperar contraseña</h1>
         <p className="mt-1 text-neutral-500">Te enviamos un link para restablecerla</p>
       </div>
 
-      <form action={formAction} className="flex flex-col gap-4">
+      <form action={formAction} className="flex flex-col gap-4 md:gap-3">
         <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
           Email
           <input
@@ -37,7 +37,7 @@ export function ForgotPasswordForm() {
             required
             autoComplete="email"
             placeholder="nombre@email.com"
-            className="w-full rounded-xl border border-transparent bg-neutral-100 px-4 py-3 text-neutral-900 placeholder:text-neutral-400 focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100"
+            className="w-full rounded-xl border border-transparent bg-neutral-100 px-4 py-3 md:py-2 text-neutral-900 placeholder:text-neutral-400 focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100"
           />
         </label>
 
