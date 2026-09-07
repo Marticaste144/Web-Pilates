@@ -16,7 +16,6 @@ export type EstadoAcceso = "invitado" | "activo";
 
 export type ProfesorListItem = {
   profileId: string;
-  activo: boolean;
   nombre: string;
   apellido: string;
   email: string;
@@ -47,7 +46,7 @@ export async function listarProfesores(): Promise<ProfesorListItem[]> {
 
   const { data: profesores } = await supabase
     .from("profesores")
-    .select("profile_id, activo, foto_url");
+    .select("profile_id, foto_url");
 
   if (!profesores || profesores.length === 0) return [];
 
@@ -66,7 +65,6 @@ export async function listarProfesores(): Promise<ProfesorListItem[]> {
       if (!perfil) return null;
       return {
         profileId: p.profile_id,
-        activo: p.activo,
         nombre: perfil.nombre,
         apellido: perfil.apellido,
         email: perfil.email,
@@ -94,7 +92,6 @@ export async function listarNombresPendientesDeCuenta(): Promise<string[]> {
   const { data } = await supabase
     .from("clases")
     .select("profesor_pendiente_nombre")
-    .eq("activa", true)
     .not("profesor_pendiente_nombre", "is", null);
 
   const nombres = [...new Set((data ?? []).map((c) => c.profesor_pendiente_nombre as string))];
@@ -106,7 +103,7 @@ export async function obtenerProfesor(profileId: string): Promise<ProfesorListIt
 
   const { data: profesor } = await supabase
     .from("profesores")
-    .select("profile_id, activo, foto_url")
+    .select("profile_id, foto_url")
     .eq("profile_id", profileId)
     .single();
 
@@ -124,7 +121,6 @@ export async function obtenerProfesor(profileId: string): Promise<ProfesorListIt
 
   return {
     profileId: profesor.profile_id,
-    activo: profesor.activo,
     nombre: perfil.nombre,
     apellido: perfil.apellido,
     email: perfil.email,

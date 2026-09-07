@@ -6,7 +6,6 @@ import { DIAS_SEMANA } from "@/lib/dias-semana";
 import type { ClaseListItem } from "@/lib/admin/clases-data";
 import { Card } from "@/components/ui/card";
 import { ChevronRightIcon } from "@/components/ui/icons";
-import { ToggleActivaButton } from "./toggle-activa-button";
 
 // CORRECCIÓN (auditoría general): la versión anterior media el alto real
 // disponible con ResizeObserver y encerraba la tabla en un contenedor
@@ -155,7 +154,6 @@ export function ClasesTable({ clases }: { clases: ClaseListItem[] }) {
               <th className="px-4 py-3 font-medium">Horario</th>
               <th className="px-4 py-3 font-medium">Profesor/a</th>
               <th className="px-4 py-3 font-medium">Cupo</th>
-              <th className="px-4 py-3 font-medium">Estado</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -171,9 +169,6 @@ export function ClasesTable({ clases }: { clases: ClaseListItem[] }) {
                 </td>
                 <td className="px-4 py-3 text-neutral-600">{c.profesorNombre}</td>
                 <td className="px-4 py-3 text-neutral-600">{c.cupo}</td>
-                <td className="px-4 py-3">
-                  <ToggleActivaButton id={c.id} activa={c.activa} />
-                </td>
                 <td className="px-4 py-3 text-right">
                   <Link href={`/admin/clases/${c.id}`} className="font-medium text-primary-600 hover:underline">
                     Editar
@@ -186,7 +181,7 @@ export function ClasesTable({ clases }: { clases: ClaseListItem[] }) {
       </div>
 
       {/* Mobile (<md): cards -- misma información y mismas acciones que la
-          tabla (nada se pierde), sin comprimir 9 columnas ni forzar scroll
+          tabla (nada se pierde), sin comprimir 8 columnas ni forzar scroll
           horizontal de una tabla angosta. */}
       <div className="flex flex-col divide-y divide-neutral-100 md:hidden">
         {visibles.map((c) => (
@@ -199,7 +194,6 @@ export function ClasesTable({ clases }: { clases: ClaseListItem[] }) {
                   {c.modalidad ? ` · ${MODALIDAD_LABEL[c.modalidad]}` : ""}
                 </p>
               </div>
-              <ToggleActivaButton id={c.id} activa={c.activa} />
             </div>
 
             <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">

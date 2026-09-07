@@ -4,8 +4,8 @@ export type DashboardMetricas = {
   alumnosActivosTotal: number;
   alumnosActivosPorSede: { sedeId: string; sedeNombre: string; cantidad: number }[];
   ocupacionPromedio: number; // 0-100
-  clasesActivasTotal: number;
-  profesoresActivosTotal: number;
+  clasesTotal: number;
+  profesoresTotal: number;
   listaEsperaTotal: number;
   cuotasVencidas: number;
   facturacionMes: { total: number; mercadopago: number; efectivo: number; transferencia: number };
@@ -35,10 +35,10 @@ export async function obtenerMetricas(): Promise<DashboardMetricas> {
     { count: comprobantesPendientes },
   ] = await Promise.all([
     supabase.from("sedes").select("id, nombre"),
-    supabase.from("clases").select("id, sede_id, cupo, activa"),
+    supabase.from("clases").select("id, sede_id, cupo"),
     supabase.from("inscripciones").select("alumno_id, clase_id").eq("estado", "activa"),
     supabase.from("inscripciones").select("id", { count: "exact", head: true }).eq("estado", "lista_espera"),
-    supabase.from("profesores").select("profile_id").eq("activo", true),
+    supabase.from("profesores").select("profile_id"),
     supabase.from("v_estado_cuota_alumno_sede").select("alumno_id, sede_id, estado_visual"),
     supabase
       .from("pagos")
@@ -74,10 +74,10 @@ export async function obtenerMetricas(): Promise<DashboardMetricas> {
   }));
 
   // Ocupación promedio: promedio simple (no ponderado por cupo) de
-  // inscriptos_activos/cupo entre las clases activas -- cada clase pesa
+  // inscriptos_activos/cupo entre todas las clases -- cada clase pesa
   // igual, sea de 6 o de 8 lugares.
-  const clasesActivas = (clases ?? []).filter((c) => c.activa);
-  const ocupaciones = clasesActivas.map((c) => (c.cupo > 0 ? (ocupadosPorClase.get(c.id) ?? 0) / c.cupo : 0));
+  const todasLasClases = clases ?? [];
+  const ocupaciones = todasLasClases.map((c) => (c.cupo > 0 ? (ocupadosPorClase.get(c.id) ?? 0) / c.cupo : 0));
   const ocupacionPromedio =
     ocupaciones.length > 0 ? Math.round((ocupaciones.reduce((a, b) => a + b, 0) / ocupaciones.length) * 100) : 0;
 
@@ -96,8 +96,8 @@ export async function obtenerMetricas(): Promise<DashboardMetricas> {
     alumnosActivosTotal: alumnosTotal.size,
     alumnosActivosPorSede,
     ocupacionPromedio,
-    clasesActivasTotal: clasesActivas.length,
-    profesoresActivosTotal: (profesoresActivos ?? []).length,
+    clasesTotal: todasLasClases.length,
+    profesoresTotal: (profesoresActivos ?? []).length,
     listaEsperaTotal: listaEsperaTotal ?? 0,
     cuotasVencidas,
     facturacionMes: { total: mercadopago + efectivo + transferencia, mercadopago, efectivo, transferencia },

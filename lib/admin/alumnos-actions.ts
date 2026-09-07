@@ -81,20 +81,6 @@ export async function actualizarAlumnaManual(_prevState: FormState, formData: Fo
   return { status: "success", message: "Datos actualizados." };
 }
 
-export async function cambiarActivoAlumna(alumnoId: string, activo: boolean) {
-  await requireAdminProfile();
-
-  const supabase = await createClient();
-  const { error } = await supabase.from("alumnos").update({ activo }).eq("id", alumnoId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  revalidatePath("/admin/alumnos");
-  revalidatePath(`/admin/alumnos/${alumnoId}`);
-}
-
 export type AsignacionResult = { ok: boolean; message: string };
 
 // Asignación manual de una alumna (con o sin cuenta) a una clase real -- se

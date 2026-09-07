@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { FormState } from "@/lib/form-state";
 import type { ModalidadClase } from "@/types/database";
 
-// El profesor puede crear/editar/desactivar SOLO sus propios horarios --
+// El profesor puede crear/editar SOLO sus propios horarios --
 // nunca hace falta un requireRole ni un chequeo de dueño acá: profesor_id
 // se fuerza a auth.uid() en el insert, y en el update la RLS ("profesor
 // actualiza sus propias clases") ya rechaza cualquier fila que no sea suya.
@@ -78,11 +78,3 @@ export async function actualizarMiClase(_prevState: FormState, formData: FormDat
   return { status: "success", message: "Horario actualizado." };
 }
 
-export async function cambiarActivaMiClase(id: string, activa: boolean): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase.from("clases").update({ activa }).eq("id", id);
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/profesor/clases");
-  revalidatePath(`/profesor/clases/${id}`);
-}

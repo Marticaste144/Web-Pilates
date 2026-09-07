@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { AlumnoInscripcionItem } from "@/lib/admin/alumnos-data";
 import { Badge } from "@/components/ui/badge";
 import { ChevronRightIcon } from "@/components/ui/icons";
-import { ToggleActivoAlumnaButton } from "../toggle-activo-alumna-button";
 
 function formatearFecha(fechaIso: string): string {
   return new Date(fechaIso).toLocaleDateString("es-AR");
@@ -15,21 +14,17 @@ function formatearFecha(fechaIso: string): string {
 // fecha), y sede/actividad son listas ÚNICAS derivadas de las inscripciones
 // vigentes, no texto fijo.
 export function AlumnoHeader({
-  alumnoId,
   nombre,
   apellido,
   email,
   telefono,
-  activo,
   alumnoDesde,
   inscripciones,
 }: {
-  alumnoId: string;
   nombre: string;
   apellido: string;
   email: string | null;
   telefono: string | null;
-  activo: boolean;
   alumnoDesde: string | null;
   inscripciones: AlumnoInscripcionItem[];
 }) {
@@ -48,7 +43,6 @@ export function AlumnoHeader({
         <h1 className="text-xl font-bold text-neutral-900 sm:text-2xl">
           {nombre} {apellido}
         </h1>
-        <ToggleActivoAlumnaButton alumnoId={alumnoId} activo={activo} />
       </div>
       <p className="text-sm text-neutral-500">
         {email ?? "Sin email"}

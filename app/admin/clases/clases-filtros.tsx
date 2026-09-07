@@ -8,17 +8,14 @@ import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 
-type EstadoFiltro = "todas" | "activa" | "inactiva";
-
 type Filtros = {
   sedeId: string;
   actividadId: string;
   dia: string;
   profesor: string;
-  estado: EstadoFiltro;
 };
 
-const FILTROS_VACIOS: Filtros = { sedeId: "", actividadId: "", dia: "", profesor: "", estado: "todas" };
+const FILTROS_VACIOS: Filtros = { sedeId: "", actividadId: "", dia: "", profesor: "" };
 
 function diaLabel(dia: number): string {
   return DIAS_SEMANA.find((d) => d.value === dia)?.label ?? String(dia);
@@ -58,8 +55,6 @@ export function ClasesFiltros({ clases }: { clases: ClaseListItem[] }) {
       if (filtros.actividadId && c.actividadId !== filtros.actividadId) return false;
       if (filtros.dia && c.diaSemana !== Number(filtros.dia)) return false;
       if (filtros.profesor && c.profesorNombre !== filtros.profesor) return false;
-      if (filtros.estado === "activa" && !c.activa) return false;
-      if (filtros.estado === "inactiva" && c.activa) return false;
       return true;
     });
   }, [clases, filtros]);
@@ -73,7 +68,7 @@ export function ClasesFiltros({ clases }: { clases: ClaseListItem[] }) {
   return (
     <div className="flex flex-col gap-3">
       <Card className="flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           <Select
             aria-label="Filtrar por sede"
             value={filtros.sedeId}
@@ -124,16 +119,6 @@ export function ClasesFiltros({ clases }: { clases: ClaseListItem[] }) {
                 {nombre}
               </option>
             ))}
-          </Select>
-
-          <Select
-            aria-label="Filtrar por estado"
-            value={filtros.estado}
-            onChange={(e) => setFiltros((f) => ({ ...f, estado: e.target.value as EstadoFiltro }))}
-          >
-            <option value="todas">Activa e inactiva</option>
-            <option value="activa">Solo activas</option>
-            <option value="inactiva">Solo inactivas</option>
           </Select>
         </div>
 

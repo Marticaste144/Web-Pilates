@@ -26,8 +26,7 @@ export async function listarMisClases(): Promise<MiClaseItem[]> {
   const { data: clases } = await supabase
     .from("clases")
     .select("id, sede_id, dia_semana, hora_inicio, hora_fin, cupo, actividad_id, modalidad")
-    .eq("profesor_id", user.id)
-    .eq("activa", true);
+    .eq("profesor_id", user.id);
 
   if (!clases || clases.length === 0) return [];
 
@@ -87,7 +86,6 @@ export type ClaseDetalle = {
   horaInicio: string;
   horaFin: string;
   cupo: number;
-  activa: boolean;
   totalInscriptos: number;
   fecha: string;
   actividadId: string | null;
@@ -111,7 +109,7 @@ export async function obtenerClaseDetalle(claseId: string, fecha?: string): Prom
 
   const { data: clase } = await supabase
     .from("clases")
-    .select("id, profesor_id, profesor_pendiente_nombre, sede_id, dia_semana, hora_inicio, hora_fin, cupo, activa, actividad_id, modalidad")
+    .select("id, profesor_id, profesor_pendiente_nombre, sede_id, dia_semana, hora_inicio, hora_fin, cupo, actividad_id, modalidad")
     .eq("id", claseId)
     .single();
 
@@ -151,7 +149,6 @@ export async function obtenerClaseDetalle(claseId: string, fecha?: string): Prom
     horaInicio: clase.hora_inicio,
     horaFin: clase.hora_fin,
     cupo: clase.cupo,
-    activa: clase.activa,
     totalInscriptos,
     fecha: fechaResuelta,
     actividadId: clase.actividad_id,

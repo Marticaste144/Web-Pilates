@@ -9,7 +9,7 @@ import {
 } from "@/lib/admin/clases-data";
 import { actualizarClase } from "@/lib/admin/clases-actions";
 import { ClaseForm } from "../clase-form";
-import { ToggleActivaButton } from "../toggle-activa-button";
+import { EliminarClaseButton } from "./eliminar-clase-button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -59,7 +59,6 @@ export default async function EditarClasePage({
             {clase.sedeNombre}
             {clase.actividadNombre ? ` -- ${clase.actividadNombre}` : ""} -- {clase.profesorNombre}
           </h1>
-          <ToggleActivaButton id={clase.id} activa={clase.activa} />
         </div>
       </div>
 
@@ -163,6 +162,14 @@ export default async function EditarClasePage({
           </Card>
         )}
       </div>
+
+      <Card className="max-w-md">
+        <h2 className="mb-1 font-semibold text-neutral-900">Zona peligrosa</h2>
+        <p className="mb-3 text-sm text-neutral-500">
+          Elimina esta clase por completo. No se puede deshacer.
+        </p>
+        <EliminarClaseButton claseId={clase.id} />
+      </Card>
     </div>
   );
 }

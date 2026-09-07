@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { listarProfesores, listarNombresPendientesDeCuenta } from "@/lib/admin/profesores-data";
 import { InvitarProfesorForm } from "./invitar-form";
-import { ToggleActivoButton } from "./toggle-activo-button";
 import { ReenviarInvitacionButton } from "./reenviar-invitacion-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
@@ -11,22 +10,8 @@ import { UserIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
 
-type FiltroEstado = "activos" | "inactivos" | "todos";
-
-export default async function ProfesoresPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ estado?: string }>;
-}) {
-  const { estado: estadoParam } = await searchParams;
-  const filtro: FiltroEstado =
-    estadoParam === "inactivos" ? "inactivos" : estadoParam === "todos" ? "todos" : "activos";
-
-  const [todosLosProfesores, pendientes] = await Promise.all([listarProfesores(), listarNombresPendientesDeCuenta()]);
-
-  const profesores =
-    filtro === "todos" ? todosLosProfesores : todosLosProfesores.filter((p) => p.activo === (filtro === "activos"));
-  const cantidadInactivos = todosLosProfesores.filter((p) => !p.activo).length;
+export default async function ProfesoresPage() {
+  const [profesores, pendientes] = await Promise.all([listarProfesores(), listarNombresPendientesDeCuenta()]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -36,20 +21,7 @@ export default async function ProfesoresPage({
         <InvitarProfesorForm />
       </Card>
 
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-neutral-500">Mostrar</span>
-        {(["activos", "todos", "inactivos"] as const).map((f) => (
-          <Link
-            key={f}
-            href={f === "activos" ? "/admin/profesores" : `/admin/profesores?estado=${f}`}
-            className={`font-medium ${filtro === f ? "text-primary-600" : "text-neutral-400 hover:text-primary-600"}`}
-          >
-            {f === "activos" ? "Activos" : f === "inactivos" ? `Inactivos${cantidadInactivos > 0 ? ` (${cantidadInactivos})` : ""}` : "Todos"}
-          </Link>
-        ))}
-      </div>
-
-      {pendientes.length > 0 && filtro !== "inactivos" && (
+      {pendientes.length > 0 && (
         <Alert variant="info">
           <p className="font-medium">Todavía sin cuenta (ya tienen clases cargadas):</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -68,18 +40,12 @@ export default async function ProfesoresPage({
 
       {profesores.length === 0 ? (
         <Card>
-          <p className="py-4 text-center text-neutral-400">
-            {filtro === "inactivos"
-              ? "No hay profesores inactivos."
-              : filtro === "activos" && todosLosProfesores.length > 0
-                ? "No hay profesores activos -- probá con \"Todos\" o \"Inactivos\" arriba."
-                : "Todavía no hay profesores invitados."}
-          </p>
+          <p className="py-4 text-center text-neutral-400">Todavía no hay profesores invitados.</p>
         </Card>
       ) : (
         <Card padded={false}>
-          {/* Desktop/tablet: tabla de siempre. Mobile: cards -- 6 columnas
-              (foto+nombre, email, teléfono, estado, acceso con su botón de
+          {/* Desktop/tablet: tabla de siempre. Mobile: cards -- 5 columnas
+              (foto+nombre, email, teléfono, acceso con su botón de
               reenvío, editar) no entran en una pantalla chica sin volverse
               ilegibles o forzar scroll horizontal permanente. */}
           <div className="hidden overflow-x-auto sm:block">
@@ -89,7 +55,6 @@ export default async function ProfesoresPage({
                   <th className="px-4 py-3 font-medium">Nombre</th>
                   <th className="px-4 py-3 font-medium">Email</th>
                   <th className="px-4 py-3 font-medium">Teléfono</th>
-                  <th className="px-4 py-3 font-medium">Estado</th>
                   <th className="px-4 py-3 font-medium">Acceso</th>
                   <th className="px-4 py-3" />
                 </tr>
@@ -114,9 +79,6 @@ export default async function ProfesoresPage({
                     </td>
                     <td className="px-4 py-3 text-neutral-600">{p.email}</td>
                     <td className="px-4 py-3 text-neutral-600">{p.telefono ?? "-"}</td>
-                    <td className="px-4 py-3">
-                      <ToggleActivoButton profileId={p.profileId} activo={p.activo} />
-                    </td>
                     <td className="px-4 py-3">
                       {p.estadoAcceso === "activo" ? (
                         <Badge variant="success">Acceso activo</Badge>
@@ -168,7 +130,6 @@ export default async function ProfesoresPage({
                 <p className="text-sm text-neutral-600">{p.email}</p>
                 <p className="text-sm text-neutral-600">{p.telefono ?? "Sin teléfono"}</p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <ToggleActivoButton profileId={p.profileId} activo={p.activo} />
                   {p.estadoAcceso === "activo" ? (
                     <Badge variant="success">Acceso activo</Badge>
                   ) : (

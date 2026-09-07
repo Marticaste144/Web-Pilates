@@ -27,7 +27,7 @@ export async function buscarAlumnasPilates(query: string): Promise<AlumnaPilates
 }
 
 // Agrega una recuperación de Pilates a esta clase+fecha. Valida, en orden:
-// la clase es de Pilates y está activa; hay cupo real ese día (cupo menos
+// la clase es de Pilates; hay cupo real ese día (cupo menos
 // inscriptas habituales activas menos recuperaciones ya cargadas para esa
 // misma fecha); la alumna no es ya alumna habitual de ESTA clase (no tiene
 // sentido "recuperarla" en su propio horario); no hay ya una fila de
@@ -41,12 +41,12 @@ export async function agregarRecuperacionPilates(claseId: string, fecha: string,
   const supabase = await createClient();
 
   const [{ data: clase }, { data: actividadPilates }] = await Promise.all([
-    supabase.from("clases").select("id, actividad_id, activa, cupo").eq("id", claseId).single(),
+    supabase.from("clases").select("id, actividad_id, cupo").eq("id", claseId).single(),
     supabase.from("actividades").select("id").eq("nombre", "Pilates").single(),
   ]);
 
-  if (!clase || !clase.activa) {
-    return { ok: false, message: "Esta clase no está activa." };
+  if (!clase) {
+    return { ok: false, message: "No se encontró la clase." };
   }
   if (!actividadPilates || clase.actividad_id !== actividadPilates.id) {
     return { ok: false, message: "Las recuperaciones son solo para clases de Pilates." };

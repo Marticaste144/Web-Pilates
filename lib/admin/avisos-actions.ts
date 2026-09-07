@@ -28,22 +28,13 @@ async function alumnoIdsPorSedes(supabase: SupabaseServerClient, sedeIds: string
   return [...new Set((inscripciones ?? []).map((i) => i.alumno_id))];
 }
 
-// Profesores activos con alguna clase activa en las sedes dadas -- o en
-// cualquier sede si sedeIds es null.
+// Profesores con alguna clase en las sedes dadas -- o en cualquier sede si
+// sedeIds es null.
 async function profesorIdsPorSedes(supabase: SupabaseServerClient, sedeIds: string[] | null) {
-  let query = supabase.from("clases").select("profesor_id").eq("activa", true);
+  let query = supabase.from("clases").select("profesor_id");
   if (sedeIds) query = query.in("sede_id", sedeIds);
   const { data: clases } = await query;
-  const profesorIds = [...new Set((clases ?? []).map((c) => c.profesor_id).filter((id): id is string => id !== null))];
-  if (profesorIds.length === 0) return [];
-
-  const { data: profesores } = await supabase
-    .from("profesores")
-    .select("profile_id")
-    .eq("activo", true)
-    .in("profile_id", profesorIds);
-
-  return (profesores ?? []).map((p) => p.profile_id);
+  return [...new Set((clases ?? []).map((c) => c.profesor_id).filter((id): id is string => id !== null))];
 }
 
 export async function crearAviso(_prevState: FormState, formData: FormData): Promise<FormState> {

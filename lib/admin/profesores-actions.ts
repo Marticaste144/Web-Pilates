@@ -315,43 +315,34 @@ export async function actualizarEmailProfesor(
   return { status: "success", message: "Email actualizado -- la próxima vez que inicie sesión, va a usar el nuevo." };
 }
 
-// "Eliminar" acá SÍ es un DELETE real (a diferencia del resto de la app,
-// donde "eliminar" casi siempre es desactivar): tiene sentido para un
-// profesor cargado por error o que nunca debió tener cuenta. Si ya dictó
-// alguna clase, se bloquea -- no se puede simplemente permitir, porque
-// clases.profesor_id tiene "on delete restrict" (no se quiere perder el
-// historial de qué profesor dio qué clase). Se chequea antes para dar un
-// mensaje claro en vez del error crudo de Postgres.
-export async function cambiarActivoProfesor(profileId: string, activo: boolean) {
-  await requireAdminProfile();
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("profesores")
-    .update({ activo })
-    .eq("profile_id", profileId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  revalidatePath("/admin/profesores");
-  revalidatePath(`/admin/profesores/${profileId}`);
-}
-
+// Único camino para sacar a un profesor del sistema (ya no existe
+// "desactivar" -- ver migración 20260908090000_elimina_concepto_inactivo.sql):
+// un profesor con cuenta cargada por error, o que ya no da clases, se elimina
+// del todo. Se bloquea si tiene clases asignadas (clases.profesor_id es "on
+// delete restrict": no se quiere perder el historial de qué profesor dio qué
+// clase) o si tomó asistencia alguna vez (asistencias.tomado_por, mismo
+// criterio -- no se cascada a ciegas sobre historial real de clases/alumnas).
+// Se chequea antes para dar un mensaje claro en vez del error crudo de
+// Postgres.
 export async function eliminarProfesor(profileId: string): Promise<{ ok: boolean; message: string }> {
   await requireAdminProfile();
 
   const supabase = await createClient();
-  const { count } = await supabase
-    .from("clases")
-    .select("id", { count: "exact", head: true })
-    .eq("profesor_id", profileId);
+  const [{ count: clasesCount }, { count: asistenciasCount }] = await Promise.all([
+    supabase.from("clases").select("id", { count: "exact", head: true }).eq("profesor_id", profileId),
+    supabase.from("asistencias").select("id", { count: "exact", head: true }).eq("tomado_por", profileId),
+  ]);
 
-  if (count && count > 0) {
+  if (clasesCount && clasesCount > 0) {
     return {
       ok: false,
-      message: `Tiene ${count} clase${count === 1 ? "" : "s"} asignada${count === 1 ? "" : "s"} -- reasigná esas clases a otro profesor antes de eliminarlo.`,
+      message: `Tiene ${clasesCount} clase${clasesCount === 1 ? "" : "s"} asignada${clasesCount === 1 ? "" : "s"} -- reasigná esas clases a otro profesor antes de eliminarlo.`,
+    };
+  }
+  if (asistenciasCount && asistenciasCount > 0) {
+    return {
+      ok: false,
+      message: `Tomó asistencia en ${asistenciasCount} clase${asistenciasCount === 1 ? "" : "s"} en el pasado -- no se puede eliminar sin perder ese historial.`,
     };
   }
 

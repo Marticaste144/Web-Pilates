@@ -95,20 +95,44 @@ export async function actualizarClase(_prevState: FormState, formData: FormData)
   return { status: "success", message: "Clase actualizada." };
 }
 
-// "Eliminar" una clase = desactivarla (activa=false), no un DELETE real: si
-// borráramos la fila se perdería el historial de inscripciones/asistencias
-// de esa clase (cascada). Desactivada deja de listarse para que el alumno
-// se anote.
-export async function cambiarActivaClase(id: string, activa: boolean) {
+// Único camino para sacar una clase del sistema (ya no existe "desactivar" --
+// ver migración 20260908090000_elimina_concepto_inactivo.sql): se bloquea si
+// tiene cualquier rastro real (inscripciones -- activas, en espera o de
+// baja, para no perder el historial de quién estuvo anotada --, asistencias,
+// feedback o planificación) en vez de cascadear a ciegas. Solo se puede
+// eliminar una clase que nunca tuvo ninguna alumna.
+export async function eliminarClase(id: string): Promise<{ ok: boolean; message: string }> {
   await requireAdminProfile();
 
   const supabase = await createClient();
-  const { error } = await supabase.from("clases").update({ activa }).eq("id", id);
+  const [{ count: inscripciones }, { count: asistencias }, { count: feedback }, { count: planificaciones }] =
+    await Promise.all([
+      supabase.from("inscripciones").select("id", { count: "exact", head: true }).eq("clase_id", id),
+      supabase.from("asistencias").select("id", { count: "exact", head: true }).eq("clase_id", id),
+      supabase.from("feedback_clases").select("id", { count: "exact", head: true }).eq("clase_id", id),
+      supabase.from("planificaciones").select("id", { count: "exact", head: true }).eq("clase_id", id),
+    ]);
 
+  const total = (inscripciones ?? 0) + (asistencias ?? 0) + (feedback ?? 0) + (planificaciones ?? 0);
+  if (total > 0) {
+    const partes = [
+      inscripciones ? `${inscripciones} inscripción${inscripciones === 1 ? "" : "es"}` : null,
+      asistencias ? `${asistencias} asistencia${asistencias === 1 ? "" : "s"}` : null,
+      feedback ? `${feedback} feedback` : null,
+      planificaciones ? `${planificaciones} planificación${planificaciones === 1 ? "" : "es"}` : null,
+    ].filter((p): p is string => p !== null);
+
+    return {
+      ok: false,
+      message: `Esta clase tiene historial real (${partes.join(", ")}) -- no se puede eliminar sin perderlo. Reasigná o dá de baja a las alumnas primero.`,
+    };
+  }
+
+  const { error } = await supabase.from("clases").delete().eq("id", id);
   if (error) {
-    throw new Error(error.message);
+    return { ok: false, message: error.message };
   }
 
   revalidatePath("/admin/clases");
-  revalidatePath(`/admin/clases/${id}`);
+  return { ok: true, message: "Clase eliminada." };
 }

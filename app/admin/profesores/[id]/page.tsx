@@ -3,7 +3,6 @@ import Link from "next/link";
 import { obtenerProfesor } from "@/lib/admin/profesores-data";
 import { listarClasesDeProfesor } from "@/lib/admin/clases-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
-import { ToggleActivoButton } from "../toggle-activo-button";
 import { EditarProfesorForm } from "./editar-form";
 import { FotoProfesorForm } from "./foto-form";
 import { EditarEmailForm } from "./editar-email-form";
@@ -51,7 +50,6 @@ export default async function EditarProfesorPage({
           <h1 className="text-xl font-bold text-neutral-900 sm:text-2xl">
             {profesor.nombre} {profesor.apellido}
           </h1>
-          <ToggleActivoButton profileId={profesor.profileId} activo={profesor.activo} />
         </div>
       </div>
 
@@ -129,7 +127,6 @@ export default async function EditarProfesorPage({
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {c.modalidad && <Badge variant="neutral">{MODALIDAD_LABEL[c.modalidad]}</Badge>}
-                    {!c.activa && <Badge variant="warning">Inactiva</Badge>}
                   </div>
                 </Link>
               ))}

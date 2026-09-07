@@ -39,8 +39,7 @@ export async function listarClasesDeSuplencia(): Promise<ClaseSuplencia[]> {
     supabase
       .from("clases")
       .select("id, sede_id, profesor_id, dia_semana, hora_inicio, hora_fin")
-      .in("profesor_id", profesorIds)
-      .eq("activa", true),
+      .in("profesor_id", profesorIds),
     supabase.from("profiles").select("id, nombre, apellido").in("id", profesorIds),
   ]);
 

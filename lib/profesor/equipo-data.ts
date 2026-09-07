@@ -40,8 +40,7 @@ export async function listarEquipoPorSede(): Promise<SedeConEquipo[]> {
     supabase.from("actividades").select("id, nombre"),
     supabase
       .from("clases")
-      .select("sede_id, actividad_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin")
-      .eq("activa", true),
+      .select("sede_id, actividad_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin"),
   ]);
 
   const actividadNombrePorId = new Map((actividades ?? []).map((a) => [a.id, a.nombre]));

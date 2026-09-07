@@ -13,7 +13,7 @@ export function EliminarProfesorButton({ profileId }: { profileId: string }) {
       triggerLabel="Eliminar profesor"
       variant="button"
       confirmTitle="¿Eliminar este profesor?"
-      confirmDescription="Se borra la cuenta por completo. Si tiene alguna clase asignada, no se va a poder eliminar hasta reasignarla."
+      confirmDescription="Se borra la cuenta por completo. Si tiene alguna clase asignada o tomó asistencia alguna vez, no se va a poder eliminar hasta resolver eso primero."
       confirmLabel="Sí, eliminar"
       onResult={(result) => {
         if (result.ok) router.push("/admin/profesores");

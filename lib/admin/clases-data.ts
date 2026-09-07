@@ -5,7 +5,7 @@ import type { EstadoInscripcion, EstadoVisualCuota, ModalidadClase } from "@/typ
 
 export type SedeItem = { id: string; nombre: string };
 export type ActividadItem = { id: string; nombre: string };
-export type ProfesorSelectItem = { profileId: string; nombre: string; apellido: string; activo: boolean };
+export type ProfesorSelectItem = { profileId: string; nombre: string; apellido: string };
 
 export type ClaseListItem = {
   id: string;
@@ -19,7 +19,6 @@ export type ClaseListItem = {
   horaInicio: string;
   horaFin: string;
   cupo: number;
-  activa: boolean;
   actividadId: string | null;
   actividadNombre: string | null;
   modalidad: ModalidadClase | null;
@@ -64,7 +63,7 @@ export async function listarActividadesPorSede(): Promise<Record<string, Activid
 export async function listarProfesoresParaSelect(): Promise<ProfesorSelectItem[]> {
   const supabase = await createClient();
 
-  const { data: profesores } = await supabase.from("profesores").select("profile_id, activo");
+  const { data: profesores } = await supabase.from("profesores").select("profile_id");
   if (!profesores || profesores.length === 0) return [];
 
   const ids = profesores.map((p) => p.profile_id);
@@ -79,7 +78,7 @@ export async function listarProfesoresParaSelect(): Promise<ProfesorSelectItem[]
     .map((p): ProfesorSelectItem | null => {
       const perfil = perfilPorId.get(p.profile_id);
       if (!perfil) return null;
-      return { profileId: p.profile_id, nombre: perfil.nombre, apellido: perfil.apellido, activo: p.activo };
+      return { profileId: p.profile_id, nombre: perfil.nombre, apellido: perfil.apellido };
     })
     .filter((p): p is ProfesorSelectItem => p !== null)
     .sort((a, b) => a.apellido.localeCompare(b.apellido));
@@ -95,7 +94,6 @@ function mapearClase(
     hora_inicio: string;
     hora_fin: string;
     cupo: number;
-    activa: boolean;
     actividad_id: string | null;
     modalidad: ModalidadClase | null;
   },
@@ -114,7 +112,6 @@ function mapearClase(
     horaInicio: c.hora_inicio,
     horaFin: c.hora_fin,
     cupo: c.cupo,
-    activa: c.activa,
     actividadId: c.actividad_id,
     actividadNombre: c.actividad_id ? actividadPorId.get(c.actividad_id) ?? "?" : null,
     modalidad: c.modalidad,
@@ -126,7 +123,7 @@ export async function listarClases(): Promise<ClaseListItem[]> {
 
   const { data: clases } = await supabase
     .from("clases")
-    .select("id, sede_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin, cupo, activa, actividad_id, modalidad");
+    .select("id, sede_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin, cupo, actividad_id, modalidad");
 
   if (!clases || clases.length === 0) return [];
 
@@ -152,7 +149,7 @@ export async function obtenerClase(id: string): Promise<ClaseListItem | null> {
   const supabase = await createClient();
   const { data: c } = await supabase
     .from("clases")
-    .select("id, sede_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin, cupo, activa, actividad_id, modalidad")
+    .select("id, sede_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin, cupo, actividad_id, modalidad")
     .eq("id", id)
     .single();
 
@@ -177,14 +174,13 @@ export async function obtenerClase(id: string): Promise<ClaseListItem | null> {
     horaInicio: c.hora_inicio,
     horaFin: c.hora_fin,
     cupo: c.cupo,
-    activa: c.activa,
     actividadId: c.actividad_id,
     actividadNombre: actividad?.nombre ?? null,
     modalidad: c.modalidad,
   };
 }
 
-// Todas las clases de un profesor (activas o no), con sede/actividad/día/
+// Todas las clases de un profesor, con sede/actividad/día/
 // horario -- pensado para /admin/profesores/[id] ("ver sus clases/días/
 // horarios" y "ver las sedes/actividades donde trabaja").
 export async function listarClasesDeProfesor(profesorId: string): Promise<ClaseListItem[]> {
@@ -192,7 +188,7 @@ export async function listarClasesDeProfesor(profesorId: string): Promise<ClaseL
 
   const { data: clases } = await supabase
     .from("clases")
-    .select("id, sede_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin, cupo, activa, actividad_id, modalidad")
+    .select("id, sede_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin, cupo, actividad_id, modalidad")
     .eq("profesor_id", profesorId);
 
   if (!clases || clases.length === 0) return [];
@@ -224,9 +220,7 @@ export async function listarClasesParaAsignar(): Promise<ClaseParaAsignar[]> {
   ]);
 
   const cupoPorClase = new Map((cupos ?? []).map((c) => [c.clase_id, c.inscriptos_activos]));
-  return clases
-    .filter((c) => c.activa)
-    .map((c) => ({ ...c, inscriptosActivos: cupoPorClase.get(c.id) ?? 0 }));
+  return clases.map((c) => ({ ...c, inscriptosActivos: cupoPorClase.get(c.id) ?? 0 }));
 }
 
 export type InscriptoClaseItem = {

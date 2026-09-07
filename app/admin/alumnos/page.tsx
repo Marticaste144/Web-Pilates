@@ -23,10 +23,9 @@ export default async function AlumnosPage({
   const { q, orden: ordenParam } = await searchParams;
   const orden: OrdenAlumnos = ordenParam === "nombre" ? "nombre" : "apellido";
 
-  // Sin filtro de estado a propósito: acá van TODAS las alumnas que existen,
-  // sin distinguir activas/inactivas -- esa distinción sigue disponible por
-  // alumna (badge "Inactiva" + el toggle en su ficha), pero no como un
-  // sistema de pestañas en el listado.
+  // Sin concepto de "inactiva": acá van TODAS las alumnas que existen -- si
+  // una deja de ser alumna de MUV, se elimina (ver "Zona peligrosa" en su
+  // ficha), no se desactiva.
   const alumnos = await listarAlumnos(q, orden);
 
   return (
@@ -108,7 +107,6 @@ export default async function AlumnosPage({
                     <span className="truncate">
                       {a.nombre} {a.apellido}
                     </span>
-                    {!a.activo && <Badge variant="neutral">Inactiva</Badge>}
                   </span>
                   <span className="min-w-0 truncate text-neutral-600">{a.email ?? "-"}</span>
                   <span className="min-w-0 truncate text-neutral-600">{a.telefono ?? "-"}</span>
@@ -142,7 +140,6 @@ export default async function AlumnosPage({
                 <p className="text-sm text-neutral-600">{a.telefono ?? "Sin teléfono"}</p>
                 <div className="flex flex-wrap gap-1.5 pt-0.5">
                   <Badge variant={ACCESO_BADGE[a.estadoAcceso].variant}>{ACCESO_BADGE[a.estadoAcceso].texto}</Badge>
-                  {!a.activo && <Badge variant="neutral">Inactiva</Badge>}
                 </div>
               </Link>
             ))}

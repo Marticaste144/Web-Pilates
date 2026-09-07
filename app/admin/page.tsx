@@ -89,11 +89,11 @@ export default async function AdminHomePage() {
         <Card className="flex h-full flex-col items-center justify-center gap-2 text-center">
           <p className="self-start text-sm text-neutral-500">Ocupación promedio</p>
           <OccupancyRing value={m.ocupacionPromedio} max={100} size={72} centerValue={`${m.ocupacionPromedio}%`} centerLabel="" />
-          <p className="text-xs text-neutral-500">de las clases activas</p>
+          <p className="text-xs text-neutral-500">de todas las clases</p>
         </Card>
 
-        <MetricCard icon={CalendarIcon} label="Clases activas" value={m.clasesActivasTotal} sub="este mes" />
-        <MetricCard icon={UserIcon} label="Profesores activos" value={m.profesoresActivosTotal} sub="en total" />
+        <MetricCard icon={CalendarIcon} label="Clases" value={m.clasesTotal} sub="este mes" />
+        <MetricCard icon={UserIcon} label="Profesores" value={m.profesoresTotal} sub="en total" />
         <MetricCard icon={ClockIcon} label="En lista de espera" value={m.listaEsperaTotal} sub="todo el día" />
         <MetricCard
           icon={WalletIcon}

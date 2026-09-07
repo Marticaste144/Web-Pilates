@@ -71,12 +71,10 @@ export default async function AlumnoDetallePage({
   return (
     <div className="flex flex-col gap-4">
       <AlumnoHeader
-        alumnoId={alumno.alumnoId}
         nombre={alumno.nombre}
         apellido={alumno.apellido}
         email={alumno.email}
         telefono={alumno.telefono}
-        activo={alumno.activo}
         alumnoDesde={alumno.alumnoDesde}
         inscripciones={alumno.inscripciones}
       />
@@ -127,7 +125,7 @@ export default async function AlumnoDetallePage({
         <h2 className="mb-1 font-semibold text-neutral-900">Zona peligrosa</h2>
         <p className="mb-3 text-sm text-neutral-500">
           Elimina a la alumna por completo (clases, pagos, asistencias, ficha, evolución, planificaciones y, si tenía
-          cuenta, su acceso a MUV). No se puede deshacer -- para uso normal, usá &quot;Activa/Inactiva&quot; en vez de esto.
+          cuenta, su acceso a MUV). No se puede deshacer.
         </p>
         <EliminarAlumnoButton alumnoId={alumno.alumnoId} />
       </Card>

@@ -94,7 +94,6 @@ export function ClaseForm({
               {profesores.map((p) => (
                 <option key={p.profileId} value={p.profileId}>
                   {p.nombre} {p.apellido}
-                  {!p.activo ? " (inactivo)" : ""}
                 </option>
               ))}
             </Select>

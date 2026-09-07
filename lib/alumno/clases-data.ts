@@ -43,8 +43,7 @@ export async function listarClasesParaAlumno(): Promise<ClaseDisponible[]> {
     await Promise.all([
       supabase
         .from("clases")
-        .select("id, sede_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin, cupo, actividad_id")
-        .eq("activa", true),
+        .select("id, sede_id, profesor_id, profesor_pendiente_nombre, dia_semana, hora_inicio, hora_fin, cupo, actividad_id"),
       supabase.from("sedes").select("id, nombre"),
       supabase.from("actividades").select("id, nombre"),
       supabase.from("v_cupo_clases").select("clase_id, inscriptos_activos"),

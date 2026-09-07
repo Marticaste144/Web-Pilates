@@ -89,20 +89,17 @@ export type Database = {
       profesores: {
         Row: {
           profile_id: string;
-          activo: boolean;
           /** Path en el bucket de Storage "profesores" (público). Null = usar placeholder en el front. */
           foto_url: string | null;
           created_at: string;
         };
         Insert: {
           profile_id: string;
-          activo?: boolean;
           foto_url?: string | null;
           created_at?: string;
         };
         Update: {
           profile_id?: string;
-          activo?: boolean;
           foto_url?: string | null;
           created_at?: string;
         };
@@ -118,7 +115,6 @@ export type Database = {
           apellido: string | null;
           email: string | null;
           telefono: string | null;
-          activo: boolean;
           creado_por: string | null;
           created_at: string;
         };
@@ -129,7 +125,6 @@ export type Database = {
           apellido?: string | null;
           email?: string | null;
           telefono?: string | null;
-          activo?: boolean;
           creado_por?: string | null;
           created_at?: string;
         };
@@ -140,7 +135,6 @@ export type Database = {
           apellido?: string | null;
           email?: string | null;
           telefono?: string | null;
-          activo?: boolean;
           creado_por?: string | null;
           created_at?: string;
         };
@@ -229,7 +223,6 @@ export type Database = {
           hora_inicio: string;
           hora_fin: string;
           cupo: number;
-          activa: boolean;
           /** Null en clases viejas -- la admin la completa a mano. */
           actividad_id: string | null;
           /** personalizada | grupal, null en clases viejas hasta que la admin la confirme. */
@@ -245,7 +238,6 @@ export type Database = {
           hora_inicio: string;
           hora_fin: string;
           cupo?: number;
-          activa?: boolean;
           actividad_id?: string | null;
           modalidad?: ModalidadClase | null;
           created_at?: string;
@@ -259,7 +251,6 @@ export type Database = {
           hora_inicio?: string;
           hora_fin?: string;
           cupo?: number;
-          activa?: boolean;
           actividad_id?: string | null;
           modalidad?: ModalidadClase | null;
           created_at?: string;

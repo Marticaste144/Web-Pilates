@@ -21,7 +21,6 @@ export type AlumnoListItem = {
   apellido: string;
   email: string | null;
   telefono: string | null;
-  activo: boolean;
   estadoAcceso: EstadoAccesoAlumno;
   inscripcionesActivas: number;
 };
@@ -65,7 +64,7 @@ export type OrdenAlumnos = "apellido" | "nombre";
 export async function listarAlumnos(query?: string, orden: OrdenAlumnos = "apellido"): Promise<AlumnoListItem[]> {
   const supabase = await createClient();
 
-  const { data: alumnosRaw } = await supabase.from("alumnos").select("id, profile_id, nombre, apellido, email, telefono, activo");
+  const { data: alumnosRaw } = await supabase.from("alumnos").select("id, profile_id, nombre, apellido, email, telefono");
   if (!alumnosRaw || alumnosRaw.length === 0) return [];
 
   const idsConCuenta = alumnosRaw.map((a) => a.profile_id).filter((id): id is string => id !== null);
@@ -86,7 +85,6 @@ export async function listarAlumnos(query?: string, orden: OrdenAlumnos = "apell
       apellido: perfil?.apellido ?? a.apellido ?? "",
       email: perfil?.email ?? a.email ?? null,
       telefono: perfil?.telefono ?? a.telefono ?? null,
-      activo: a.activo,
       estadoAcceso,
     };
   });
@@ -179,7 +177,6 @@ export type AlumnoDetalle = {
   apellido: string;
   email: string | null;
   telefono: string | null;
-  activo: boolean;
   estadoAcceso: EstadoAccesoAlumno;
   /** alumnos.created_at -- siempre existe (la fila se crea junto con la alumna, con o sin cuenta). */
   alumnoDesde: string | null;
@@ -193,7 +190,7 @@ export async function obtenerAlumno(alumnoId: string): Promise<AlumnoDetalle | n
 
   const { data: alumnoRow } = await supabase
     .from("alumnos")
-    .select("id, profile_id, nombre, apellido, email, telefono, activo, created_at")
+    .select("id, profile_id, nombre, apellido, email, telefono, created_at")
     .eq("id", alumnoId)
     .maybeSingle();
   if (!alumnoRow) return null;
@@ -358,7 +355,6 @@ export async function obtenerAlumno(alumnoId: string): Promise<AlumnoDetalle | n
     apellido,
     email,
     telefono,
-    activo: alumnoRow.activo,
     estadoAcceso,
     alumnoDesde: alumnoRow.created_at,
     inscripciones,
