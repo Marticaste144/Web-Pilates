@@ -7,7 +7,7 @@ import {
 } from "@/lib/admin/clases-data";
 import { crearClase } from "@/lib/admin/clases-actions";
 import { ClaseForm } from "./clase-form";
-import { ClasesTable } from "./clases-table";
+import { ClasesFiltros } from "./clases-filtros";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
@@ -57,7 +57,7 @@ export default async function ClasesPage() {
         )}
       </Card>
 
-      <ClasesTable clases={clases} />
+      <ClasesFiltros clases={clases} />
     </div>
   );
 }

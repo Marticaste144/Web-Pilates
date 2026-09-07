@@ -125,10 +125,21 @@ export function CuotaPanel({ cuotas, configPagos }: { cuotas: CuotaSedeItem[]; c
                   Transferir: ${activa.precioActual.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
                 </p>
                 {activa.esProrateado && (
-                  <p className="mt-1 text-xs text-secondary-600">
-                    Primera cuota prorrateada: te quedan {activa.clasesRestantes} de {activa.clasesDelMes} clases
-                    este mes. Desde el mes que viene pagás el mes completo, entre el 1 y el 10.
-                  </p>
+                  <div className="mt-2 rounded-lg bg-secondary-50 p-2.5 text-xs text-secondary-800">
+                    <p className="font-semibold">Tu primera cuota</p>
+                    <p className="mt-1">
+                      Como empezás este mes y ya hubo algunas clases, vas a pagar solamente por las clases que te
+                      quedan.
+                    </p>
+                    <p className="mt-1">
+                      Te quedan{" "}
+                      <span className="font-semibold">
+                        {activa.clasesRestantes} de {activa.clasesDelMes}
+                      </span>{" "}
+                      clases este mes.
+                    </p>
+                    <p className="mt-1">A partir del mes que viene abonás la cuota mensual completa, del 1 al 10.</p>
+                  </div>
                 )}
                 {tieneDatosTransferencia ? (
                   <div className="mt-1.5 flex flex-col gap-0.5 text-xs text-neutral-600">

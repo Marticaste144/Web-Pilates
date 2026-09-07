@@ -34,7 +34,7 @@ export function SignupForm() {
       </div>
 
       <form action={formAction} className="flex flex-col gap-4">
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-4 sm:flex-row sm:gap-3">
           <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm font-medium text-neutral-700">
             Nombre
             <input name="nombre" required className={`min-w-0 w-full ${inputClass}`} />
@@ -91,7 +91,7 @@ export function SignupForm() {
             required
             className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 text-primary-600 focus:ring-primary-400"
           />
-          <span>
+          <span className="min-w-0 flex-1">
             Acepto los{" "}
             <Link href="/legal#terminos" target="_blank" className="font-medium text-primary-600 hover:underline">
               Términos y Condiciones
