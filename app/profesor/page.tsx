@@ -83,33 +83,34 @@ export default async function ProfesorHomePage() {
                 className="pointer-events-none absolute right-0 top-0 hidden h-full w-auto sm:block"
               />
 
-              <div className="relative z-10 flex min-h-[240px] flex-col justify-between gap-4 p-5 sm:h-48 sm:min-h-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-6 lg:h-52 lg:p-6">
-                <div className="max-w-[200px] sm:max-w-[220px] lg:max-w-xs">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Próxima clase</p>
-                  <p className="mt-1.5 text-sm font-medium text-neutral-700">{fechaProximaClaseCapitalizada}</p>
-                  <h2 className="mt-0.5 text-2xl font-bold text-neutral-900 sm:text-3xl">
-                    {proximaClase.horaInicio.slice(0, 5)} - {proximaClase.horaFin.slice(0, 5)}
-                  </h2>
-                  <p className="mt-1 text-lg font-semibold text-secondary-700">
-                    {proximaClase.sedeNombre}
-                    {proximaClase.actividadNombre ? ` -- ${proximaClase.actividadNombre}` : ""}
-                  </p>
-                  <p className="mt-2 flex items-center gap-1.5 text-sm text-neutral-700">
-                    <UsersIcon className="h-4 w-4" />
-                    {proximaClase.inscriptosActivos} de {proximaClase.cupo} alumnas
-                  </p>
-                  <Link
-                    href={`/profesor/clases/${proximaClase.id}`}
-                    className="mt-4 inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
-                  >
-                    Tomar asistencia
-                    <ChevronRightIcon className="h-4 w-4" />
-                  </Link>
+              <div className="relative z-10 flex flex-col gap-4 p-5 sm:gap-5 sm:p-6 lg:p-7">
+                <div className="flex items-start justify-between gap-4 sm:items-center">
+                  <div className="min-w-0 max-w-[210px] sm:max-w-[240px] lg:max-w-xs">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Próxima clase</p>
+                    <p className="mt-2 text-sm font-medium text-neutral-700">{fechaProximaClaseCapitalizada}</p>
+                    <h2 className="mt-1 text-xl font-bold text-neutral-900 sm:text-2xl">
+                      {proximaClase.horaInicio.slice(0, 5)} - {proximaClase.horaFin.slice(0, 5)}
+                    </h2>
+                    <p className="mt-1.5 text-base font-semibold text-secondary-700 sm:text-lg">
+                      {proximaClase.sedeNombre}
+                      {proximaClase.actividadNombre ? ` -- ${proximaClase.actividadNombre}` : ""}
+                    </p>
+                    <p className="mt-2.5 flex items-center gap-1.5 text-sm text-neutral-700">
+                      <UsersIcon className="h-4 w-4 shrink-0" />
+                      {proximaClase.inscriptosActivos} de {proximaClase.cupo} alumnas
+                    </p>
+                  </div>
+
+                  <OccupancyRing value={proximaClase.inscriptosActivos} max={proximaClase.cupo} size={84} />
                 </div>
 
-                <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:justify-between sm:gap-6 sm:self-stretch sm:py-1">
-                  <OccupancyRing value={proximaClase.inscriptosActivos} max={proximaClase.cupo} />
-                </div>
+                <Link
+                  href={`/profesor/clases/${proximaClase.id}`}
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 self-center rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
+                >
+                  Tomar asistencia
+                  <ChevronRightIcon className="h-4 w-4" />
+                </Link>
               </div>
             </div>
           )}

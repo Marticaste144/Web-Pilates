@@ -138,7 +138,7 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
 
   const evaluacionContent = (
     <Card>
-      <FichaForm ficha={ficha} pruebas={pruebas} sedes={sedes} />
+      <FichaForm ficha={ficha} pruebas={pruebas} sedes={sedes} readOnly={esSuplencia} />
     </Card>
   );
 
@@ -155,8 +155,8 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
   const evolucionContent = (
     <div className="flex flex-col gap-4">
       <Card>
-        <h2 className="mb-3 font-semibold text-neutral-900">Agregar evolución</h2>
-        <NotasEvolucion alumnoId={id} notas={notas} clases={clasesParaEvolucion} />
+        <h2 className="mb-3 font-semibold text-neutral-900">{esSuplencia ? "Evolución" : "Agregar evolución"}</h2>
+        <NotasEvolucion alumnoId={id} notas={notas} clases={clasesParaEvolucion} readOnly={esSuplencia} />
       </Card>
 
       <Card>

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { mapaIdentidadAlumnos } from "@/lib/alumnos-identidad";
 
 export type HorarioEquipoItem = { diaSemana: number; horaInicio: string; horaFin: string };
 
@@ -121,4 +122,132 @@ export async function listarEquipoPorSede(): Promise<SedeConEquipo[]> {
 
       return { sedeId: s.id, sedeNombre: s.nombre, actividades: actividadesSede };
     });
+}
+
+export type ClaseDeEquipoItem = {
+  id: string;
+  sedeNombre: string;
+  actividadNombre: string | null;
+  modalidad: string | null;
+  diaSemana: number;
+  horaInicio: string;
+  horaFin: string;
+  cupo: number;
+};
+
+// Todas las clases reales de OTRO profesor (por su profileId) -- pensado
+// para "Equipo -> Profesor -> Clases". A diferencia de listarMisClases, no
+// filtra por auth.uid(): las clases ya son 100% legibles para cualquier
+// autenticado ("autenticados ven clases"), así que alcanza con pedir las de
+// ese profesor puntual. Solo lectura -- no se usa para nada que edite.
+export async function listarClasesDeOtroProfesor(profesorId: string): Promise<ClaseDeEquipoItem[]> {
+  const supabase = await createClient();
+
+  const { data: clases } = await supabase
+    .from("clases")
+    .select("id, sede_id, actividad_id, modalidad, dia_semana, hora_inicio, hora_fin, cupo")
+    .eq("profesor_id", profesorId);
+
+  if (!clases || clases.length === 0) return [];
+
+  const [{ data: sedes }, { data: actividades }] = await Promise.all([
+    supabase.from("sedes").select("id, nombre"),
+    supabase.from("actividades").select("id, nombre"),
+  ]);
+  const sedeNombrePorId = new Map((sedes ?? []).map((s) => [s.id, s.nombre]));
+  const actividadNombrePorId = new Map((actividades ?? []).map((a) => [a.id, a.nombre]));
+
+  return clases
+    .map((c): ClaseDeEquipoItem => ({
+      id: c.id,
+      sedeNombre: sedeNombrePorId.get(c.sede_id) ?? "?",
+      actividadNombre: c.actividad_id ? actividadNombrePorId.get(c.actividad_id) ?? null : null,
+      modalidad: c.modalidad,
+      diaSemana: c.dia_semana,
+      horaInicio: c.hora_inicio,
+      horaFin: c.hora_fin,
+      cupo: c.cupo,
+    }))
+    .sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio));
+}
+
+export type ClaseDeEquipoDetalle = ClaseDeEquipoItem & {
+  profesorNombre: string;
+};
+
+// Info de UNA clase (de cualquier profesor) para el encabezado de
+// "Equipo -> Profesor -> Clase". Devuelve null si el id no existe -- las
+// clases ya son legibles para cualquier autenticado, así que esto nunca
+// depende de quién la mira.
+export async function obtenerClaseDeEquipo(claseId: string): Promise<ClaseDeEquipoDetalle | null> {
+  const supabase = await createClient();
+
+  const { data: clase } = await supabase
+    .from("clases")
+    .select("id, sede_id, actividad_id, profesor_id, profesor_pendiente_nombre, modalidad, dia_semana, hora_inicio, hora_fin, cupo")
+    .eq("id", claseId)
+    .maybeSingle();
+
+  if (!clase) return null;
+
+  const [{ data: sede }, { data: actividad }, { data: perfilProfesor }] = await Promise.all([
+    supabase.from("sedes").select("nombre").eq("id", clase.sede_id).maybeSingle(),
+    clase.actividad_id
+      ? supabase.from("actividades").select("nombre").eq("id", clase.actividad_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    clase.profesor_id
+      ? supabase.from("profiles").select("nombre, apellido").eq("id", clase.profesor_id).maybeSingle()
+      : Promise.resolve({ data: null as { nombre: string; apellido: string } | null }),
+  ]);
+
+  return {
+    id: clase.id,
+    sedeNombre: sede?.nombre ?? "?",
+    actividadNombre: actividad?.nombre ?? null,
+    modalidad: clase.modalidad,
+    diaSemana: clase.dia_semana,
+    horaInicio: clase.hora_inicio,
+    horaFin: clase.hora_fin,
+    cupo: clase.cupo,
+    profesorNombre: perfilProfesor
+      ? `${perfilProfesor.nombre} ${perfilProfesor.apellido}`
+      : (clase.profesor_pendiente_nombre ?? "?"),
+  };
+}
+
+export type AlumnaDeEquipoItem = {
+  alumnoId: string;
+  nombre: string;
+  apellido: string;
+};
+
+// Roster de una clase de OTRO profesor -- SOLO nombre (nada de teléfono,
+// cuota ni asistencia: eso ya no hace falta para decidir "quién es quién"
+// antes de entrar a ver el detalle completo de una alumna puntual). Depende
+// de la policy "profesor consulta inscripciones de equipo (solo lectura)" +
+// "profesor consulta alumnas de equipo (solo lectura)" (ver migración
+// 20260918090000) -- si esas no están aplicadas, esto devuelve lista vacía
+// (RLS ya se encarga, no hace falta duplicar el chequeo acá).
+export async function listarAlumnasDeClaseEquipo(claseId: string): Promise<AlumnaDeEquipoItem[]> {
+  const supabase = await createClient();
+
+  const { data: inscripciones } = await supabase
+    .from("inscripciones")
+    .select("alumno_id")
+    .eq("clase_id", claseId)
+    .eq("estado", "activa");
+
+  const alumnoIds = [...new Set((inscripciones ?? []).map((i) => i.alumno_id))];
+  if (alumnoIds.length === 0) return [];
+
+  const identidadPorId = await mapaIdentidadAlumnos(supabase, alumnoIds);
+
+  return alumnoIds
+    .map((id): AlumnaDeEquipoItem | null => {
+      const identidad = identidadPorId.get(id);
+      if (!identidad) return null;
+      return { alumnoId: id, nombre: identidad.nombre, apellido: identidad.apellido };
+    })
+    .filter((a): a is AlumnaDeEquipoItem => a !== null)
+    .sort((a, b) => a.apellido.localeCompare(b.apellido, "es"));
 }

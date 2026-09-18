@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { listarEquipoPorSede } from "@/lib/profesor/equipo-data";
 import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { SedeIcon } from "@/components/alumno/sede-icon";
@@ -72,6 +73,15 @@ export default async function EquipoPage() {
                                   {h.horaInicio.slice(0, 5)} - {h.horaFin.slice(0, 5)}
                                 </p>
                               ))}
+                              {p.profesorId && (
+                                <Link
+                                  href={`/profesor/equipo/${p.profesorId}`}
+                                  className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:underline"
+                                >
+                                  Ver sus clases y alumnas (solo lectura)
+                                  <ChevronRightIcon className="h-3.5 w-3.5" />
+                                </Link>
+                              )}
                             </div>
                           </details>
                         ))}

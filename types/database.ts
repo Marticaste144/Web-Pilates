@@ -116,6 +116,8 @@ export type Database = {
           email: string | null;
           telefono: string | null;
           creado_por: string | null;
+          /** true = alumna ficticia de una demostración, nunca real -- ver migración 20260919090000_alumnas_demo_flag.sql. */
+          es_demo: boolean;
           created_at: string;
         };
         Insert: {
@@ -126,6 +128,7 @@ export type Database = {
           email?: string | null;
           telefono?: string | null;
           creado_por?: string | null;
+          es_demo?: boolean;
           created_at?: string;
         };
         Update: {
@@ -136,6 +139,7 @@ export type Database = {
           email?: string | null;
           telefono?: string | null;
           creado_por?: string | null;
+          es_demo?: boolean;
           created_at?: string;
         };
         Relationships: [];

@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import JSZip from "jszip";
 
 // Lee un .xlsx con ExcelJS y lo convierte a una estructura simple y segura
 // para renderizar como spreadsheet dentro de MUV -- nunca se ejecuta nada
@@ -224,6 +225,61 @@ function parsearHoja(worksheet: ExcelJS.Worksheet): HojaExcel {
   return { nombre: worksheet.name, anchosColumnasPx, filas };
 }
 
+// BUG REAL (causa del falso "archivo dañado"): exceljs@4.4.0 (la última
+// versión estable -- verificado, no hay una más nueva que lo arregle) tira
+// "Cannot read properties of undefined (reading 'anchors')" en
+// XLSX.reconcile() al procesar CUALQUIER .xlsx que tenga una imagen
+// incrustada (drawing) -- reproducido con un archivo mínimo generado por
+// openpyxl con una sola imagen pegada en una celda. Es exactamente el caso
+// real de una planificación con fotos de ejercicios pegadas en el Excel.
+// El archivo NO está dañado -- es un bug conocido de la librería con
+// drawings, no algo que se pueda evitar validando mejor el archivo de
+// entrada. Como el visor de acá (ExcelViewer/CeldaExcel) nunca renderiza
+// imágenes de todos modos (prioridad ya documentada: legibilidad/estructura,
+// no fidelidad 100%), la solución real es sacar los drawings/imágenes del
+// .xlsx ANTES de dárselo a exceljs -- así ni siquiera se llega al código con
+// el bug, y se conserva absolutamente todo lo demás (valores, estilos,
+// combinadas, anchos/altos).
+async function quitarDrawingsDelXlsx(buffer: Buffer): Promise<Buffer> {
+  const zip = await JSZip.loadAsync(buffer);
+
+  const rutasDrawingsYMedia = Object.keys(zip.files).filter(
+    (ruta) => ruta.startsWith("xl/media/") || ruta.startsWith("xl/drawings/"),
+  );
+  if (rutasDrawingsYMedia.length === 0) return buffer; // sin drawings, no hay nada que tocar
+
+  for (const ruta of rutasDrawingsYMedia) {
+    zip.remove(ruta);
+  }
+
+  // Cada hoja referencia su drawing con <drawing r:id="rIdN"/> (siempre un
+  // único tag autocontenido) -- se saca esa referencia y la relación
+  // correspondiente en el .rels de la hoja, para que el XML quede
+  // consistente (sin apuntar a un archivo que ya no existe).
+  const rutasHojas = Object.keys(zip.files).filter((ruta) => /^xl\/worksheets\/sheet\d+\.xml$/.test(ruta));
+  for (const rutaHoja of rutasHojas) {
+    const archivoHoja = zip.file(rutaHoja);
+    if (!archivoHoja) continue;
+
+    const xmlHoja = await archivoHoja.async("string");
+    if (xmlHoja.includes("<drawing")) {
+      zip.file(rutaHoja, xmlHoja.replace(/<drawing\b[^>]*\/>/g, ""));
+    }
+
+    const rutaRels = rutaHoja.replace("xl/worksheets/", "xl/worksheets/_rels/") + ".rels";
+    const archivoRels = zip.file(rutaRels);
+    if (archivoRels) {
+      const xmlRels = await archivoRels.async("string");
+      const xmlRelsLimpio = xmlRels.replace(/<Relationship\b[^>]*Type="[^"]*\/drawing"[^>]*\/>/g, "");
+      if (xmlRelsLimpio !== xmlRels) {
+        zip.file(rutaRels, xmlRelsLimpio);
+      }
+    }
+  }
+
+  return zip.generateAsync({ type: "nodebuffer" });
+}
+
 export type ResultadoParseoExcel = { ok: true; workbook: WorkbookExcel } | { ok: false; message: string };
 
 // Nunca lanza -- cualquier archivo corrupto/no soportado vuelve como
@@ -232,6 +288,8 @@ export type ResultadoParseoExcel = { ok: true; workbook: WorkbookExcel } | { ok:
 // fórmulas, solo lee la estructura y los valores/estilos guardados.
 export async function parsearWorkbookExcel(buffer: Buffer): Promise<ResultadoParseoExcel> {
   try {
+    const bufferSinDrawings = await quitarDrawingsDelXlsx(buffer);
+
     const workbook = new ExcelJS.Workbook();
     // exceljs/index.d.ts declara "declare interface Buffer extends ArrayBuffer
     // {}" -- un declaration merge contra el Buffer global que, combinado con
@@ -242,7 +300,7 @@ export async function parsearWorkbookExcel(buffer: Buffer): Promise<ResultadoPar
     // de terceros, no un problema real: en runtime esto es un Buffer válido
     // (Buffer.from ya lo garantiza). "any" puntual documentado, no un atajo.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver comentario de arriba
-    await workbook.xlsx.load(buffer as any);
+    await workbook.xlsx.load(bufferSinDrawings as any);
 
     const hojas = workbook.worksheets.filter((ws) => ws.state !== "hidden" && ws.state !== "veryHidden").map(parsearHoja);
 

@@ -33,6 +33,7 @@ export async function obtenerMetricas(): Promise<DashboardMetricas> {
     { data: pagosMes },
     { data: cupos },
     { count: comprobantesPendientes },
+    { data: alumnosDemo },
   ] = await Promise.all([
     supabase.from("sedes").select("id, nombre"),
     supabase.from("clases").select("id, sede_id, cupo"),
@@ -42,15 +43,23 @@ export async function obtenerMetricas(): Promise<DashboardMetricas> {
     supabase.from("v_estado_cuota_alumno_sede").select("alumno_id, sede_id, estado_visual"),
     supabase
       .from("pagos")
-      .select("monto, medio")
+      .select("alumno_id, monto, medio")
       .eq("estado", "aprobado")
       .gte("aprobado_en", inicioMes.toISOString()),
     supabase.from("v_cupo_clases").select("clase_id, inscriptos_activos"),
     supabase.from("pagos").select("id", { count: "exact", head: true }).eq("estado", "pendiente").not("comprobante_url", "is", null),
+    supabase.from("alumnos").select("id").eq("es_demo", true),
   ]);
 
   const clasePorId = new Map((clases ?? []).map((c) => [c.id, c]));
   const ocupadosPorClase = new Map((cupos ?? []).map((c) => [c.clase_id, c.inscriptos_activos]));
+  // Alumnas demo (carga provisoria para mostrarle el sistema a los
+  // profesores, ver 20260919090000_alumnas_demo_flag.sql) nunca deben
+  // inflar el conteo de "alumnos activos" reales -- se excluyen acá, antes
+  // de armar los Sets. Ocupación por clase (v_cupo_clases, lo que ve cada
+  // profesor/admin en su propia clase) SÍ las incluye a propósito: ahí es
+  // justamente donde tienen que verse para la demostración.
+  const idsAlumnosDemo = new Set((alumnosDemo ?? []).map((a) => a.id));
 
   // Alumnos "activos" = tienen al menos una inscripción activa. Un mismo
   // alumno en 2 clases de la misma sede cuenta una sola vez para esa sede
@@ -59,6 +68,7 @@ export async function obtenerMetricas(): Promise<DashboardMetricas> {
   const alumnosTotal = new Set<string>();
   const alumnosPorSede = new Map<string, Set<string>>();
   for (const i of inscripcionesActivas ?? []) {
+    if (idsAlumnosDemo.has(i.alumno_id)) continue;
     const clase = clasePorId.get(i.clase_id);
     if (!clase) continue;
     alumnosTotal.add(i.alumno_id);
@@ -81,12 +91,16 @@ export async function obtenerMetricas(): Promise<DashboardMetricas> {
   const ocupacionPromedio =
     ocupaciones.length > 0 ? Math.round((ocupaciones.reduce((a, b) => a + b, 0) / ocupaciones.length) * 100) : 0;
 
-  const cuotasVencidas = (cuotas ?? []).filter((c) => c.estado_visual === "vencida").length;
+  // Misma exclusión de alumnas demo que en "alumnos activos" -- ninguna
+  // métrica financiera (cuotas vencidas, facturación del mes) puede verse
+  // afectada por la carga de demostración.
+  const cuotasVencidas = (cuotas ?? []).filter((c) => c.estado_visual === "vencida" && !idsAlumnosDemo.has(c.alumno_id)).length;
 
   let mercadopago = 0;
   let efectivo = 0;
   let transferencia = 0;
   for (const p of pagosMes ?? []) {
+    if (idsAlumnosDemo.has(p.alumno_id)) continue;
     if (p.medio === "mercadopago") mercadopago += p.monto;
     else if (p.medio === "transferencia") transferencia += p.monto;
     else efectivo += p.monto;

@@ -1,29 +1,36 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { listarClasesDeOtroProfesor } from "@/lib/profesor/equipo-data";
+import { DIAS_SEMANA } from "@/lib/dias-semana";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ChevronRightIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
 
-// Antes esta página mostraba/editaba una "rutina del profesor" propia
-// (rutinas_profesor) -- se deprecó: ese concepto no existe en el negocio
-// real de MUV. La planificación ahora pertenece siempre al ALUMNO (clase
-// personalizada) o a la CLASE (grupal), nunca al profesor -- ver
-// lib/planificaciones-data.ts. Esta pantalla queda como un directorio simple
-// (nombre del profesor); si en el futuro hace falta que un suplente vea acá
-// mismo qué venía dando cada colega, eso se resuelve consultando la
-// planificación de sus alumnos/clases (accesos de suplencia quedaron
-// pendientes de definir, ver resumen de esta tarea).
+const MODALIDAD_LABEL: Record<string, string> = { grupal: "Grupal", personalizada: "Personalizada" };
+
+function diaLabel(dia: number): string {
+  return DIAS_SEMANA.find((d) => d.value === dia)?.label ?? String(dia);
+}
+
+// Reemplaza al viejo stub ("las planificaciones son por alumno/clase, no
+// por profesor -- consultá desde ahí"): ahora Equipo SÍ permite entrar acá
+// y ver, de un vistazo, todas las clases reales de este colega -- pensado
+// para prepararse antes de una eventual suplencia (ver migración
+// 20260918090000_equipo_consulta_solo_lectura.sql). Cada clase lleva a su
+// propio detalle de solo lectura (roster + planificación), nunca a nada
+// editable.
 export default async function ProfesorEquipoDetallePage({ params }: { params: Promise<{ profesorId: string }> }) {
   const { profesorId } = await params;
 
   const supabase = await createClient();
-  const { data: perfilProfesor } = await supabase
-    .from("profiles")
-    .select("nombre, apellido")
-    .eq("id", profesorId)
-    .single();
+  const [{ data: perfilProfesor }, clases] = await Promise.all([
+    supabase.from("profiles").select("nombre, apellido").eq("id", profesorId).maybeSingle(),
+    listarClasesDeOtroProfesor(profesorId),
+  ]);
 
   if (!perfilProfesor) {
     notFound();
@@ -42,15 +49,36 @@ export default async function ProfesorEquipoDetallePage({ params }: { params: Pr
         <h1 className="mt-2 text-xl font-bold text-neutral-900 sm:text-2xl">
           {perfilProfesor.nombre} {perfilProfesor.apellido}
         </h1>
+        <p className="mt-1 text-sm text-neutral-500">
+          Sus clases, de solo lectura -- útil para prepararte antes de una eventual suplencia.
+        </p>
       </div>
 
-      <Card>
-        <p className="text-sm text-neutral-500">
-          Las planificaciones ahora se gestionan por alumno (clases personalizadas) o por clase (clases grupales),
-          no por profesor. Para ver qué viene trabajando este profesor, consultá la planificación del alumno o de la
-          clase puntual.
-        </p>
-      </Card>
+      {clases.length === 0 ? (
+        <EmptyState title="Todavía no tiene clases asignadas" />
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {clases.map((c) => (
+            <Link key={c.id} href={`/profesor/equipo/${profesorId}/clases/${c.id}`} className="group">
+              <Card className="flex items-center justify-between gap-4 transition-colors group-hover:border-primary-400">
+                <div className="min-w-0">
+                  <p className="font-medium text-neutral-900">
+                    {c.sedeNombre}
+                    {c.actividadNombre ? ` -- ${c.actividadNombre}` : ""}
+                  </p>
+                  <p className="mt-0.5 text-sm text-neutral-500">
+                    {diaLabel(c.diaSemana)} {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {c.modalidad && <Badge variant="neutral">{MODALIDAD_LABEL[c.modalidad]}</Badge>}
+                  <ChevronRightIcon className="h-4 w-4 text-neutral-300 group-hover:text-primary-500" />
+                </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
