@@ -291,6 +291,40 @@ export async function notificarReenvioInvitacionAlumna(params: {
   });
 }
 
+// Recuperación de contraseña por autoservicio ("¿Olvidaste tu contraseña?"
+// en /login, lib/auth/actions.ts -- requestPasswordReset). Mismo criterio
+// que las invitaciones: nunca el mail default de Supabase (apunta a su
+// propio /auth/v1/verify, que entrega los tokens en el hash de la URL y
+// rompe cualquier lectura server-side), el link va directo a
+// /auth/confirm-invite?type=recovery&flow=reset con token_hash.
+export async function notificarRecuperacionContrasena(params: {
+  email: string;
+  nombre: string;
+  confirmUrl: string;
+}): Promise<void> {
+  const saludo = params.nombre ? `Hola ${params.nombre},` : "Hola,";
+  const html = plantillaBase(
+    "Recuperar contraseña",
+    `
+      <h1 style="font-size: 18px; margin: 0 0 12px;">${saludo}</h1>
+      <p style="font-size: 14px; line-height: 1.5; margin: 0 0 12px;">
+        Solicitaste restablecer tu contraseña en MUV Gimnasia Postural. Si no fuiste vos, podés ignorar este email.
+      </p>
+      ${boton(params.confirmUrl, "Elegir nueva contraseña")}
+      <p style="font-size: 12px; color: #94a3b8; margin: 16px 0 0; word-break: break-all;">
+        Si el botón no funciona, copiá y pegá este link en el navegador:<br />${params.confirmUrl}
+      </p>
+    `,
+  );
+
+  await enviarEmail({
+    contexto: "recuperar-contrasena",
+    to: params.email,
+    subject: "Recuperar tu contraseña de MUV Gimnasia Postural",
+    html,
+  });
+}
+
 // Caso 3: la admin publica un aviso -- se manda a todos los alumnos y
 // profesores afectados de una sola vez. Se manda con resend.batch.send
 // (hasta 100 emails por llamada, cada uno con su propio "to" -- nadie ve la

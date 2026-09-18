@@ -12,20 +12,34 @@ export type ExcelResult = { ok: boolean; message: string };
 
 const BUCKET = "planificaciones-excel";
 const EXTENSIONES_PERMITIDAS = [".xlsx"];
-const MIME_PERMITIDOS = [
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  // Algunos navegadores/SO mandan esto para .xlsx -- se acepta igual SIEMPRE
-  // que la extensión sea .xlsx (el parseo real de ExcelJS es la validación
-  // que de verdad importa, esto es solo un primer filtro barato).
-  "application/octet-stream",
-];
 const TAMANO_MAXIMO = 10 * 1024 * 1024; // 10 MiB -- mismo orden que "comprobantes"
+
+// BUG REAL (causa de que un .xlsx genuino se rechazara): acá había una
+// whitelist de archivo.type ("application/vnd.openxmlformats-...", más
+// "application/octet-stream" como único extra) que rechazaba cualquier otro
+// valor ANTES de llegar siquiera a intentar parsear el archivo. file.type lo
+// arma el navegador/SO a partir de asociaciones de tipo de archivo que
+// varían -- un Windows con la asociación de .xlsx rota/ausente puede mandar
+// "application/vnd.ms-excel", "application/zip", "application/x-zip-
+// compressed" o cualquier otra cosa para un .xlsx 100% real, y esa lista
+// nunca los iba a cubrir a todos. La validación real de un .xlsx no es su
+// MIME (que ni siquiera es un dato del archivo, es una adivinanza externa):
+// es que (a) tenga la firma binaria real de un ZIP -- un .xlsx SIEMPRE es un
+// ZIP, esto alcanza para descartar un archivo renombrado a mano (un .txt,
+// una foto, etc.) -- y (b) que ExcelJS lo pueda parsear de verdad
+// (parsearWorkbookExcel, más abajo). file.type ya no se usa para nada.
+function tieneFirmaZip(buffer: Buffer): boolean {
+  if (buffer.length < 4) return false;
+  const esZipLocal = buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04;
+  const esZipVacio = buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x05 && buffer[3] === 0x06;
+  return esZipLocal || esZipVacio;
+}
 
 // Solo .xlsx (no .xls): ExcelJS no lee el formato binario viejo de Excel de
 // forma confiable -- aceptar ".xls" sin poder parsearlo de verdad sería
 // peor que no ofrecerlo. Validación server-side siempre, nunca se confía en
 // lo que mande el navegador.
-function validarArchivo(archivo: File): { ok: true } | { ok: false; message: string } {
+function validarArchivo(archivo: File, buffer: Buffer): { ok: true } | { ok: false; message: string } {
   if (archivo.size === 0) {
     return { ok: false, message: "El archivo está vacío." };
   }
@@ -36,8 +50,8 @@ function validarArchivo(archivo: File): { ok: true } | { ok: false; message: str
   if (!EXTENSIONES_PERMITIDAS.some((ext) => nombre.endsWith(ext))) {
     return { ok: false, message: "Solo se aceptan archivos .xlsx." };
   }
-  if (archivo.type && !MIME_PERMITIDOS.includes(archivo.type)) {
-    return { ok: false, message: "El archivo no parece ser un Excel (.xlsx) válido." };
+  if (!tieneFirmaZip(buffer)) {
+    return { ok: false, message: "El archivo no tiene el formato real de un .xlsx (puede estar renombrado o dañado)." };
   }
   return { ok: true };
 }
@@ -48,16 +62,29 @@ async function subirYValidar(
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const supabase = await createClient();
 
-  const validacion = validarArchivo(archivo);
+  // Un solo arrayBuffer(): se reusa para la firma ZIP y para el parseo
+  // completo de ExcelJS, en vez de leer el archivo dos veces.
+  const buffer = Buffer.from(await archivo.arrayBuffer());
+
+  const validacion = validarArchivo(archivo, buffer);
   if (!validacion.ok) return validacion;
 
   // Se PARSEA antes de subir -- si el archivo está corrupto o no es
   // realmente un .xlsx, se rechaza acá y nunca llega a ocupar espacio en
   // Storage ni a crear una fila en la base.
-  const buffer = Buffer.from(await archivo.arrayBuffer());
   const parseo = await parsearWorkbookExcel(buffer);
   if (!parseo.ok) return { ok: false, message: parseo.message };
 
+  // BUG REAL (causa de fondo de "el sistema no permite completar la carga",
+  // más allá de la validación de arriba): este upload sucede ANTES de que
+  // exista la fila en "planificaciones" (a propósito, ver comentario de
+  // cargarPlanificacionExcel). La policy de INSERT de storage.objects para
+  // este bucket llegó a exigir fn_autoriza_archivo_planificacion(id) --que
+  // busca esa fila-- así que SIEMPRE fallaba con "new row violates row-level
+  // security policy", sin importar el archivo. Corregido en la migración
+  // 20260920100000_fix_planificaciones_excel_upload_rls.sql (el INSERT ya no
+  // depende de que la fila exista; el SELECT -- la autorización real de
+  // lectura -- no cambió).
   const { error } = await supabase.storage.from(BUCKET).upload(path, archivo, {
     contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });

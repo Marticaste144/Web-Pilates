@@ -1,11 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// Supabase manda acá el link de los emails de recuperación de contraseña
-// (y de confirmación de cuenta, si está activada). Intercambia el "code"
-// de la URL por una sesión real antes de mandar al usuario a la pantalla
-// que corresponda -- sin este paso, /reset-password lo recibiría sin
-// sesión y no podría guardar la contraseña nueva.
+// SIN USO ACTUALMENTE (dejado a propósito, no se pudo borrar el archivo en
+// esta sesión). La recuperación de contraseña dejó de apuntar acá: usaba
+// esto vía resetPasswordForEmail(), pero ese flujo entrega los tokens en el
+// HASH de la URL (#access_token=...), que solo el navegador puede leer --
+// este endpoint, al solo saber leer ?code=, nunca recibía nada usable y
+// todo intento de recuperación terminaba silenciosamente en /login. La
+// recuperación ahora reusa /auth/confirm-invite (ver lib/auth/actions.ts,
+// requestPasswordReset), el mismo mecanismo ya probado para invitaciones.
+// Este archivo puede borrarse con seguridad si no queda nada más
+// apuntándole (confirmado: no queda nada al momento de este comentario).
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");

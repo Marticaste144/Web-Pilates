@@ -10,6 +10,10 @@ import { EyeIcon, EyeOffIcon } from "@/components/ui/icons";
 export function ResetPasswordForm() {
   const [state, formAction, pending] = useActionState(updatePassword, initialAuthState);
   const [showPassword, setShowPassword] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const noCoinciden = confirmPassword.length > 0 && password !== confirmPassword;
 
   return (
     <>
@@ -27,6 +31,8 @@ export function ResetPasswordForm() {
               required
               minLength={6}
               autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-xl border border-transparent bg-neutral-100 px-4 py-3 pr-11 text-neutral-900 focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
             <button
@@ -40,9 +46,24 @@ export function ResetPasswordForm() {
           </span>
         </label>
 
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+          Confirmar contraseña
+          <input
+            type={showPassword ? "text" : "password"}
+            name="confirmPassword"
+            required
+            minLength={6}
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className="w-full rounded-xl border border-transparent bg-neutral-100 px-4 py-3 text-neutral-900 focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100"
+          />
+        </label>
+
+        {noCoinciden && <Alert variant="error">Las contraseñas no coinciden.</Alert>}
         {state.status === "error" && <Alert variant="error">{state.message}</Alert>}
 
-        <Button type="submit" loading={pending} className="mt-2 w-full">
+        <Button type="submit" loading={pending} disabled={noCoinciden} className="mt-2 w-full">
           {pending ? "Guardando..." : "Guardar contraseña"}
         </Button>
       </form>

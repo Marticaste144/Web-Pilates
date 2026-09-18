@@ -38,6 +38,7 @@ export function ConfirmInviteClient() {
 
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type");
+  const esRecuperacion = searchParams.get("flow") === "reset";
   const linkInvalido = !tokenHash || !esTipoValido(type);
 
   const confirmar = async () => {
@@ -66,20 +67,27 @@ export function ConfirmInviteClient() {
     <main className="flex flex-1 flex-col items-center justify-center gap-4 bg-neutral-50 p-8 text-center">
       <Isotipo className="h-14 w-14" />
       <div className="max-w-xs">
-        <h1 className="text-xl font-bold text-neutral-900">Te invitaron a MUV Gimnasia Postural</h1>
-        <p className="mt-1 text-neutral-500">Confirmá tu cuenta para elegir tu contraseña.</p>
+        <h1 className="text-xl font-bold text-neutral-900">
+          {esRecuperacion ? "Recuperar tu contraseña" : "Te invitaron a MUV Gimnasia Postural"}
+        </h1>
+        <p className="mt-1 text-neutral-500">
+          {esRecuperacion ? "Confirmá para elegir una contraseña nueva." : "Confirmá tu cuenta para elegir tu contraseña."}
+        </p>
       </div>
 
       {error || linkInvalido ? (
         <div className="flex max-w-xs flex-col items-center gap-3">
           <Alert variant="error">{error ?? "El link no es válido o ya expiró."}</Alert>
-          <a href="/login" className="text-sm font-medium text-primary-600 hover:underline">
-            Volver a iniciar sesión
+          <a
+            href={esRecuperacion ? "/forgot-password" : "/login"}
+            className="text-sm font-medium text-primary-600 hover:underline"
+          >
+            {esRecuperacion ? "Pedir un link nuevo" : "Volver a iniciar sesión"}
           </a>
         </div>
       ) : (
         <Button onClick={confirmar} loading={pending}>
-          Confirmar cuenta
+          {esRecuperacion ? "Continuar" : "Confirmar cuenta"}
         </Button>
       )}
     </main>
