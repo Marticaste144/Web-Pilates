@@ -99,18 +99,18 @@ export default async function ProfesorHomePage() {
                       <UsersIcon className="h-4 w-4 shrink-0" />
                       {proximaClase.inscriptosActivos} de {proximaClase.cupo} alumnas
                     </p>
+
+                    <Link
+                      href={`/profesor/clases/${proximaClase.id}`}
+                      className="mt-4 inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
+                    >
+                      Tomar asistencia
+                      <ChevronRightIcon className="h-4 w-4" />
+                    </Link>
                   </div>
 
                   <OccupancyRing value={proximaClase.inscriptosActivos} max={proximaClase.cupo} size={84} />
                 </div>
-
-                <Link
-                  href={`/profesor/clases/${proximaClase.id}`}
-                  className="inline-flex shrink-0 items-center justify-center gap-1.5 self-center rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
-                >
-                  Tomar asistencia
-                  <ChevronRightIcon className="h-4 w-4" />
-                </Link>
               </div>
             </div>
           )}

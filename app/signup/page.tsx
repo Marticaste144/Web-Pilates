@@ -12,7 +12,7 @@ export default async function SignupPage() {
   }
 
   return (
-    <AuthShell heroTitle="¡Sumate a MUV!" heroSubtitle="Creá tu cuenta para empezar a reservar tus clases">
+    <AuthShell heroTitle="¡Sumate a MUV!" heroSubtitle="Creá tu cuenta para empezar a reservar tus clases" logoHref="/">
       <SignupForm />
     </AuthShell>
   );

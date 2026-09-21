@@ -12,7 +12,7 @@ export default async function LoginPage() {
   }
 
   return (
-    <AuthShell heroTitle="¡Bienvenido/a!" heroSubtitle="Ingresá para gestionar tus clases y turnos">
+    <AuthShell heroTitle="¡Bienvenido/a!" heroSubtitle="Ingresá para gestionar tus clases y turnos" logoHref="/">
       <LoginForm />
     </AuthShell>
   );
