@@ -243,8 +243,8 @@ export async function notificarInvitacionAlumna(params: {
     `
       <h1 style="font-size: 18px; margin: 0 0 12px;">Hola ${params.nombre},</h1>
       <p style="font-size: 14px; line-height: 1.5; margin: 0 0 12px;">
-        Ya sos alumna de MUV Gimnasia Postural -- te habilitamos el acceso a la página para que puedas ver tus
-        clases, tu cuota y anotarte vos misma. Confirmá tu cuenta para elegir tu contraseña.
+        Ya sos parte de MUV Gimnasia Postural -- te habilitamos el acceso a la página para que puedas ver tus
+        clases, tu cuota y anotarte por tu cuenta. Confirmá tu cuenta para elegir tu contraseña.
       </p>
       ${boton(params.confirmUrl, "Confirmar cuenta")}
       <p style="font-size: 12px; color: #94a3b8; margin: 16px 0 0; word-break: break-all;">

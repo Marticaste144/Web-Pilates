@@ -12,6 +12,11 @@ import { CalendarIcon, UsersIcon, PieChartIcon, CheckIcon, ChevronRightIcon } fr
 
 export const dynamic = "force-dynamic";
 
+// Encabezado y filas son grids independientes: con columnas "auto" cada uno
+// calculaba anchos distintos y los títulos quedaban corridos respecto de los
+// datos. Anchos fijos compartidos = la misma grilla en ambos.
+const COLUMNAS_CLASES_HOY = "grid-cols-[7rem_minmax(0,1fr)_5rem_7rem_11.5rem]";
+
 export default async function ProfesorHomePage() {
   const [profile, resumen] = await Promise.all([getCurrentProfile(), obtenerResumenDiaProfesor()]);
   const { clasesHoy, proximaClase, alumnasTotal, ocupacionPromedio, asistenciasHoy } = resumen;
@@ -97,7 +102,7 @@ export default async function ProfesorHomePage() {
                     </p>
                     <p className="mt-2.5 flex items-center gap-1.5 text-sm text-neutral-700">
                       <UsersIcon className="h-4 w-4 shrink-0" />
-                      {proximaClase.inscriptosActivos} de {proximaClase.cupo} alumnas
+                      {proximaClase.inscriptosActivos} de {proximaClase.cupo} alumnos
                     </p>
 
                     <Link
@@ -117,7 +122,7 @@ export default async function ProfesorHomePage() {
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard icon={CalendarIcon} label="Clases hoy" value={String(clasesHoy.length)} />
-            <StatCard icon={UsersIcon} label="Alumnas totales" value={String(alumnasTotal)} />
+            <StatCard icon={UsersIcon} label="Alumnos totales" value={String(alumnasTotal)} />
             <StatCard icon={PieChartIcon} label="Ocupación promedio" value={`${ocupacionPromedio}%`} />
             <StatCard icon={CheckIcon} label="Asistencias hoy" value={String(asistenciasHoy)} />
           </div>
@@ -132,12 +137,12 @@ export default async function ProfesorHomePage() {
                 {/* Desktop/tablet: filas tipo tabla, sin scroll horizontal --
                     columnas fijas, nunca se angostan por debajo de lo legible. */}
                 <div className="hidden sm:block">
-                  <div className="grid grid-cols-[1fr_1fr_auto_1fr_auto] gap-4 px-4 pt-3 pb-2 text-xs font-medium uppercase tracking-wide text-neutral-400">
+                  <div className={`grid ${COLUMNAS_CLASES_HOY} gap-4 px-4 pt-3 pb-2 text-xs font-medium uppercase tracking-wide text-neutral-400`}>
                     <span>Horario</span>
                     <span>Sede</span>
-                    <span>Alumnas</span>
+                    <span>Alumnos</span>
                     <span>Ocupación</span>
-                    <span className="text-right">Acción</span>
+                    <span className="pr-6 text-right">Acción</span>
                   </div>
                   <div className="flex flex-col divide-y divide-neutral-100 border-t border-neutral-100">
                     {clasesHoy.map((c) => {
@@ -146,7 +151,7 @@ export default async function ProfesorHomePage() {
                         <Link
                           key={c.id}
                           href={`/profesor/clases/${c.id}`}
-                          className="group grid grid-cols-[1fr_1fr_auto_1fr_auto] items-center gap-4 px-4 py-2 transition-colors hover:bg-neutral-50"
+                          className={`group grid ${COLUMNAS_CLASES_HOY} items-center gap-4 px-4 py-2 transition-colors hover:bg-neutral-50`}
                         >
                           <span className="font-semibold text-neutral-900">
                             {c.horaInicio.slice(0, 5)} - {c.horaFin.slice(0, 5)}

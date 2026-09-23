@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { PlanificacionResumen } from "@/lib/planificaciones-data";
 import { obtenerWorkbookDePlanificacion } from "@/lib/planificaciones-excel-data";
-import { actualizarPlanificacionExcel } from "@/lib/planificaciones-excel-actions";
+import { actualizarPlanificacionExcel, guardarCambiosPlanificacionExcel } from "@/lib/planificaciones-excel-actions";
 import { ExcelViewer } from "./excel-viewer";
 import { DescargarExcelButton } from "./descargar-excel-button";
 import { ActualizarExcelToggle } from "./actualizar-excel-toggle";
@@ -68,7 +68,10 @@ export async function ExcelPlanificacionPanel({
 
       <div className="border-t border-neutral-100 pt-3">
         {resultado.ok ? (
-          <ExcelViewer workbook={resultado.workbook} />
+          <ExcelViewer
+            workbook={resultado.workbook}
+            onGuardar={!readOnly && plan.esActual ? guardarCambiosPlanificacionExcel.bind(null, plan.id) : undefined}
+          />
         ) : (
           <Alert variant="error">{resultado.message}</Alert>
         )}

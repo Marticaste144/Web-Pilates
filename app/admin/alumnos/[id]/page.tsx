@@ -124,7 +124,7 @@ export default async function AlumnoDetallePage({
       <Card className="max-w-md">
         <h2 className="mb-1 font-semibold text-neutral-900">Zona peligrosa</h2>
         <p className="mb-3 text-sm text-neutral-500">
-          Elimina a la alumna por completo (clases, pagos, asistencias, ficha, evolución, planificaciones y, si tenía
+          Elimina al alumno por completo (clases, pagos, asistencias, ficha, evolución, planificaciones y, si tenía
           cuenta, su acceso a MUV). No se puede deshacer.
         </p>
         <EliminarAlumnoButton alumnoId={alumno.alumnoId} />

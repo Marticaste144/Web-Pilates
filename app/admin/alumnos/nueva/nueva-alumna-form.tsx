@@ -36,7 +36,7 @@ export function NuevaAlumnaForm() {
 
       <div className="flex justify-end">
         <Button type="submit" loading={pending}>
-          Crear alumna
+          Crear alumno
         </Button>
       </div>
     </form>

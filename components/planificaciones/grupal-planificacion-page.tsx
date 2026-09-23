@@ -68,7 +68,7 @@ export async function GrupalPlanificacionPage({
       {clase.modalidad !== "grupal" && (
         <Alert variant="warning">
           Esta clase todavía no está marcada como grupal. La planificación grupal es una sola para toda la clase --
-          si es una clase personalizada, cada alumna tiene la suya propia desde su ficha.
+          si es una clase personalizada, cada alumno tiene la suya propia desde su ficha.
         </Alert>
       )}
 

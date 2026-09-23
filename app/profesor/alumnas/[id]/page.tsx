@@ -162,7 +162,7 @@ export default async function FichaAlumnaPage({ params }: { params: Promise<{ id
       <Card>
         <h2 className="mb-3 font-semibold text-neutral-900">Línea de tiempo</h2>
         <p className="mb-3 text-xs text-neutral-500">
-          Evaluación inicial, evoluciones y feedback de la alumna, más reciente primero.
+          Evaluación inicial, evoluciones y feedback del alumno, más reciente primero.
         </p>
         <LineaDeTiempo items={lineaDeTiempo} />
       </Card>

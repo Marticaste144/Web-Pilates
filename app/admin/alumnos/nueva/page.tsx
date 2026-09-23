@@ -15,8 +15,8 @@ export default function NuevaAlumnaPage() {
           Volver
         </Link>
         <PageHeader
-          title="Agregar alumna"
-          subtitle="Para una alumna presencial que todavía no usa (o no quiere usar) la web -- podés darle acceso más adelante cuando corresponda."
+          title="Agregar alumno"
+          subtitle="Para un alumno presencial que todavía no usa (o no quiere usar) la web -- podés darle acceso más adelante cuando corresponda."
         />
       </div>
 

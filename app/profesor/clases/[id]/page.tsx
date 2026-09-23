@@ -73,7 +73,7 @@ export default async function ClaseDetallePage({
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
           {diaLabelCapitalizado} {formatearDiaMes(fecha)} • {clase.horaInicio.slice(0, 5)} -{" "}
-          {clase.horaFin.slice(0, 5)} • {clase.totalInscriptos} de {clase.cupo} alumnas
+          {clase.horaFin.slice(0, 5)} • {clase.totalInscriptos} de {clase.cupo} alumnos
           {clase.modalidad ? ` • ${clase.modalidad === "grupal" ? "Grupal" : "Personalizada"}` : ""}
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -106,14 +106,14 @@ export default async function ClaseDetallePage({
 
       {clase.alumnosNoVisibles > 0 && (
         <Alert variant="warning">
-          Hay {clase.alumnosNoVisibles} alumna(s) más anotada(s) en esta clase, pero todavía no aparecen
+          Hay {clase.alumnosNoVisibles} alumno(s) más anotado(s) en esta clase, pero todavía no aparecen
           acá porque no tienen ninguna cuota aprobada.
         </Alert>
       )}
 
       {clase.roster.length === 0 && clase.alumnosNoVisibles === 0 ? (
         <EmptyState
-          title="Todavía no hay alumnas anotadas en esta clase"
+          title="Todavía no hay alumnos anotados en esta clase"
           description="En cuanto alguien se anote, va a aparecer acá."
         />
       ) : (
@@ -130,7 +130,7 @@ export default async function ClaseDetallePage({
       )}
 
       <Card padded={false}>
-        <h2 className="p-4 pb-0 font-semibold text-neutral-900">Feedback de las alumnas</h2>
+        <h2 className="p-4 pb-0 font-semibold text-neutral-900">Feedback de los alumnos</h2>
         {feedback.length === 0 ? (
           <p className="p-4 pt-2 text-sm text-neutral-500">Todavía no dejaron comentarios sobre esta clase.</p>
         ) : (

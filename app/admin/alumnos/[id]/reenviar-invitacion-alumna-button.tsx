@@ -12,7 +12,7 @@ export function ReenviarInvitacionAlumnaButton({ alumnoId }: { alumnoId: string 
       variant="link"
       tone="primary"
       confirmTitle="¿Reenviar la invitación?"
-      confirmDescription="Le mandamos un nuevo link para que confirme su cuenta y elija contraseña. No se crea ninguna alumna nueva."
+      confirmDescription="Le mandamos un nuevo link para que confirme su cuenta y elija contraseña. No se crea ningún alumno nuevo."
       confirmLabel="Sí, reenviar"
     />
   );

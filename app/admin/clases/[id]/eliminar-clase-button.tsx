@@ -13,7 +13,7 @@ export function EliminarClaseButton({ claseId }: { claseId: string }) {
       triggerLabel="Eliminar clase"
       variant="button"
       confirmTitle="¿Eliminar esta clase?"
-      confirmDescription="Se borra por completo. Si alguna vez tuvo alumnas anotadas, asistencias, feedback o planificación, no se va a poder eliminar hasta resolver eso primero."
+      confirmDescription="Se borra por completo. Si alguna vez tuvo alumnos anotados, asistencias, feedback o planificación, no se va a poder eliminar hasta resolver eso primero."
       confirmLabel="Sí, eliminar"
       onResult={(result) => {
         if (result.ok) router.push("/admin/clases");

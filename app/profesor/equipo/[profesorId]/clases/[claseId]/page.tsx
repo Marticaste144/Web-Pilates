@@ -68,12 +68,12 @@ export default async function ClaseDeEquipoPage({
         <div className="flex items-center gap-2 border-b border-neutral-100 p-4">
           <UsersIcon className="h-4.5 w-4.5 text-neutral-400" />
           <h2 className="font-semibold text-neutral-900">
-            Alumnas ({alumnas.length}/{clase.cupo})
+            Alumnos ({alumnas.length}/{clase.cupo})
           </h2>
         </div>
 
         {alumnas.length === 0 ? (
-          <EmptyState title="Todavía no hay alumnas anotadas en esta clase" />
+          <EmptyState title="Todavía no hay alumnos anotados en esta clase" />
         ) : (
           <div className="flex flex-col divide-y divide-neutral-100">
             {alumnas.map((a) => (

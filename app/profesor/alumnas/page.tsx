@@ -9,11 +9,11 @@ export default async function AlumnasPage() {
   return (
     <div className="flex flex-col gap-4 py-4 sm:gap-5 sm:py-5">
       <div>
-        <h1 className="text-2xl font-bold text-neutral-900 sm:text-3xl">Mis alumnas</h1>
+        <h1 className="text-2xl font-bold text-neutral-900 sm:text-3xl">Mis alumnos</h1>
         <p className="mt-1 text-sm text-neutral-500">
           {alumnas.length === 0
-            ? "Todavía no tenés alumnas asignadas."
-            : `${alumnas.length} alumna${alumnas.length === 1 ? "" : "s"} en tus clases.`}
+            ? "Todavía no tenés alumnos asignados."
+            : `${alumnas.length} alumno${alumnas.length === 1 ? "" : "s"} en tus clases.`}
         </p>
       </div>
 

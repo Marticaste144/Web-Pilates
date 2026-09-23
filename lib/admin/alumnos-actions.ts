@@ -41,7 +41,7 @@ export async function crearAlumnaManual(_prevState: FormState, formData: FormDat
     .single();
 
   if (error || !data) {
-    return { status: "error", message: error?.message ?? "No se pudo crear la alumna." };
+    return { status: "error", message: error?.message ?? "No se pudo crear el alumno." };
   }
 
   revalidatePath("/admin/alumnos");
@@ -157,7 +157,7 @@ export async function darAccesoAlumna(_prevState: FormState, formData: FormData)
   const email = String(formData.get("email") ?? "").trim();
 
   if (!alumnoId || !email) {
-    return { status: "error", message: "Ingresá el email de la alumna." };
+    return { status: "error", message: "Ingresá el email del alumno." };
   }
 
   const supabase = await createClient();
@@ -168,13 +168,13 @@ export async function darAccesoAlumna(_prevState: FormState, formData: FormData)
     .single();
 
   if (!alumno) {
-    return { status: "error", message: "No se encontró la alumna." };
+    return { status: "error", message: "No se encontró el alumno." };
   }
   if (alumno.profile_id) {
-    return { status: "error", message: "Esta alumna ya tiene acceso." };
+    return { status: "error", message: "Este alumno ya tiene acceso." };
   }
   if (!alumno.nombre || !alumno.apellido) {
-    return { status: "error", message: "Faltan nombre/apellido de la alumna." };
+    return { status: "error", message: "Faltan nombre/apellido del alumno." };
   }
 
   let siteUrl: string;
@@ -226,7 +226,7 @@ export async function reenviarInvitacionAlumna(alumnoId: string): Promise<Asigna
   const { data: alumno } = await supabase.from("alumnos").select("profile_id").eq("id", alumnoId).single();
 
   if (!alumno?.profile_id) {
-    return { ok: false, message: "Esta alumna todavía no tiene una invitación enviada." };
+    return { ok: false, message: "Este alumno todavía no tiene una invitación enviada." };
   }
 
   const admin = createAdminClient();
@@ -239,7 +239,7 @@ export async function reenviarInvitacionAlumna(alumnoId: string): Promise<Asigna
     return { ok: false, message: "Ya tiene acceso activo -- no hace falta reenviar la invitación." };
   }
   if (!perfil) {
-    return { ok: false, message: "No se encontró el perfil de la alumna." };
+    return { ok: false, message: "No se encontró el perfil del alumno." };
   }
 
   let siteUrl: string;
@@ -309,7 +309,7 @@ export async function eliminarAlumno(alumnoId: string): Promise<AsignacionResult
 
   const { data: alumno } = await supabase.from("alumnos").select("profile_id").eq("id", alumnoId).maybeSingle();
   if (!alumno) {
-    return { ok: false, message: "No se encontró la alumna." };
+    return { ok: false, message: "No se encontró el alumno." };
   }
 
   const [{ data: pagos }, { data: planes }] = await Promise.all([
@@ -350,11 +350,11 @@ export async function eliminarAlumno(alumnoId: string): Promise<AsignacionResult
       // a mano desde el dashboard, pero no revierte lo anterior.
       return {
         ok: false,
-        message: `Se eliminaron los datos de la alumna, pero no se pudo borrar su cuenta de Auth: ${errorAuth.message}. Podés borrarla a mano desde el dashboard de Supabase.`,
+        message: `Se eliminaron los datos del alumno, pero no se pudo borrar su cuenta de Auth: ${errorAuth.message}. Podés borrarla a mano desde el dashboard de Supabase.`,
       };
     }
   }
 
   revalidatePath("/admin/alumnos");
-  return { ok: true, message: "Alumna eliminada definitivamente." };
+  return { ok: true, message: "Alumno eliminado definitivamente." };
 }

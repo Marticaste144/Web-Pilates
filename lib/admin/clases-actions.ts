@@ -124,7 +124,7 @@ export async function eliminarClase(id: string): Promise<{ ok: boolean; message:
 
     return {
       ok: false,
-      message: `Esta clase tiene historial real (${partes.join(", ")}) -- no se puede eliminar sin perderlo. Reasigná o dá de baja a las alumnas primero.`,
+      message: `Esta clase tiene historial real (${partes.join(", ")}) -- no se puede eliminar sin perderlo. Reasigná o dá de baja a los alumnos primero.`,
     };
   }
 

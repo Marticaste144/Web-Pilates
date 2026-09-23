@@ -14,9 +14,9 @@ export function EliminarAlumnoButton({ alumnoId }: { alumnoId: string }) {
   return (
     <ConfirmButton
       action={() => eliminarAlumno(alumnoId)}
-      triggerLabel="Eliminar alumna"
+      triggerLabel="Eliminar alumno"
       variant="button"
-      confirmTitle="¿Eliminar esta alumna definitivamente?"
+      confirmTitle="¿Eliminar este alumno definitivamente?"
       confirmDescription="Se borran sus clases, pagos, asistencias, ficha, evolución y planificaciones (incluidos los archivos subidos), y si tenía cuenta también su acceso a MUV. Esta acción no se puede deshacer."
       confirmLabel="Sí, eliminar definitivamente"
       onResult={(result) => {

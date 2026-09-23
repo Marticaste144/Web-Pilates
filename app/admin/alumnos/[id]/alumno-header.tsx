@@ -61,7 +61,7 @@ export function AlumnoHeader({
             {a}
           </Badge>
         ))}
-        {alumnoDesde && <Badge variant="neutral">Alumna desde {formatearFecha(alumnoDesde)}</Badge>}
+        {alumnoDesde && <Badge variant="neutral">Alumno desde {formatearFecha(alumnoDesde)}</Badge>}
       </div>
     </div>
   );

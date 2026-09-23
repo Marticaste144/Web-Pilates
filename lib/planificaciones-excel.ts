@@ -31,6 +31,8 @@ export type CeldaExcel = {
   rowspan: number;
   /** true = esta celda está "tapada" por una combinada que empieza antes -- no se renderiza. */
   oculta: boolean;
+  /** true = la celda es una fórmula -- no se deja editar (se mostraría un valor cacheado viejo). */
+  esFormula: boolean;
 };
 
 export type FilaExcel = {
@@ -102,7 +104,7 @@ function resolverValor(valorCrudo: ExcelJS.CellValue): { valor: CeldaExcel["valo
       const texto = valorCrudo.richText.map((r) => r.text).join("");
       return { valor: texto, tipo: "texto" };
     }
-    if ("formula" in valorCrudo) {
+    if ("formula" in valorCrudo || "sharedFormula" in valorCrudo) {
       const resultado = (valorCrudo as ExcelJS.CellFormulaValue).result;
       if (resultado === undefined) return { valor: null, tipo: "vacio" };
       if (resultado !== null && typeof resultado === "object" && "error" in resultado) {
@@ -164,6 +166,8 @@ function mapearCelda(cell: ExcelJS.Cell, esInicioDeMerge: { colspan: number; row
     colspan: esInicioDeMerge?.colspan ?? 1,
     rowspan: esInicioDeMerge?.rowspan ?? 1,
     oculta,
+    esFormula:
+      cell.value !== null && typeof cell.value === "object" && ("formula" in cell.value || "sharedFormula" in cell.value),
   };
 }
 
@@ -280,7 +284,204 @@ async function quitarDrawingsDelXlsx(buffer: Buffer): Promise<Buffer> {
   return zip.generateAsync({ type: "nodebuffer" });
 }
 
-export type ResultadoParseoExcel = { ok: true; workbook: WorkbookExcel } | { ok: false; message: string };
+// ---------------------------------------------------------------------------
+// Edición de celdas ("completar" la planificación desde la web).
+//
+// No se reescribe el archivo con ExcelJS: además del bug con drawings de
+// arriba, ExcelJS al guardar pierde imágenes y parte del formato. Acá se
+// edita el XML de la hoja directamente (JSZip) tocando SOLO las celdas
+// cambiadas -- todo lo demás del .xlsx (fotos de ejercicios, estilos,
+// combinadas, otras hojas) queda byte por byte igual. Cada celda editada
+// conserva su estilo (atributo s=); el valor nuevo va como número si parece
+// un número, o como texto inline si no.
+// ---------------------------------------------------------------------------
+
+export type CambioCeldaExcel = {
+  /** Nombre de la hoja (único dentro de un .xlsx). */
+  hoja: string;
+  /** Fila 1-based, como en Excel. */
+  fila: number;
+  /** Columna 1-based, como en Excel (1 = A). */
+  columna: number;
+  valor: string;
+};
+
+function columnaALetras(columna: number): string {
+  let letras = "";
+  let n = columna;
+  while (n > 0) {
+    const resto = (n - 1) % 26;
+    letras = String.fromCharCode(65 + resto) + letras;
+    n = Math.floor((n - 1) / 26);
+  }
+  return letras;
+}
+
+function letrasAColumna(letras: string): number {
+  let n = 0;
+  for (const ch of letras) n = n * 26 + (ch.charCodeAt(0) - 64);
+  return n;
+}
+
+function escaparXml(texto: string): string {
+  return texto
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function desescaparXml(texto: string): string {
+  return texto
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+function atributo(tag: string, nombre: string): string | null {
+  const match = new RegExp(`\\s${nombre}="([^"]*)"`).exec(tag);
+  return match ? match[1] : null;
+}
+
+function armarCeldaXml(ref: string, estilo: string | null, valor: string): string {
+  const s = estilo !== null ? ` s="${estilo}"` : "";
+  const limpio = valor.trim();
+  if (limpio === "") return `<c r="${ref}"${s}/>`;
+  if (/^-?\d+([.,]\d+)?$/.test(limpio)) {
+    return `<c r="${ref}"${s}><v>${limpio.replace(",", ".")}</v></c>`;
+  }
+  return `<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${escaparXml(valor)}</t></is></c>`;
+}
+
+// Regex de celdas dentro de una fila: <c .../> o <c ...>...</c> (las celdas
+// nunca se anidan, así que el no-greedy alcanza).
+const REGEX_CELDA = /<c\b[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
+const REGEX_FILA = /<row\b[^>]*?(?:\/>|>[\s\S]*?<\/row>)/g;
+
+function aplicarCambioEnFila(filaXml: string, ref: string, columna: number, valor: string): string {
+  const autocerrada = /\/>$/.test(filaXml) && !filaXml.includes("</row>");
+  const apertura = autocerrada ? filaXml.slice(0, -2) + ">" : filaXml.slice(0, filaXml.indexOf(">") + 1);
+  const contenido = autocerrada ? "" : filaXml.slice(apertura.length, filaXml.lastIndexOf("</row>"));
+
+  const celdas = contenido.match(REGEX_CELDA) ?? [];
+  const existente = celdas.find((c) => atributo(c.slice(0, c.indexOf(">") + 1), "r") === ref);
+
+  if (existente) {
+    const tagApertura = existente.slice(0, existente.indexOf(">") + 1);
+    const nueva = armarCeldaXml(ref, atributo(tagApertura, "s"), valor);
+    return apertura + contenido.replace(existente, () => nueva) + "</row>";
+  }
+
+  // La celda no existe en el XML (vacía y sin formato): se inserta en orden
+  // de columna -- Excel exige que las celdas de una fila estén ordenadas.
+  // Si la fila tiene un estilo propio (customFormat), la celda nueva lo hereda.
+  const estiloFila = atributo(apertura, "customFormat") === "1" ? atributo(apertura, "s") : null;
+  const nueva = armarCeldaXml(ref, estiloFila, valor);
+  const siguiente = celdas.find((c) => {
+    const r = atributo(c.slice(0, c.indexOf(">") + 1), "r");
+    const letras = r ? /^([A-Z]+)/.exec(r)?.[1] : null;
+    return letras ? letrasAColumna(letras) > columna : false;
+  });
+  const nuevoContenido = siguiente ? contenido.replace(siguiente, () => nueva + siguiente) : contenido + nueva;
+  return apertura + nuevoContenido + "</row>";
+}
+
+function aplicarCambiosEnHoja(xmlHoja: string, cambios: CambioCeldaExcel[]): string {
+  let xml = xmlHoja;
+  // <sheetData/> vacío -> se abre para poder insertar filas.
+  xml = xml.replace(/<sheetData\s*\/>/, "<sheetData></sheetData>");
+
+  for (const cambio of cambios) {
+    const ref = `${columnaALetras(cambio.columna)}${cambio.fila}`;
+    const inicioData = xml.indexOf("<sheetData");
+    const aperturaData = xml.indexOf(">", inicioData) + 1;
+    const cierreData = xml.indexOf("</sheetData>");
+    if (inicioData === -1 || cierreData === -1) throw new Error("La hoja no tiene <sheetData>.");
+
+    const data = xml.slice(aperturaData, cierreData);
+    const filas = data.match(REGEX_FILA) ?? [];
+    const fila = filas.find((f) => atributo(f.slice(0, f.indexOf(">") + 1), "r") === String(cambio.fila));
+
+    let nuevaData: string;
+    if (fila) {
+      nuevaData = data.replace(fila, () => aplicarCambioEnFila(fila, ref, cambio.columna, cambio.valor));
+    } else {
+      if (cambio.valor.trim() === "") continue; // borrar algo que no existe: nada que hacer
+      const nuevaFila = `<row r="${cambio.fila}">${armarCeldaXml(ref, null, cambio.valor)}</row>`;
+      const siguiente = filas.find((f) => Number(atributo(f.slice(0, f.indexOf(">") + 1), "r")) > cambio.fila);
+      nuevaData = siguiente ? data.replace(siguiente, () => nuevaFila + siguiente) : data + nuevaFila;
+    }
+    xml = xml.slice(0, aperturaData) + nuevaData + xml.slice(cierreData);
+  }
+  return xml;
+}
+
+// Resuelve nombre de hoja -> ruta del XML dentro del zip, vía workbook.xml
+// (<sheet name r:id>) + workbook.xml.rels (<Relationship Id Target>).
+async function rutasDeHojas(zip: JSZip): Promise<Map<string, string>> {
+  const workbookXml = await zip.file("xl/workbook.xml")?.async("string");
+  const relsXml = await zip.file("xl/_rels/workbook.xml.rels")?.async("string");
+  if (!workbookXml || !relsXml) throw new Error("Estructura de .xlsx inesperada.");
+
+  const targets = new Map<string, string>();
+  for (const rel of relsXml.match(/<Relationship\b[^>]*\/?>/g) ?? []) {
+    const id = atributo(rel, "Id");
+    const target = atributo(rel, "Target");
+    if (id && target) {
+      targets.set(id, target.startsWith("/") ? target.slice(1) : `xl/${target}`);
+    }
+  }
+
+  const rutas = new Map<string, string>();
+  for (const sheet of workbookXml.match(/<sheet\b[^>]*\/?>/g) ?? []) {
+    const nombre = atributo(sheet, "name");
+    const rid = atributo(sheet, "r:id");
+    const ruta = rid ? targets.get(rid) : undefined;
+    if (nombre !== null && ruta) rutas.set(desescaparXml(nombre), ruta);
+  }
+  return rutas;
+}
+
+export type ResultadoEdicionExcel = { ok: true; buffer: Buffer } | { ok: false; message: string };
+
+export async function aplicarCambiosAlXlsx(buffer: Buffer, cambios: CambioCeldaExcel[]): Promise<ResultadoEdicionExcel> {
+  try {
+    const zip = await JSZip.loadAsync(buffer);
+    const rutas = await rutasDeHojas(zip);
+
+    const porHoja = new Map<string, CambioCeldaExcel[]>();
+    for (const cambio of cambios) {
+      const lista = porHoja.get(cambio.hoja) ?? [];
+      lista.push(cambio);
+      porHoja.set(cambio.hoja, lista);
+    }
+
+    for (const [hoja, cambiosHoja] of porHoja) {
+      const ruta = rutas.get(hoja);
+      const archivo = ruta ? zip.file(ruta) : null;
+      if (!ruta || !archivo) return { ok: false, message: `No se encontró la hoja "${hoja}" en el archivo.` };
+      const xml = await archivo.async("string");
+      zip.file(ruta, aplicarCambiosEnHoja(xml, cambiosHoja));
+    }
+
+    // Que Excel recalcule las fórmulas al abrir (ej. totales que dependen de
+    // las celdas completadas) -- acá nunca se calcula nada.
+    const workbookXml = await zip.file("xl/workbook.xml")!.async("string");
+    if (/<calcPr\b/.test(workbookXml) && !/fullCalcOnLoad=/.test(workbookXml)) {
+      zip.file("xl/workbook.xml", workbookXml.replace(/<calcPr\b/, '<calcPr fullCalcOnLoad="1"'));
+    }
+
+    const nuevo = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+    return { ok: true, buffer: nuevo };
+  } catch (err) {
+    console.error("[planificaciones-excel] no se pudieron aplicar los cambios", err);
+    return { ok: false, message: "No se pudieron guardar los cambios en el archivo." };
+  }
+}
+
+export type ResultadoParseoExcel ={ ok: true; workbook: WorkbookExcel } | { ok: false; message: string };
 
 // Nunca lanza -- cualquier archivo corrupto/no soportado vuelve como
 // {ok:false} con un mensaje claro para mostrar en vez de un error técnico

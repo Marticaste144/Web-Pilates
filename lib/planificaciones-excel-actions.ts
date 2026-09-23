@@ -2,7 +2,7 @@
 
 import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
-import { parsearWorkbookExcel } from "@/lib/planificaciones-excel";
+import { parsearWorkbookExcel, aplicarCambiosAlXlsx, type CambioCeldaExcel } from "@/lib/planificaciones-excel";
 import { obtenerPlanificacionPorId } from "@/lib/planificaciones-data";
 import { generarUrlDescargaPlanificacion } from "@/lib/planificaciones-excel-data";
 import { revalidarPlanificacion } from "@/lib/planificaciones-actions";
@@ -236,7 +236,109 @@ export async function actualizarPlanificacionExcel(
   return { ok: true, message: "Nueva versión cargada." };
 }
 
-export type DescargaResult = { ok: true; url: string } | { ok: false; message: string };
+const MAX_CAMBIOS = 2000;
+const MAX_LARGO_VALOR = 2000;
+
+// ---------------------------------------------------------------------------
+// "Completar" la planificación desde la web: se editan celdas del Excel de
+// la versión actual y se guarda como versión NUEVA (mismo criterio que
+// actualizarPlanificacionExcel -- el archivo anterior nunca se pisa y queda
+// en el historial). Se parte SIEMPRE del archivo original en Storage (no de
+// lo que mande el cliente) y solo se tocan las celdas cambiadas, ver
+// aplicarCambiosAlXlsx.
+// ---------------------------------------------------------------------------
+export async function guardarCambiosPlanificacionExcel(
+  planificacionActualId: string,
+  cambios: CambioCeldaExcel[],
+): Promise<ExcelResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "Iniciá sesión de nuevo." };
+
+  if (!Array.isArray(cambios) || cambios.length === 0) {
+    return { ok: false, message: "No hay cambios para guardar." };
+  }
+  if (cambios.length > MAX_CAMBIOS) {
+    return { ok: false, message: "Demasiados cambios juntos -- guardá de a partes." };
+  }
+  const validos = cambios.every(
+    (c) =>
+      typeof c.hoja === "string" &&
+      Number.isInteger(c.fila) &&
+      c.fila >= 1 &&
+      Number.isInteger(c.columna) &&
+      c.columna >= 1 &&
+      c.columna <= 16384 &&
+      typeof c.valor === "string" &&
+      c.valor.length <= MAX_LARGO_VALOR,
+  );
+  if (!validos) return { ok: false, message: "Los cambios enviados no son válidos." };
+
+  const actual = await obtenerPlanificacionPorId(planificacionActualId);
+  if (!actual || !actual.esActual) {
+    return { ok: false, message: "Esta ya no es la versión actual -- recargá la página." };
+  }
+  if (actual.formato !== "excel" || !actual.archivoStoragePath) {
+    return { ok: false, message: "Esta planificación no es un Excel." };
+  }
+
+  const { data: original, error: errorDescarga } = await supabase.storage.from(BUCKET).download(actual.archivoStoragePath);
+  if (errorDescarga || !original) {
+    return { ok: false, message: "No se pudo leer el archivo actual." };
+  }
+
+  const edicion = await aplicarCambiosAlXlsx(Buffer.from(await original.arrayBuffer()), cambios);
+  if (!edicion.ok) return edicion;
+
+  // Se vuelve a parsear el resultado antes de subirlo -- si algo quedó mal
+  // armado, se corta acá y la versión actual sigue intacta.
+  const verificacion = await parsearWorkbookExcel(edicion.buffer);
+  if (!verificacion.ok) {
+    return { ok: false, message: "No se pudieron guardar los cambios (el archivo resultante no es válido)." };
+  }
+
+  const nuevoId = randomUUID();
+  const path = `${nuevoId}/archivo.xlsx`;
+  const { error: errorSubida } = await supabase.storage.from(BUCKET).upload(path, edicion.buffer, {
+    contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  if (errorSubida) return { ok: false, message: `No se pudo guardar el archivo: ${errorSubida.message}` };
+
+  const { error: errorViejaVersion } = await supabase
+    .from("planificaciones")
+    .update({ es_actual: false })
+    .eq("id", actual.id);
+  if (errorViejaVersion) return { ok: false, message: errorViejaVersion.message };
+
+  const { error: errorNueva } = await supabase.from("planificaciones").insert({
+    id: nuevoId,
+    tipo: actual.tipo,
+    alumno_id: actual.alumnoId,
+    clase_id: actual.claseId,
+    es_actual: true,
+    version: actual.version + 1,
+    version_anterior_id: actual.id,
+    creado_por: user.id,
+    titulo: actual.titulo,
+    formato: "excel",
+    archivo_storage_path: path,
+    archivo_nombre_original: actual.archivoNombreOriginal,
+  });
+
+  if (errorNueva) {
+    // Intento de volver a marcar la anterior como actual para no dejar la
+    // planificación sin versión vigente (puede no pasar RLS -- best effort).
+    await supabase.from("planificaciones").update({ es_actual: true }).eq("id", actual.id);
+    return { ok: false, message: `No se pudieron guardar los cambios: ${errorNueva.message}` };
+  }
+
+  await revalidarPlanificacion(actual.alumnoId, actual.claseId);
+  return { ok: true, message: "Cambios guardados." };
+}
+
+export type DescargaResult ={ ok: true; url: string } | { ok: false; message: string };
 
 // Server Action invocable desde el cliente (el botón "Descargar") -- vuelve
 // a leer la fila con obtenerPlanificacionPorId (mismo cliente con sesión,

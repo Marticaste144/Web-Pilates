@@ -49,7 +49,7 @@ export default async function AlumnosPage({
             Exportar Excel
           </LinkButton>
           <LinkButton href="/admin/alumnos/nueva" size="sm">
-            + Agregar alumna
+            + Agregar alumno
           </LinkButton>
         </div>
       </div>
@@ -73,13 +73,13 @@ export default async function AlumnosPage({
 
       {alumnos.length === 0 && (
         <EmptyState
-          title={q ? "No encontramos alumnas con esa búsqueda" : "Todavía no hay alumnas cargadas"}
+          title={q ? "No encontramos alumnos con esa búsqueda" : "Todavía no hay alumnos cargados"}
           description={
             q
               ? "Probá con otro nombre, apellido o email."
-              : "Cargá manualmente a las alumnas reales de MUV -- no hace falta que tengan email ni cuenta todavía."
+              : "Cargá manualmente a los alumnos reales de MUV -- no hace falta que tengan email ni cuenta todavía."
           }
-          action={!q ? <LinkButton href="/admin/alumnos/nueva">+ Agregar alumna</LinkButton> : undefined}
+          action={!q ? <LinkButton href="/admin/alumnos/nueva">+ Agregar alumno</LinkButton> : undefined}
         />
       )}
 

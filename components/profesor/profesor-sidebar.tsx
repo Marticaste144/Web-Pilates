@@ -21,7 +21,7 @@ type NavLink = {
 const LINKS: NavLink[] = [
   { href: "/profesor", label: "Inicio", icon: HomeIcon },
   { href: "/profesor/clases", label: "Mis clases", icon: CalendarIcon },
-  { href: "/profesor/alumnas", label: "Alumnas", icon: UsersIcon },
+  { href: "/profesor/alumnas", label: "Alumnos", icon: UsersIcon },
   { href: "/profesor/equipo", label: "Equipo", icon: UserIcon },
 ];
 

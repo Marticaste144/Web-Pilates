@@ -47,7 +47,7 @@ export default async function ArancelesPage() {
       )}
 
       <Alert variant="info">
-        Si una alumna combina DOS actividades distintas (en la misma sede o en sedes distintas), el sistema cobra la
+        Si un alumno combina DOS actividades distintas (en la misma sede o en sedes distintas), el sistema cobra la
         más cara con 20% de descuento y la otra completa -- automático, no hace falta cargar un precio combinado.
         &ldquo;Combinado&rdquo; (mencionado por Laura para 3 o más actividades) es otra cosa, todavía sin definir --
         no se automatiza hasta que confirme qué significa y cuánto sale.

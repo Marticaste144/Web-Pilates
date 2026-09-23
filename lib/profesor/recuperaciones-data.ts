@@ -99,7 +99,7 @@ export async function obtenerElegibilidadRecuperacion(
     (inscripciones ?? []).filter((i) => clasesPilatesIds.has(i.clase_id)).map((i) => i.clase_id),
   ).size;
   if (frecuenciaSemanal === 0) {
-    return { ok: false, motivo: "Esta alumna no tiene Pilates activo -- las recuperaciones son solo para alumnas de Pilates." };
+    return { ok: false, motivo: "Este alumno no tiene Pilates activo -- las recuperaciones son solo para alumnos de Pilates." };
   }
 
   const idsYaLigadosActivamente = new Set(

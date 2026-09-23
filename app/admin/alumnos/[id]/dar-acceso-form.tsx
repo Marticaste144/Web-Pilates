@@ -17,7 +17,7 @@ export function DarAccesoForm({ alumnoId, emailSugerido }: { alumnoId: string; e
   return (
     <form action={action} className="flex flex-col gap-3">
       <input type="hidden" name="alumno_id" value={alumnoId} />
-      <Field label="Email de la alumna" hint="Se le manda una invitación para que elija su propia contraseña.">
+      <Field label="Email del alumno" hint="Se le manda una invitación para que elija su propia contraseña.">
         <Input name="email" type="email" required defaultValue={emailSugerido ?? ""} />
       </Field>
       <FormAlert state={state} />

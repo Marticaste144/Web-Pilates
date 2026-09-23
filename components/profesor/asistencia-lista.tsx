@@ -207,7 +207,7 @@ export function AsistenciaLista({
         <div className="rounded-card border border-neutral-200 bg-white p-4">
           <p className="font-semibold text-neutral-900">Agregar recuperación</p>
           <p className="mt-1 text-sm text-neutral-500">
-            Solo para Pilates: una alumna que coordinó por WhatsApp reponer una clase que faltó este mes.
+            Solo para Pilates: un alumno que coordinó por WhatsApp reponer una clase que faltó este mes.
           </p>
 
           {!mostrarRecuperacion ? (
@@ -220,7 +220,7 @@ export function AsistenciaLista({
             </button>
           ) : (
             <div className="mt-3 flex flex-col gap-3 rounded-xl bg-neutral-50 p-3">
-              <Field label="Buscar alumna" className="min-w-0">
+              <Field label="Buscar alumno" className="min-w-0">
                 <Input
                   value={queryRecuperacion}
                   onChange={(e) => buscarRecuperacion(e.target.value)}
@@ -232,7 +232,7 @@ export function AsistenciaLista({
               {buscandoRecuperacion && <p className="text-xs text-neutral-400">Buscando...</p>}
 
               {!buscandoRecuperacion && queryRecuperacion.trim().length >= 2 && resultadosRecuperacion.length === 0 && (
-                <p className="text-xs text-neutral-500">No se encontró ninguna alumna con Pilates activo con ese nombre.</p>
+                <p className="text-xs text-neutral-500">No se encontró ningún alumno con Pilates activo con ese nombre.</p>
               )}
 
               {resultadosRecuperacion.length > 0 && (

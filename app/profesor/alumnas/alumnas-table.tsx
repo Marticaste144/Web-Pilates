@@ -30,8 +30,8 @@ export function AlumnasTable({ alumnas, sedes }: { alumnas: AlumnaListItem[]; se
   if (alumnas.length === 0) {
     return (
       <EmptyState
-        title="Todavía no tenés alumnas asignadas"
-        description="Cuando tengas alumnas anotadas en tus clases, las vas a ver acá."
+        title="Todavía no tenés alumnos asignados"
+        description="Cuando tengas alumnos anotados en tus clases, los vas a ver acá."
       />
     );
   }
@@ -54,7 +54,7 @@ export function AlumnasTable({ alumnas, sedes }: { alumnas: AlumnaListItem[]; se
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar alumna..."
+            placeholder="Buscar alumno..."
             className="pl-9"
           />
         </div>
@@ -62,7 +62,7 @@ export function AlumnasTable({ alumnas, sedes }: { alumnas: AlumnaListItem[]; se
 
       {filtradas.length === 0 ? (
         <EmptyState
-          title="No encontramos alumnas con esa búsqueda"
+          title="No encontramos alumnos con esa búsqueda"
           description="Probá con otro nombre, sede o dato de contacto."
         />
       ) : (

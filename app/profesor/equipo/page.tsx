@@ -78,7 +78,7 @@ export default async function EquipoPage() {
                                   href={`/profesor/equipo/${p.profesorId}`}
                                   className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:underline"
                                 >
-                                  Ver sus clases y alumnas (solo lectura)
+                                  Ver sus clases y alumnos (solo lectura)
                                   <ChevronRightIcon className="h-3.5 w-3.5" />
                                 </Link>
                               )}

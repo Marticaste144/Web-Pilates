@@ -72,10 +72,10 @@ export async function agregarRecuperacionPilates(claseId: string, fecha: string,
     ]);
 
   if (yaInscripta) {
-    return { ok: false, message: "Esta alumna ya está anotada habitualmente en esta clase -- no hace falta recuperarla acá." };
+    return { ok: false, message: "Este alumno ya está anotado habitualmente en esta clase -- no hace falta recuperarla acá." };
   }
   if (asistenciaExistente) {
-    return { ok: false, message: "Esta alumna ya tiene una fila de asistencia cargada ese día en esta clase." };
+    return { ok: false, message: "Este alumno ya tiene una fila de asistencia cargada ese día en esta clase." };
   }
 
   const ocupados = (inscriptosActivos ?? 0) + (recuperacionesEseDia ?? 0);
